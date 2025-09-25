@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Que-Music</title>
+    
+    <!-- Anti-flash styles - applied immediately -->
+    <style>
+      /* CRITICAL: Force immediate dark background to prevent white flash */
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #1a1a1a !important;
+        color: #fff !important;
+        font-family: system-ui, -apple-system, sans-serif !important;
+      }
+      
+      /* Ensure all elements inherit dark theme immediately */
+      * {
+        box-sizing: border-box;
+      }
+      
+      /* Brief loading overlay - only shows for first 800ms */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1a1a1a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+      }
+      
+      .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 2px solid #333;
+        border-top: 2px solid #007acc;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 12px;
+      }
+      
+      .loading-text {
+        color: #888;
+        font-size: 12px;
+        opacity: 0.8;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Quick hide transition */
+      .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+    
+    <!-- Load bundled CSS after critical styles -->
+    <link rel="stylesheet" href="../styles/bundled.css" onload="window.bundledCSSLoaded = true; console.log('📦 Bundled CSS loaded')" />
+  </head>
+  <body>
+    <!-- Loading overlay to prevent flashing during CSS load -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading Que-Music...</div>
+    </div>
+    
+    <div class="app-container">
+      <!-- Title Bar -->
+      <header class="title-bar">
+        <div class="title-bar-controls">
+          <div class="window-controls">
+            <button class="control-btn minimize" title="Minimize"></button>
+            <button class="control-btn maximize" title="Maximize"></button>
+            <button class="control-btn close" title="Close"></button>
+          </div>
+        </div>
+        <div class="app-title">
+          <h1>
+            <img src="../../assets/images/QueMusicDark.png" alt="🎵 Que-Music" class="app-logo" />
+          </h1>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="searchBtn" title="Search Library">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="themeToggle" title="Toggle Theme">
+            <!-- Sun icon for light theme -->
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="5"></circle>
+              <path
+                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+              ></path>
+            </svg>
+            <!-- Moon icon for dark theme -->
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="helpBtn" title="Help (F1)">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <circle cx="12" cy="17" r=".5"></circle>
+            </svg>
+          </button>
+          <button class="icon-btn" id="settingsBtn" title="Settings">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M12 1v6M12 17v6M5.64 7.05l4.95 4.95M13.41 13.41l4.95 4.95M7.05 18.36l4.95-4.95M13.41 10.59l4.95-4.95"
+              ></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <nav class="sidebar-nav">
+            <div class="nav-section">
+              <h3>Library</h3>
+              <ul class="nav-list">
+                <li class="nav-item active" data-view="library">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                  </svg>
+                  Music Library
+                </li>
+                <li class="nav-item" data-view="favorites">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon
+                      points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                    ></polygon>
+                  </svg>
+                  Favorites
+                </li>
+                <li class="nav-item" data-view="recently-played">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12,6 12,12 16,14"></polyline>
+                  </svg>
+                  Recently Played
+                </li>
+                <li class="nav-item" data-view="discover">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="10,8 16,12 10,16"></polygon>
+                  </svg>
+                  Discover
+                </li>
+                <li class="nav-item" data-view="now-playing">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="10,8 16,12 10,16"></polygon>
+                  </svg>
+                  Now Playing
+                </li>
+              </ul>
+            </div>
+
+            <div class="nav-section">
+              <h3>Playlists</h3>
+              <ul class="nav-list">
+                <li class="nav-item" data-view="playlists">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                  </svg>
+                  Playlists
+                </li>
+                <li class="nav-item" data-action="create-playlist">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Create Playlist
+                </li>
+              </ul>
+            </div>
+
+            <div class="nav-section">
+              <h3>Tools</h3>
+              <ul class="nav-list">
+                <li class="nav-item" data-action="select-folder">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
+                    ></path>
+                  </svg>
+                  Change Music Folder
+                </li>
+                <li class="nav-item" data-action="database">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                  </svg>
+                  Database Manager
+                </li>
+              </ul>
+            </div>
+          </nav>
+        </aside>
+
+        <!-- Content Area -->
+        <section class="content-area">
+          <div class="content-header">
+            <div class="breadcrumb">
+              <h2 id="currentViewTitle">Music Library</h2>
+              <p id="currentViewSubtitle">Select a music folder to get started</p>
+            </div>
+            <div class="view-controls">
+              <div class="view-toggles">
+                <button class="view-toggle" data-view="grid" title="Grid View">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                </button>
+                <button class="view-toggle active" data-view="list" title="List View">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+              <div class="sort-controls">
+                <select id="sortBy" class="sort-select">
+                  <option value="title">Title</option>
+                  <option value="artist">Artist</option>
+                  <option value="album">Album</option>
+                  <option value="year">Year</option>
+                  <option value="duration">Duration</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-body" id="mainContent">
+            <!-- Welcome Screen (show when no music folder selected) -->
+            <div class="welcome-screen" id="welcomeScreen">
+              <div class="welcome-content">
+                <div class="welcome-icon large-icon">🎵 Que-Music</div>
+                <h2>Welcome to Que-Music</h2>
+                <p>Your modern music library manager</p>
+                <button class="primary-btn" id="selectFolderBtn">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
+                    ></path>
+                  </svg>
+                  Select Your Music Folder
+                </button>
+              </div>
+            </div>
+
+            <!-- Dual Pane Layout (show when music folder is selected) -->
+            <div class="dual-pane-layout hidden" id="dualPaneLayout">
+              <!-- Left Pane - Library/Playlists Browser -->
+              <div class="left-pane" id="leftPane">
+                <div class="pane-header">
+                  <h3 id="leftPaneTitle">Music Library</h3>
+                  <div class="pane-actions" id="leftPaneActions">
+                    <!-- Action buttons will be added dynamically -->
+                  </div>
+                </div>
+                <div class="pane-content" id="leftPaneContent">
+                  <!-- Library folders, playlists, or other browser content -->
+                </div>
+              </div>
+
+              <!-- Right Pane - Song List/Playing Queue -->
+              <div class="right-pane" id="rightPane">
+                <div class="pane-header">
+                  <h3 id="rightPaneTitle">Select a folder or playlist</h3>
+                  <div class="pane-actions" id="rightPaneActions">
+                    <!-- Play controls, sort options, etc. -->
+                  </div>
+                </div>
+                <div class="pane-content" id="rightPaneContent">
+                  <!-- Song list from selected folder/playlist -->
+                  <div class="empty-pane">
+                    <div class="empty-pane-icon">🎵</div>
+                    <p>Select a folder or playlist to view songs</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Single Pane Layout (for search results, settings, etc.) -->
+            <div class="single-pane-layout hidden" id="singlePaneLayout">
+              <div class="single-pane-content" id="singlePaneContent">
+                <!-- Search results, database manager, etc. -->
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Audio Player Footer -->
+      <footer class="app-footer">
+        <!-- Footer Top - 90px for player controls -->
+        <div class="footer-top">
+          <div class="player-bar">
+            <div class="now-playing-info">
+              <div class="album-art">
+                <img id="currentAlbumArt" src="" alt="Album Art" class="album-image" />
+                <div class="album-placeholder">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="10,8 16,12 10,16"></polygon>
+                  </svg>
+                </div>
+              </div>
+              <div class="track-info">
+                <h4 id="currentTitle">No track selected</h4>
+                <p id="currentArtist">Choose a song to play</p>
+              </div>
+              <button class="icon-btn" id="favoriteBtn" title="Add to Favorites">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polygon
+                    points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                  ></polygon>
+                </svg>
+              </button>
+            </div>
+
+            <div class="player-controls">
+              <div class="control-buttons">
+                <button class="control-btn" id="shuffleBtn" title="Shuffle">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="16,3 21,3 21,8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21,16 21,21 16,21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                  </svg>
+                </button>
+                <button class="control-btn" id="prevBtn" title="Previous">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="19,20 9,12 19,4"></polygon>
+                    <line x1="5" y1="19" x2="5" y2="5"></line>
+                  </svg>
+                </button>
+                <button class="control-btn primary" id="playPauseBtn" title="Play/Pause">
+                  <svg
+                    class="play-icon"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="5,3 19,12 5,21"></polygon>
+                  </svg>
+                  <svg
+                    class="pause-icon hidden"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                  </svg>
+                </button>
+                <button class="control-btn" id="nextBtn" title="Next">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="5,4 15,12 5,20"></polygon>
+                    <line x1="19" y1="5" x2="19" y2="19"></line>
+                  </svg>
+                </button>
+                <button class="control-btn" id="repeatBtn" title="Repeat">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="17,1 21,5 17,9"></polyline>
+                    <path d="M3 11V9a4 4 0 014-4h14"></path>
+                    <polyline points="7,23 3,19 7,15"></polyline>
+                    <path d="M21 13v2a4 4 0 01-4 4H3"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="progress-area">
+                <span id="currentTime">0:00</span>
+                <div class="progress-container">
+                  <input
+                    type="range"
+                    id="progressSlider"
+                    min="0"
+                    max="100"
+                    value="0"
+                    class="progress-slider"
+                  />
+                  <div class="progress-track">
+                    <div class="progress-fill" id="progressFill"></div>
+                  </div>
+                </div>
+                <span id="totalTime">0:00</span>
+              </div>
+            </div>
+
+            <div class="volume-controls">
+              <button class="icon-btn" id="volumeBtn" title="Volume">
+                <svg
+                  class="volume-high"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
+                  <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"></path>
+                </svg>
+                <svg
+                  class="volume-muted hidden"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </svg>
+              </button>
+              <div class="volume-slider-container">
+                <input
+                  type="range"
+                  id="volumeSlider"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="1"
+                  class="volume-slider"
+                />
+              </div>
+              <button class="icon-btn" id="visualizerBtn" title="Toggle Visualizer">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M9 12l2 2 4-4"></path>
+                  <path d="M3 3h6l6 18h6"></path>
+                  <path d="M14 8h.01"></path>
+                  <path d="M3 21h18"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Bottom - 50px for visualizer -->
+        <div class="footer-bottom">
+          <div class="visualizer-container hidden" id="visualizerContainer">
+            <canvas id="audioVisualizer" class="visualizer-canvas"></canvas>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Hidden audio element -->
+    <audio id="audioPlayer" preload="none"></audio>
+
+    <!-- Playlist Creation Modal -->
+    <div class="modal-overlay" id="playlistModal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Create New Playlist</h2>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="playlistName">Playlist Name</label>
+            <input
+              type="text"
+              id="playlistName"
+              placeholder="Enter playlist name..."
+              maxlength="100"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="playlistDescription">Description (optional)</label>
+            <textarea
+              id="playlistDescription"
+              placeholder="Add a description for your playlist..."
+              rows="3"
+              maxlength="500"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" id="cancelPlaylist">Cancel</button>
+          <button class="btn-primary" id="savePlaylist">
+            <span id="saveButtonText">Create Playlist</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context Menu for Playlists -->
+    <div class="context-menu" id="playlistContextMenu" style="display: none">
+      <div class="context-item" id="editPlaylist">
+        <span class="context-icon">✏️</span>
+        <span>Edit Playlist</span>
+      </div>
+      <div class="context-item" id="deletePlaylist">
+        <span class="context-icon">🗑️</span>
+        <span>Delete Playlist</span>
+      </div>
+      <div class="context-separator"></div>
+      <div class="context-item" id="playPlaylist">
+        <span class="context-icon">▶️</span>
+        <span>Play Playlist</span>
+      </div>
+      <div class="context-item" id="exportM3U">
+        <span class="context-icon">💾</span>
+        <span>Re-export M3U</span>
+      </div>
+      <div class="context-separator"></div>
+      <div class="context-item" id="showPlaylistFolder">
+        <span class="context-icon">📁</span>
+        <span>Show Playlist Folder</span>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" style="display: none">
+      <div class="modal-content settings-modal">
+        <div class="modal-header">
+          <h2>⚙️ Settings</h2>
+          <button class="modal-close" id="closeSettingsModal">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="settings-sections">
+            <!-- Appearance Settings -->
+            <div class="settings-section">
+              <h3>🎨 Appearance</h3>
+              <div class="setting-item">
+                <label for="themeSelect">Theme</label>
+                <select id="themeSelect" class="setting-select">
+                  <option value="dark">Dark Theme</option>
+                  <option value="light">Light Theme</option>
+                  <option value="auto">Auto (System)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Audio Settings -->
+            <div class="settings-section">
+              <h3>🎵 Audio</h3>
+              <div class="setting-item">
+                <label for="defaultVolume">Default Volume</label>
+                <input type="range" id="defaultVolume" min="0" max="100" class="setting-range" />
+                <span id="volumeValue">50%</span>
+              </div>
+              <div class="setting-item">
+                <label for="crossfade">Crossfade Duration</label>
+                <select id="crossfade" class="setting-select">
+                  <option value="0">Off</option>
+                  <option value="1">1 second</option>
+                  <option value="3">3 seconds</option>
+                  <option value="5">5 seconds</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Library Settings -->
+            <div class="settings-section">
+              <h3>📚 Library</h3>
+              <div class="setting-item">
+                <label for="musicFolder">Music Folder</label>
+                <div class="folder-setting">
+                  <input type="text" id="musicFolderPath" readonly class="setting-input" />
+                  <button id="changeMusicFolder" class="btn-secondary">Change</button>
+                </div>
+              </div>
+              <div class="setting-item">
+                <label for="autoScan">Auto-scan for new music</label>
+                <input type="checkbox" id="autoScan" class="setting-checkbox" />
+              </div>
+              <div class="setting-item">
+                <label for="watchFolders">Watch folders for changes</label>
+                <input type="checkbox" id="watchFolders" class="setting-checkbox" />
+              </div>
+            </div>
+
+            <!-- Playback Settings -->
+            <div class="settings-section">
+              <h3>▶️ Playback</h3>
+              <div class="setting-item">
+                <label for="resumePlayback">Resume playback on startup</label>
+                <input type="checkbox" id="resumePlayback" class="setting-checkbox" />
+              </div>
+              <div class="setting-item">
+                <label for="rememberPosition">Remember track position</label>
+                <input type="checkbox" id="rememberPosition" class="setting-checkbox" />
+              </div>
+              <div class="setting-item">
+                <label for="skipShortTracks">Skip tracks shorter than</label>
+                <select id="skipShortTracks" class="setting-select">
+                  <option value="0">Don't skip</option>
+                  <option value="10">10 seconds</option>
+                  <option value="30">30 seconds</option>
+                  <option value="60">1 minute</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Display Settings -->
+            <div class="settings-section">
+              <h3>📱 Display</h3>
+              <div class="setting-item">
+                <label for="showAlbumArt">Show album artwork</label>
+                <input type="checkbox" id="showAlbumArt" class="setting-checkbox" />
+              </div>
+              <div class="setting-item">
+                <label for="showNotifications">Show playback notifications</label>
+                <input type="checkbox" id="showNotifications" class="setting-checkbox" />
+              </div>
+              <div class="setting-item">
+                <label for="compactMode">Compact mode</label>
+                <input type="checkbox" id="compactMode" class="setting-checkbox" />
+              </div>
+            </div>
+
+            <!-- Advanced Settings -->
+            <div class="settings-section">
+              <h3>🔧 Advanced</h3>
+              <div class="setting-item">
+                <label for="bufferSize">Audio buffer size</label>
+                <select id="bufferSize" class="setting-select">
+                  <option value="1024">1024 samples</option>
+                  <option value="2048">2048 samples</option>
+                  <option value="4096">4096 samples (default)</option>
+                  <option value="8192">8192 samples</option>
+                </select>
+              </div>
+              <div class="setting-item">
+                <label for="enableLogging">Enable debug logging</label>
+                <input type="checkbox" id="enableLogging" class="setting-checkbox" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" id="resetSettings">Reset to Defaults</button>
+          <div class="modal-actions">
+            <button class="btn-secondary" id="cancelSettings">Cancel</button>
+            <button class="btn-primary" id="saveSettings">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay help-modal" id="helpModal" style="display: none">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h2>📚 Help & Documentation</h2>
+          <button class="modal-close" id="closeHelpModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="help-sidebar" id="helpSidebar">
+            <div class="help-loading">Loading help topics...</div>
+          </div>
+          <div class="help-content" id="helpContent" tabindex="0">
+            <div class="help-loading">Select a help topic from the sidebar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load modules in the correct order (deferred to prevent flashing) -->
+    <script src="../scripts/window-controls.js" defer></script>
+    <script src="../scripts/core-audio.js" defer></script>
+    <script src="../scripts/library-manager.js" defer></script>
+    <script src="../scripts/ui-controller.js" defer></script>
+    <script src="../scripts/playlist-renderer.js" defer></script>
+    <script src="../scripts/help-manager.js" defer></script>
+    <script src="../scripts/main-app.js" defer></script>
+    <script src="../scripts/main-window.js" defer></script>
+
+    <!-- Quick Loading Handler -->
+    <script>
+      console.log('🎨 Anti-flash loading...');
+      
+      // Hide loading overlay quickly once DOM and CSS are ready
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('📄 DOM ready');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // Quick check for CSS and hide overlay
+        const hideOverlay = () => {
+          if (loadingOverlay) {
+            console.log('🚀 Hiding loading overlay');
+            loadingOverlay.classList.add('hidden');
+            // Remove from DOM after transition
+            setTimeout(() => {
+              if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.parentNode.removeChild(loadingOverlay);
+              }
+            }, 400);
+          }
+        };
+        
+        // Hide after CSS loads or 800ms maximum
+        if (window.bundledCSSLoaded) {
+          hideOverlay();
+        } else {
+          setTimeout(hideOverlay, 800);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,96 @@
+/* ========================================
+   VARIABLES.CSS - CORE CSS CUSTOM PROPERTIES
+   ======================================== */
+
+:root {
+  /* ========================================
+     SPACING SYSTEM
+     ======================================== */
+  --space-xs: 0.25rem; /* 4px */
+  --space-sm: 0.5rem; /* 8px */
+  --space-md: 1rem; /* 16px */
+  --space-lg: 1.5rem; /* 24px */
+  --space-xl: 2rem; /* 32px */
+  --space-2xl: 3rem; /* 48px */
+
+  /* ========================================
+     TYPOGRAPHY SCALE
+     ======================================== */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-md: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-size-xl: 1.25rem; /* 20px */
+  --font-size-2xl: 1.5rem; /* 24px */
+  --font-size-3xl: 2rem; /* 32px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ========================================
+     BORDER RADIUS SYSTEM
+     ======================================== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 50%;
+
+  /* ========================================
+     LAYOUT DIMENSIONS
+     ======================================== */
+  --header-height: 60px;
+  --footer-height: 140px;
+  --player-height: 90px;
+  --visualizer-height: 50px;
+  --sidebar-width: 280px;
+  --sidebar-width-collapsed: 60px;
+
+  /* Component Sizes */
+  --album-art-sm: 40px;
+  --album-art-md: 60px;
+  --album-art-lg: 120px;
+  --button-height: 40px;
+  --button-height-sm: 32px;
+  --input-height: 40px;
+
+  /* ========================================
+     Z-INDEX SYSTEM
+     ======================================== */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 1000;
+  --z-modal: 1100;
+  --z-tooltip: 1200;
+
+  /* ========================================
+     SHADOWS
+     ======================================== */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+  /* ========================================
+     TRANSITIONS
+     ======================================== */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ========================================
+     BREAKPOINTS (for container queries)
+     ======================================== */
+  --bp-mobile: 480px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1200px;
+  --bp-ultrawide: 1400px;
+}

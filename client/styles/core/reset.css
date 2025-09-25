@@ -1,0 +1,271 @@
+/* ========================================
+   RESET.CSS - MODERN CSS RESET & BASE STYLES
+   ======================================== */
+
+/* ========================================
+   MODERN CSS RESET
+   ======================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  /* Prevent adjustments of font size after orientation changes */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  line-height: var(--line-height-normal);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  background-color: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent user selection by default (override where needed) */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Prevent text inflation on mobile */
+  text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+}
+
+/* ========================================
+   TYPOGRAPHY RESET
+   ======================================== */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: var(--line-height-tight);
+}
+
+p,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+/* ========================================
+   LIST RESET
+   ======================================== */
+ol,
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ========================================
+   MEDIA RESET
+   ======================================== */
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+svg {
+  fill: currentColor;
+}
+
+/* ========================================
+   FORM RESET
+   ======================================== */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input,
+textarea {
+  border: none;
+  outline: none;
+}
+
+/* Fix iOS button styles */
+button,
+input[type='submit'],
+input[type='reset'],
+input[type='button'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Fix iOS input styles */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+/* ========================================
+   TABLE RESET
+   ======================================== */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ========================================
+   ACCESSIBILITY & INTERACTION
+   ======================================== */
+
+/* Remove animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Improve text rendering */
+a,
+button,
+input,
+select,
+textarea {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus outline reset - will be customized per component */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   SELECTION COLORS
+   ======================================== */
+::selection {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+::-moz-selection {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+/* ========================================
+   SCROLLBAR RESET
+   ======================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Hide element completely */
+.hidden {
+  display: none !important;
+}
+
+/* Enable text selection for specific elements */
+.text-selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Smooth transitions for theme changes */
+.theme-transitioning * {
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast) !important;
+}
+
+/* Prevent layout shift during theme transitions */
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast) !important;
+}

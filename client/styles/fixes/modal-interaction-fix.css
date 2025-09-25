@@ -1,0 +1,29 @@
+/* ========================================
+   MODAL INTERACTION FIX
+   ======================================== */
+
+/* Ensure all modal content allows interaction */
+.modal-overlay .modal-content,
+.modal-overlay .modal-content * {
+  pointer-events: auto !important;
+}
+
+/* Specifically ensure form inputs are interactive */
+.modal-overlay input,
+.modal-overlay textarea,
+.modal-overlay button,
+.modal-overlay select {
+  pointer-events: auto !important;
+  user-select: auto !important;
+  cursor: text !important;
+}
+
+.modal-overlay button {
+  cursor: pointer !important;
+}
+
+/* Make sure textarea is resizable and selectable */
+.modal-overlay textarea {
+  resize: vertical !important;
+  user-select: text !important;
+}

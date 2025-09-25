@@ -1,0 +1,743 @@
+/* ========================================
+   NOTIFICATIONS.CSS - TOAST NOTIFICATIONS & ALERTS
+   ======================================== */
+
+/* ========================================
+   NOTIFICATION CONTAINER
+   ======================================== */
+
+.notification-container {
+  position: fixed;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  pointer-events: none;
+  max-width: 400px;
+  width: 100%;
+}
+
+.notification-container.bottom-right {
+  top: auto;
+  bottom: var(--space-lg);
+}
+
+.notification-container.bottom-left {
+  right: auto;
+  left: var(--space-lg);
+  top: auto;
+  bottom: var(--space-lg);
+}
+
+.notification-container.top-left {
+  right: auto;
+  left: var(--space-lg);
+}
+
+.notification-container.top-center {
+  right: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.notification-container.bottom-center {
+  right: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  bottom: var(--space-lg);
+}
+
+/* ========================================
+   NOTIFICATION ITEM
+   ======================================== */
+
+.notification {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border-left: 4px solid var(--primary);
+  transform: translateX(calc(100% + var(--space-lg)));
+  transition: all var(--transition-normal);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  max-width: 100%;
+  word-wrap: break-word;
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.notification.show {
+  transform: translateX(0);
+}
+
+.notification.hide {
+  transform: translateX(calc(100% + var(--space-lg)));
+  opacity: 0;
+}
+
+/* Notification from left */
+.notification-container.top-left .notification,
+.notification-container.bottom-left .notification {
+  transform: translateX(calc(-100% - var(--space-lg)));
+}
+
+.notification-container.top-left .notification.show,
+.notification-container.bottom-left .notification.show {
+  transform: translateX(0);
+}
+
+.notification-container.top-left .notification.hide,
+.notification-container.bottom-left .notification.hide {
+  transform: translateX(calc(-100% - var(--space-lg)));
+}
+
+/* Notification from center */
+.notification-container.top-center .notification,
+.notification-container.bottom-center .notification {
+  transform: translateY(-100%);
+}
+
+.notification-container.top-center .notification.show,
+.notification-container.bottom-center .notification.show {
+  transform: translateY(0);
+}
+
+.notification-container.top-center .notification.hide,
+.notification-container.bottom-center .notification.hide {
+  transform: translateY(-100%);
+}
+
+/* ========================================
+   NOTIFICATION TYPES
+   ======================================== */
+
+.notification-success {
+  border-left-color: var(--success);
+  background: var(--success-50);
+  color: var(--success-600);
+}
+
+.notification-error {
+  border-left-color: var(--error);
+  background: var(--error-50);
+  color: var(--error-600);
+}
+
+.notification-warning {
+  border-left-color: var(--warning);
+  background: var(--warning-50);
+  color: var(--warning-600);
+}
+
+.notification-info {
+  border-left-color: var(--primary);
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+/* Dark theme adjustments */
+[data-theme='dark'] .notification-success {
+  background: var(--surface-elevated);
+  color: var(--success);
+}
+
+[data-theme='dark'] .notification-error {
+  background: var(--surface-elevated);
+  color: var(--error);
+}
+
+[data-theme='dark'] .notification-warning {
+  background: var(--surface-elevated);
+  color: var(--warning);
+}
+
+[data-theme='dark'] .notification-info {
+  background: var(--surface-elevated);
+  color: var(--primary);
+}
+
+/* ========================================
+   NOTIFICATION CONTENT
+   ======================================== */
+
+.notification-icon {
+  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+  margin-top: 2px;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+.notification-message {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  opacity: 0.9;
+}
+
+.notification-actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.notification-action {
+  background: none;
+  border: none;
+  color: currentColor;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.notification-action:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.notification-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: currentColor;
+  cursor: pointer;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  opacity: 0.7;
+  font-size: var(--font-size-md);
+  line-height: 1;
+  margin-top: -2px;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+/* ========================================
+   NOTIFICATION PROGRESS BAR
+   ======================================== */
+
+.notification-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: currentColor;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  opacity: 0.6;
+  transition: width linear;
+}
+
+.notification-progress.auto-dismiss {
+  animation: notificationProgress linear;
+}
+
+@keyframes notificationProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* ========================================
+   NOTIFICATION SIZES
+   ======================================== */
+
+.notification-compact {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+}
+
+.notification-compact .notification-icon {
+  font-size: var(--font-size-md);
+}
+
+.notification-large {
+  padding: var(--space-lg) var(--space-xl);
+  max-width: 500px;
+}
+
+.notification-large .notification-title {
+  font-size: var(--font-size-md);
+}
+
+.notification-large .notification-message {
+  font-size: var(--font-size-sm);
+}
+
+/* ========================================
+   NOTIFICATION ANIMATIONS
+   ======================================== */
+
+.notification-enter {
+  transform: translateX(calc(100% + var(--space-lg)));
+  opacity: 0;
+}
+
+.notification-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+  transition: all var(--transition-normal) ease-out;
+}
+
+.notification-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification-exit-active {
+  transform: translateX(calc(100% + var(--space-lg)));
+  opacity: 0;
+  transition: all var(--transition-normal) ease-in;
+}
+
+/* Bounce animation */
+.notification-bounce {
+  animation: notificationBounce 0.5s ease-out;
+}
+
+@keyframes notificationBounce {
+  0% {
+    transform: translateX(calc(100% + var(--space-lg)));
+  }
+  60% {
+    transform: translateX(-10px);
+  }
+  80% {
+    transform: translateX(5px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Shake animation for errors */
+.notification-shake {
+  animation: notificationShake 0.3s ease-in-out;
+}
+
+@keyframes notificationShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* ========================================
+   ALERT BANNERS
+   ======================================== */
+
+.alert-banner {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  transition: all var(--transition-fast);
+}
+
+.alert-banner.dismissible {
+  padding-right: calc(var(--space-lg) + 32px);
+  position: relative;
+}
+
+.alert-banner-success {
+  background: var(--success-50);
+  border-color: var(--success);
+  color: var(--success-600);
+}
+
+.alert-banner-error {
+  background: var(--error-50);
+  border-color: var(--error);
+  color: var(--error-600);
+}
+
+.alert-banner-warning {
+  background: var(--warning-50);
+  border-color: var(--warning);
+  color: var(--warning-600);
+}
+
+.alert-banner-info {
+  background: var(--primary-50);
+  border-color: var(--primary);
+  color: var(--primary-600);
+}
+
+.alert-banner-icon {
+  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+  margin-top: 2px;
+}
+
+.alert-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-banner-title {
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--font-size-sm);
+}
+
+.alert-banner-message {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  opacity: 0.9;
+}
+
+.alert-banner-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: none;
+  border: none;
+  color: currentColor;
+  cursor: pointer;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  opacity: 0.7;
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.alert-banner-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+/* ========================================
+   SYSTEM NOTIFICATIONS
+   ======================================== */
+
+.system-notification {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.system-notification-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.system-notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.system-notification-title {
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.system-notification-message {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* ========================================
+   RESPONSIVE NOTIFICATIONS
+   ======================================== */
+
+@media (max-width: 768px) {
+  .notification-container {
+    top: var(--space-md);
+    right: var(--space-md);
+    left: var(--space-md);
+    max-width: none;
+  }
+
+  .notification-container.bottom-right,
+  .notification-container.bottom-left,
+  .notification-container.bottom-center {
+    bottom: var(--space-md);
+    left: var(--space-md);
+    right: var(--space-md);
+  }
+
+  .notification-container.top-left,
+  .notification-container.top-center {
+    left: var(--space-md);
+    right: var(--space-md);
+  }
+
+  .notification {
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-xs);
+  }
+
+  .notification-title {
+    font-size: var(--font-size-xs);
+  }
+
+  .notification-message {
+    font-size: var(--font-size-xs);
+  }
+
+  .system-notification {
+    min-width: auto;
+    max-width: none;
+    margin: 0 var(--space-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .notification-container {
+    top: var(--space-sm);
+    right: var(--space-sm);
+    left: var(--space-sm);
+  }
+
+  .notification-container.bottom-right,
+  .notification-container.bottom-left,
+  .notification-container.bottom-center {
+    bottom: var(--space-sm);
+    left: var(--space-sm);
+    right: var(--space-sm);
+  }
+
+  .notification {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+  }
+
+  .notification-actions {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .system-notification {
+    padding: var(--space-md);
+    margin: 0 var(--space-sm);
+  }
+
+  .system-notification-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .alert-banner {
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+.notification:focus,
+.alert-banner:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.notification-close:focus-visible,
+.alert-banner-close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Screen reader announcements */
+.notification[role='alert'] {
+  /* Automatically announced by screen readers */
+}
+
+.notification[aria-live='polite'] {
+  /* Announced when convenient */
+}
+
+.notification[aria-live='assertive'] {
+  /* Announced immediately */
+}
+
+/* ========================================
+   HIGH CONTRAST & REDUCED MOTION
+   ======================================== */
+
+@media (prefers-contrast: high) {
+  .notification,
+  .alert-banner,
+  .system-notification {
+    border-width: 2px;
+  }
+
+  .notification-success,
+  .alert-banner-success {
+    border-color: var(--success);
+  }
+
+  .notification-error,
+  .alert-banner-error {
+    border-color: var(--error);
+  }
+
+  .notification-warning,
+  .alert-banner-warning {
+    border-color: var(--warning);
+  }
+
+  .notification-info,
+  .alert-banner-info {
+    border-color: var(--primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification {
+    transition: none;
+  }
+
+  .notification-bounce,
+  .notification-shake {
+    animation: none;
+  }
+
+  .notification-progress.auto-dismiss {
+    animation: none;
+  }
+
+  .notification-enter-active,
+  .notification-exit-active {
+    transition: none;
+  }
+}
+
+/* ========================================
+   NOTIFICATION QUEUE MANAGEMENT
+   ======================================== */
+
+.notification-container .notification:nth-child(n + 6) {
+  /* Hide notifications beyond 5 to prevent overflow */
+  display: none;
+}
+
+.notification-stacked {
+  margin-top: calc(-1 * var(--space-sm));
+  transform: scale(0.98) translateY(-2px);
+  z-index: -1;
+}
+
+.notification-stacked:nth-child(3) {
+  transform: scale(0.96) translateY(-4px);
+  z-index: -2;
+  opacity: 0.8;
+}
+
+.notification-stacked:nth-child(4) {
+  transform: scale(0.94) translateY(-6px);
+  z-index: -3;
+  opacity: 0.6;
+}
+
+/* ========================================
+   NOTIFICATION THEMES
+   ======================================== */
+
+.notification-theme-minimal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 1px;
+  box-shadow: var(--shadow-sm);
+}
+
+.notification-theme-bold {
+  border-left-width: 8px;
+  box-shadow: var(--shadow-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-theme-filled.notification-success {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+.notification-theme-filled.notification-error {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+.notification-theme-filled.notification-warning {
+  background: var(--warning);
+  color: white;
+  border-color: var(--warning);
+}
+
+.notification-theme-filled.notification-info {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* ========================================
+   LEGACY SUPPORT
+   ======================================== */
+
+/* Support for existing notification class in your codebase */
+.notification:not([class*='notification-']) {
+  /* Default to info style if no type specified */
+  border-left-color: var(--primary);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}

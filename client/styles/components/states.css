@@ -1,0 +1,647 @@
+/* ========================================
+   STATES.CSS - LOADING, EMPTY & ERROR STATES
+   ======================================== */
+
+/* ========================================
+   LOADING STATES
+   ======================================== */
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  color: var(--text-secondary);
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--primary);
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner-sm {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.loading-spinner-lg {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+.loading-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-sm);
+}
+
+/* Skeleton loading for content */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-elevated) 25%,
+    var(--surface-secondary) 50%,
+    var(--surface-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: var(--space-xs);
+}
+
+.skeleton-text:last-child {
+  width: 60%;
+}
+
+.skeleton-title {
+  height: 1.5em;
+  margin-bottom: var(--space-sm);
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-image {
+  width: 100%;
+  height: 200px;
+  border-radius: var(--radius-lg);
+}
+
+/* Pulse loading animation */
+.loading-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-overlay);
+  backdrop-filter: blur(2px);
+}
+
+.loading-overlay .loading-spinner {
+  background: var(--surface);
+  padding: var(--space-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ========================================
+   EMPTY STATES
+   ======================================== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  color: var(--text-secondary);
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  opacity: 0.6;
+  margin-bottom: var(--space-md);
+  color: var(--text-tertiary);
+}
+
+.empty-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.empty-state-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 400px;
+  margin: 0 0 var(--space-lg) 0;
+}
+
+.empty-state-action {
+  margin-top: var(--space-md);
+}
+
+/* Specific empty states */
+.empty-library {
+  background: radial-gradient(circle at center, var(--primary-50) 0%, transparent 70%);
+}
+
+.empty-playlist {
+  background: radial-gradient(circle at center, var(--accent-50) 0%, transparent 70%);
+}
+
+.empty-search {
+  background: radial-gradient(circle at center, var(--surface-elevated) 0%, transparent 70%);
+}
+
+/* ========================================
+   ERROR STATES
+   ======================================== */
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+}
+
+.error-state-icon {
+  font-size: 3rem;
+  color: var(--error);
+  margin-bottom: var(--space-md);
+  opacity: 0.8;
+}
+
+.error-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.error-state-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 400px;
+  margin: 0 0 var(--space-lg) 0;
+}
+
+.error-state-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Error types */
+.error-network {
+  background: radial-gradient(circle at center, var(--error-50) 0%, transparent 70%);
+}
+
+.error-permission {
+  background: radial-gradient(circle at center, var(--warning-50) 0%, transparent 70%);
+}
+
+.error-not-found {
+  background: radial-gradient(circle at center, var(--surface-elevated) 0%, transparent 70%);
+}
+
+/* ========================================
+   SUCCESS STATES
+   ======================================== */
+
+.success-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+  background: radial-gradient(circle at center, var(--success-50) 0%, transparent 70%);
+}
+
+.success-state-icon {
+  font-size: 3rem;
+  color: var(--success);
+  margin-bottom: var(--space-md);
+}
+
+.success-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.success-state-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 400px;
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* ========================================
+   WARNING STATES
+   ======================================== */
+
+.warning-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+  background: radial-gradient(circle at center, var(--warning-50) 0%, transparent 70%);
+}
+
+.warning-state-icon {
+  font-size: 3rem;
+  color: var(--warning);
+  margin-bottom: var(--space-md);
+}
+
+.warning-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.warning-state-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 400px;
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* ========================================
+   PROGRESS STATES
+   ======================================== */
+
+.progress-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+  gap: var(--space-md);
+}
+
+.progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin: var(--space-md) 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-sm);
+  transition: width var(--transition-normal);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: progress-shimmer 2s infinite;
+}
+
+.progress-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+/* ========================================
+   STATE TRANSITIONS
+   ======================================== */
+
+.state-enter {
+  opacity: 0;
+  transform: translateY(var(--space-md));
+}
+
+.state-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.state-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.state-exit-active {
+  opacity: 0;
+  transform: translateY(-var(--space-md));
+  transition:
+    opacity var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+/* ========================================
+   RESPONSIVE STATES
+   ======================================== */
+
+@media (max-width: 768px) {
+  .empty-state,
+  .error-state,
+  .loading-state,
+  .success-state,
+  .warning-state,
+  .progress-state {
+    padding: var(--space-xl) var(--space-md);
+    min-height: 160px;
+  }
+
+  .empty-state-icon,
+  .error-state-icon,
+  .success-state-icon,
+  .warning-state-icon {
+    font-size: 2.5rem;
+  }
+
+  .empty-state-title,
+  .error-state-title,
+  .success-state-title,
+  .warning-state-title {
+    font-size: var(--font-size-md);
+  }
+
+  .empty-state-description,
+  .error-state-description,
+  .success-state-description,
+  .warning-state-description {
+    font-size: var(--font-size-xs);
+  }
+
+  .error-state-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .empty-state,
+  .error-state,
+  .loading-state,
+  .success-state,
+  .warning-state,
+  .progress-state {
+    padding: var(--space-lg) var(--space-sm);
+    min-height: 140px;
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+  }
+
+  .progress-bar {
+    max-width: 250px;
+    height: 6px;
+  }
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-sm));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner,
+  .skeleton,
+  .progress-fill::after {
+    animation: none;
+  }
+
+  .loading-pulse {
+    animation: none;
+    opacity: 0.8;
+  }
+
+  .state-enter-active,
+  .state-exit-active {
+    transition: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .loading-spinner {
+    border-color: var(--text-primary);
+    border-top-color: var(--primary);
+  }
+
+  .skeleton {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+  }
+
+  .progress-bar {
+    border: 1px solid var(--border);
+  }
+}
+
+/* ========================================
+   UTILITY CLASSES FOR STATES
+   ======================================== */
+
+/* Show/hide states */
+.is-loading {
+  pointer-events: none;
+  position: relative;
+}
+
+.is-empty {
+  min-height: 200px;
+}
+
+.is-error {
+  min-height: 200px;
+}
+
+/* Loading states for specific elements */
+.loading-text {
+  background: var(--skeleton-bg, var(--surface-elevated));
+  color: transparent;
+  border-radius: var(--radius-sm);
+  animation: skeleton-loading 1.5s infinite;
+}
+
+.loading-button {
+  position: relative;
+  color: transparent;
+}
+
+.loading-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface);
+  border-top: 2px solid var(--primary);
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   LEGACY SUPPORT FOR EXISTING CLASSES
+   ======================================== */
+
+/* Support existing class names in your codebase */
+.empty-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  min-height: 200px;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  gap: var(--space-md);
+}
+
+.empty-pane-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+  color: var(--text-tertiary);
+}
+
+.empty-pane h4 {
+  margin: 0 0 var(--space-sm) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.empty-pane p {
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+  max-width: 300px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Legacy loading classes */
+.loading-state {
+  /* Already defined above */
+}
+
+.loading-spinner {
+  /* Already defined above */
+}
+
+/* Legacy error classes */
+.error-state {
+  /* Already defined above */
+}

@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+
+# Runtime files
+*.log
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+
+# User data
+user-data/
+music-library/
+playlists/
+covers/
+
+# Environment
+.env
+
+# IDE and editor files
+.vscode/
+.claude/
+
+# Documentation (except database folder)
+docs/
+!docs/database/
+
+# Project specific files
+BAT-Files/
+CLAUDE.md
+nul
+nulnpm
+
+# Build and cache
+.cache/
+.temp/
+*.tsbuildinfo

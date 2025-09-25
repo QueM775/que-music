@@ -1,0 +1,326 @@
+/* ========================================
+   COLORS.CSS - COLOR SYSTEM & THEMES (ENHANCED)
+   ======================================== */
+
+:root {
+  /* ========================================
+     BRAND COLORS
+     ======================================== */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-200: #bfdbfe;
+  --primary-300: #93c5fd;
+  --primary-400: #60a5fa;
+  --primary-500: #3b82f6;
+  /* Main brand color */
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-800: #1e40af;
+  --primary-900: #1e3a8a;
+
+  --accent-50: #fffbeb;
+  --accent-100: #fef3c7;
+  --accent-200: #fde68a;
+  --accent-300: #fcd34d;
+  --accent-400: #fbbf24;
+  --accent-500: #f59e0b;
+  /* Accent/favorite color */
+  --accent-600: #d97706;
+  --accent-700: #b45309;
+  --accent-800: #92400e;
+  --accent-900: #78350f;
+
+  /* ========================================
+     SEMANTIC COLORS
+     ======================================== */
+  --success-50: #ecfdf5;
+  --success-500: #10b981;
+  --success-600: #059669;
+
+  --warning-50: #fffbeb;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+
+  --error-50: #fef2f2;
+  --error-500: #ef4444;
+  --error-600: #dc2626;
+
+  --info-50: #eff6ff;
+  --info-500: #3b82f6;
+  --info-600: #2563eb;
+
+  /* ========================================
+     THEME TOKENS - LIGHT THEME (DEFAULT)
+     ======================================== */
+  --primary: var(--primary-500);
+  --primary-hover: var(--primary-600);
+  --primary-active: var(--primary-700);
+  --primary-light: var(--primary-100);
+
+  --accent: var(--accent-500);
+  --accent-hover: var(--accent-600);
+  --accent-light: var(--accent-100);
+
+  --success: var(--success-500);
+  --warning: var(--warning-500);
+  --error: var(--error-500);
+  --info: var(--info-500);
+
+  /* Surface Colors */
+  --background: #ffffff;
+  --surface: #f8fafc;
+  --surface-elevated: #ffffff;
+  --surface-secondary: #f1f5f9;
+  --surface-tertiary: #e2e8f0;
+
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Border Colors */
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-strong: #cbd5e1;
+
+  /* Interactive States */
+  --hover: rgba(15, 23, 42, 0.05);
+  --focus: rgba(59, 130, 246, 0.3);
+  --active: rgba(15, 23, 42, 0.1);
+  --disabled: #f1f5f9;
+
+  /* Overlays */
+  --overlay: rgba(0, 0, 0, 0.5);
+  --overlay-light: rgba(0, 0, 0, 0.25);
+  --backdrop: rgba(0, 0, 0, 0.75);
+}
+
+/* ========================================
+   DARK THEME
+   ======================================== */
+[data-theme='dark'] {
+  /* Surface Colors */
+  --background: #0f172a;
+  --surface: #1e293b;
+  --surface-elevated: #334155;
+  --surface-secondary: #0f172a;
+  --surface-tertiary: #475569;
+
+  /* Text Colors */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-inverse: #0f172a;
+
+  --input-background: #334155;
+  --input-background-focus: #475569;
+  --input-text: #f1f5f9;
+  --input-border: #64748b;
+  --input-border-focus: var(--primary);
+  --input-placeholder: #94a3b8;
+
+  /* Border Colors */
+  --border: #334155;
+  --border-light: #475569;
+  --border-strong: #64748b;
+
+  /* Interactive States */
+  --hover: rgba(241, 245, 249, 0.05);
+  --focus: rgba(59, 130, 246, 0.4);
+  --active: rgba(241, 245, 249, 0.1);
+  --disabled: #334155;
+
+  /* Overlays */
+  --overlay: rgba(0, 0, 0, 0.7);
+  --overlay-light: rgba(0, 0, 0, 0.5);
+  --backdrop: rgba(0, 0, 0, 0.85);
+
+  /* Shadows (darker) */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   THEME-SPECIFIC VISUAL ENHANCEMENTS
+   ======================================== */
+
+/* Light Theme Gradients & Enhancements */
+[data-theme='light'] .title-bar {
+  background: linear-gradient(135deg, var(--surface) 0%, #ffffff 100%);
+}
+
+[data-theme='light'] .sidebar {
+  background: linear-gradient(180deg, var(--surface) 0%, #f1f5f9 100%);
+}
+
+[data-theme='light'] .player-bar {
+  background: linear-gradient(135deg, var(--surface) 0%, #ffffff 100%);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme='light'] .welcome-screen {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+}
+
+[data-theme='light'] .album-art {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme='light'] .album-art:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .visualizer-container {
+  background: #f5f5f5;
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='light'] .visualizer-container.hidden {
+  background: #e0e0e0;
+}
+
+/* Dark Theme Gradients & Enhancements */
+[data-theme='dark'] .title-bar {
+  background: linear-gradient(135deg, var(--surface) 0%, #0f172a 100%);
+}
+
+[data-theme='dark'] .sidebar {
+  background: linear-gradient(180deg, var(--surface) 0%, #0f172a 100%);
+}
+
+[data-theme='dark'] .player-bar {
+  background: linear-gradient(135deg, var(--surface) 0%, #0f172a 100%);
+  box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.3);
+}
+
+[data-theme='dark'] .welcome-screen {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(168, 85, 247, 0.2) 0%, transparent 50%);
+}
+
+[data-theme='dark'] .album-art {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .album-art:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .visualizer-container {
+  background: #1a1a1a;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .visualizer-container.hidden {
+  background: #0f0f0f;
+}
+
+/* ========================================
+   SYSTEM PREFERENCE SUPPORT
+   ======================================== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* Apply dark theme as default if no theme is set */
+    --background: #0f172a;
+    --surface: #1e293b;
+    --surface-elevated: #334155;
+    --surface-secondary: #0f172a;
+    --surface-tertiary: #475569;
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    --text-inverse: #0f172a;
+
+    --border: #334155;
+    --border-light: #475569;
+    --border-strong: #64748b;
+
+    --hover: rgba(241, 245, 249, 0.05);
+    --focus: rgba(59, 130, 246, 0.4);
+    --active: rgba(241, 245, 249, 0.1);
+    --disabled: #334155;
+  }
+}
+
+/* ========================================
+   SMOOTH THEME TRANSITIONS
+   ======================================== */
+
+* {
+  transition:
+    background-color var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+/* Disable transitions during theme change */
+.theme-transitioning * {
+  transition: none !important;
+}
+
+/* ========================================
+   HIGH CONTRAST MODE
+   ======================================== */
+@media (prefers-contrast: high) {
+  :root {
+    --border: var(--text-secondary);
+    --border-strong: var(--text-primary);
+  }
+
+  [data-theme='dark'] {
+    --border: var(--text-secondary);
+    --border-strong: var(--text-primary);
+  }
+}
+
+/* ========================================
+   REDUCED MOTION
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 1ms;
+    --transition-normal: 1ms;
+    --transition-slow: 1ms;
+  }
+}
+
+/* Modal Input Styling */
+.modal-body input[type='text'],
+.modal-body textarea,
+.modal-content input[type='text'],
+.modal-content textarea {
+  background-color: var(--input-background, var(--surface-elevated)) !important;
+  color: var(--input-text, var(--text-primary)) !important;
+  border: 1px solid var(--input-border, var(--border)) !important;
+  border-radius: 6px !important;
+  padding: 12px !important;
+  font-size: 14px !important;
+}
+
+.modal-body input[type='text']:focus,
+.modal-body textarea:focus,
+.modal-content input[type='text']:focus,
+.modal-content textarea:focus {
+  background-color: var(--input-background-focus, var(--surface)) !important;
+  border-color: var(--input-border-focus, var(--primary)) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+}
+
+.modal-body input::placeholder,
+.modal-body textarea::placeholder,
+.modal-content input::placeholder,
+.modal-content textarea::placeholder {
+  color: var(--input-placeholder, var(--text-secondary)) !important;
+  opacity: 0.7 !important;
+}

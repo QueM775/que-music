@@ -1,0 +1,94 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-25",
+  "helpTopics": [
+    {
+      "id": "getting-started",
+      "title": "🏁 Getting Started",
+      "icon": "🏁",
+      "description": "Installation, first run, and initial setup",
+      "file": "topics/getting-started.md",
+      "order": 1
+    },
+    {
+      "id": "interface-guide",
+      "title": "🖥️ User Interface Guide",
+      "icon": "🖥️",
+      "description": "Understanding the main layout and navigation",
+      "file": "topics/interface-guide.md",
+      "order": 2
+    },
+    {
+      "id": "music-management",
+      "title": "🎵 Music Library Management",
+      "icon": "🎵",
+      "description": "Managing your music collection and folder scanning",
+      "file": "topics/music-management.md",
+      "order": 3
+    },
+    {
+      "id": "player-controls",
+      "title": "🎮 Audio Player Controls",
+      "icon": "🎮",
+      "description": "Playback controls and audio visualization",
+      "file": "topics/player-controls.md",
+      "order": 4
+    },
+    {
+      "id": "playlists",
+      "title": "📝 Playlist System",
+      "icon": "📝",
+      "description": "Creating, managing, and exporting playlists",
+      "file": "topics/playlists.md",
+      "order": 5
+    },
+    {
+      "id": "search-discovery",
+      "title": "🔍 Search & Discovery",
+      "icon": "🔍",
+      "description": "Finding and discovering music in your library",
+      "file": "topics/search-discovery.md",
+      "order": 6
+    },
+    {
+      "id": "settings-themes",
+      "title": "🎨 Settings & Themes",
+      "icon": "🎨",
+      "description": "Customizing appearance and configuring settings",
+      "file": "topics/settings-themes.md",
+      "order": 7
+    },
+    {
+      "id": "keyboard-shortcuts",
+      "title": "⌨️ Keyboard Shortcuts",
+      "icon": "⌨️",
+      "description": "Complete list of keyboard shortcuts",
+      "file": "topics/keyboard-shortcuts.md",
+      "order": 8
+    },
+    {
+      "id": "database-management",
+      "title": "🗄️ Database Management",
+      "icon": "🗄️",
+      "description": "Library maintenance and troubleshooting tools",
+      "file": "topics/database-management.md",
+      "order": 9
+    },
+    {
+      "id": "troubleshooting",
+      "title": "🔧 Troubleshooting",
+      "icon": "🔧",
+      "description": "Common issues and solutions",
+      "file": "topics/troubleshooting.md",
+      "order": 10
+    }
+  ],
+  "searchable": true,
+  "contextualHelp": {
+    "library": ["getting-started", "music-management", "search-discovery"],
+    "playlists": ["playlists", "music-management"],
+    "player": ["player-controls", "keyboard-shortcuts"],
+    "settings": ["settings-themes", "database-management"],
+    "search": ["search-discovery", "keyboard-shortcuts"]
+  }
+}

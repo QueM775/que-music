@@ -1,0 +1,276 @@
+/* ========================================
+   HEADER.CSS - TITLE BAR & TOP NAVIGATION
+   ======================================== */
+
+/* ========================================
+   TITLE BAR CONTAINER
+   ======================================== */
+
+.title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-lg);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  height: var(--header-height);
+  position: relative;
+  z-index: var(--z-sticky);
+
+  /* macOS style draggable region */
+  -webkit-app-region: drag;
+}
+
+/* ========================================
+   TITLE BAR SECTIONS - MATCHING YOUR HTML
+   ======================================== */
+
+.title-bar-controls {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.app-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  -webkit-app-region: no-drag;
+}
+
+.app-title h1 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.app-logo {
+  height: 50px;
+  width: 120px;
+  object-fit: contain;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  -webkit-app-region: no-drag;
+}
+
+/* ========================================
+   WINDOW CONTROLS (macOS style)
+   ======================================== */
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  -webkit-app-region: no-drag;
+}
+
+.window-controls .control-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-app-region: no-drag;
+}
+
+.window-controls .control-btn.close {
+  background: #ff5f57;
+}
+
+.window-controls .control-btn.minimize {
+  background: #ffbd2e;
+}
+
+.window-controls .control-btn.maximize {
+  background: #28ca42;
+}
+
+.window-controls .control-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+/* ========================================
+   HEADER ICON BUTTONS - MATCHING YOUR HTML
+   ======================================== */
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--button-height);
+  height: var(--button-height);
+  border: none;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.icon-btn:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: translateY(0);
+}
+
+.icon-btn.active {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.icon-btn.active:hover {
+  background: var(--primary-hover);
+}
+
+/* Theme toggle specific styling */
+#themeToggle {
+  position: relative;
+  overflow: hidden;
+}
+
+#themeToggle svg {
+  transition: all var(--transition-fast);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Show/hide theme icons based on theme */
+[data-theme='light'] #themeToggle svg:first-child {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+
+[data-theme='light'] #themeToggle svg:last-child {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(90deg) scale(0.8);
+}
+
+[data-theme='dark'] #themeToggle svg:first-child {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-90deg) scale(0.8);
+}
+
+[data-theme='dark'] #themeToggle svg:last-child {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+
+/* ========================================
+   RESPONSIVE HEADER
+   ======================================== */
+
+/* Large screens */
+@media (min-width: 1200px) {
+  .title-bar {
+    padding: 0 var(--space-2xl);
+  }
+}
+
+/* Medium screens */
+@media (max-width: 1200px) {
+  .title-bar {
+    padding: 0 var(--space-lg);
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .title-bar {
+    padding: 0 var(--space-md);
+  }
+
+  .app-title h1 {
+    font-size: var(--font-size-md);
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .title-bar {
+    padding: 0 var(--space-sm);
+  }
+
+  .header-actions {
+    gap: var(--space-xs);
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-title h1 {
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .title-bar {
+    padding: 0 var(--space-xs);
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .window-controls .control-btn {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+.icon-btn:focus-visible,
+.window-controls .control-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .title-bar {
+    border-bottom-width: 2px;
+  }
+
+  .icon-btn:hover {
+    border: 1px solid var(--text-primary);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn,
+  .window-controls .control-btn,
+  #themeToggle svg {
+    transition: none;
+  }
+
+  .icon-btn:hover {
+    transform: none;
+  }
+
+  .window-controls .control-btn:hover {
+    transform: none;
+  }
+}
