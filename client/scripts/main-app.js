@@ -32,6 +32,8 @@ class QueMusicApp {
   // ============================================================================
 
   async init() {
+    // Setup global error handlers to prevent crashes
+    this.setupGlobalErrorHandlers();
 
     await this.testAPI();
     this.setupEventListeners();
@@ -73,6 +75,88 @@ class QueMusicApp {
 
     // Set active nav item
     this.updateActiveNavItem('library');
+  }
+
+  // Setup global error handlers to prevent crashes during playlist playback
+  setupGlobalErrorHandlers() {
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('🚨 Unhandled promise rejection:', event.reason);
+
+      // Try to continue playing if it was an audio-related error
+      if (this.coreAudio && this.coreAudio.isPlaying) {
+        console.log('🎵 Attempting to recover from error...');
+        try {
+          // Perform emergency cleanup
+          this.coreAudio.performPeriodicCleanup();
+        } catch (cleanupError) {
+          console.error('❌ Cleanup failed:', cleanupError);
+        }
+      }
+
+      // Prevent the default unhandled rejection behavior
+      event.preventDefault();
+    });
+
+    // Handle uncaught errors
+    window.addEventListener('error', (event) => {
+      console.error('🚨 Uncaught error:', event.error);
+
+      // If it's an audio-related error, try to recover
+      if (event.error && event.error.message &&
+          (event.error.message.includes('audio') ||
+           event.error.message.includes('media') ||
+           event.error.message.includes('context'))) {
+        console.log('🎵 Audio error detected, attempting recovery...');
+
+        try {
+          if (this.coreAudio) {
+            this.coreAudio.cleanupVisualizer();
+            // Try to continue with next track if we have a playlist
+            if (this.coreAudio.playlist && this.coreAudio.playlist.length > 1) {
+              setTimeout(() => {
+                this.coreAudio.nextTrack();
+              }, 1000);
+            }
+          }
+        } catch (recoveryError) {
+          console.error('❌ Recovery failed:', recoveryError);
+        }
+      }
+    });
+
+    // Set up memory pressure monitoring
+    this.setupMemoryMonitoring();
+
+    console.log('🛡️ Global error handlers and memory monitoring established');
+  }
+
+  // Monitor memory usage and perform cleanup when needed
+  setupMemoryMonitoring() {
+    // Check memory usage every 5 minutes during playback
+    setInterval(() => {
+      if (this.coreAudio && this.coreAudio.isPlaying) {
+        try {
+          // Check if performance.memory is available (Chromium-based)
+          if (performance.memory) {
+            const used = performance.memory.usedJSHeapSize;
+            const limit = performance.memory.jsHeapSizeLimit;
+            const percentage = (used / limit) * 100;
+
+            console.log(`💾 Memory usage: ${(used / 1048576).toFixed(2)}MB (${percentage.toFixed(1)}%)`);
+
+            // If memory usage is high, perform cleanup
+            if (percentage > 75) {
+              console.log('🧹 High memory usage detected, performing cleanup...');
+              this.coreAudio.performPeriodicCleanup();
+            }
+          }
+        } catch (error) {
+          // Memory monitoring failed, continue silently
+          console.warn('⚠️ Memory monitoring failed:', error);
+        }
+      }
+    }, 300000); // 5 minutes
   }
 
   async testAPI() {

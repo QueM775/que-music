@@ -405,6 +405,19 @@ class PlaylistRenderer {
     }, 350); // Wait for CSS transition
   }
 
+  // Show playlist modal with a specific track to be added
+  async showPlaylistModalWithTrack(track) {
+    console.log('📋 Opening playlist modal with track to add:', track);
+
+    // Store the track to be added after playlist creation
+    this.trackToAddAfterCreation = track;
+
+    // Show the modal normally (for creating a new playlist)
+    this.showPlaylistModal();
+
+    // Note: The track will be added to the playlist in savePlaylistFromModal
+  }
+
   createEmergencyModal(playlist = null) {
     console.log('📋 Creating emergency modal...');
 
@@ -471,11 +484,33 @@ class PlaylistRenderer {
           description: document.getElementById('emergencyPlaylistDesc').value.trim(),
         };
 
+        let newPlaylist = null;
         if (isEdit) {
           playlistData.id = playlist.id;
-          await window.queMusicAPI.playlists.update(playlistData);
+          newPlaylist = await window.queMusicAPI.playlists.update(playlistData);
         } else {
-          await window.queMusicAPI.playlists.create(playlistData);
+          newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
+
+          // If we have a track to add after creation (from right-click context menu)
+          if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
+            try {
+              console.log('📋 Adding track to newly created emergency playlist:', this.trackToAddAfterCreation);
+
+              // Get track ID from the database using the path
+              const dbTrack = await window.queMusicAPI.database.getTrackByPath(this.trackToAddAfterCreation.path);
+              if (dbTrack && dbTrack.id) {
+                await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
+                this.app.showNotification(`Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`, 'success');
+              } else {
+                console.warn('⚠️ Could not find track in database:', this.trackToAddAfterCreation.path);
+              }
+            } catch (error) {
+              console.error('❌ Error adding track to new emergency playlist:', error);
+            }
+
+            // Clear the track to add
+            this.trackToAddAfterCreation = null;
+          }
         }
 
         modal.remove();
@@ -584,13 +619,37 @@ class PlaylistRenderer {
         description: descInput.value.trim(),
       };
 
+      let newPlaylist = null;
       if (this.currentEditingPlaylist) {
         playlistData.id = this.currentEditingPlaylist.id;
-        await window.queMusicAPI.playlists.update(playlistData);
+        newPlaylist = await window.queMusicAPI.playlists.update(playlistData);
         this.app.showNotification('Playlist updated', 'success');
       } else {
-        await window.queMusicAPI.playlists.create(playlistData);
+        newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
         this.app.showNotification('Playlist created', 'success');
+
+        // If we have a track to add after creation (from right-click context menu)
+        if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
+          try {
+            console.log('📋 Adding track to newly created playlist:', this.trackToAddAfterCreation);
+
+            // Get track ID from the database using the path
+            const dbTrack = await window.queMusicAPI.database.getTrackByPath(this.trackToAddAfterCreation.path);
+            if (dbTrack && dbTrack.id) {
+              await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
+              this.app.showNotification(`Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`, 'success');
+            } else {
+              console.warn('⚠️ Could not find track in database:', this.trackToAddAfterCreation.path);
+              this.app.showNotification('Playlist created but could not add the selected track', 'warning');
+            }
+          } catch (error) {
+            console.error('❌ Error adding track to new playlist:', error);
+            this.app.showNotification('Playlist created but could not add the selected track', 'warning');
+          }
+
+          // Clear the track to add
+          this.trackToAddAfterCreation = null;
+        }
       }
 
       this.hidePlaylistModal();

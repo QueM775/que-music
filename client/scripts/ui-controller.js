@@ -2566,7 +2566,10 @@ class UIController {
       if (createNewPlaylistContext) {
         createNewPlaylistContext.addEventListener('click', () => {
           this.hideAllContextMenus();
-          if (this.app.playlistRenderer) {
+          if (this.app.playlistRenderer && this.currentContextTrack) {
+            // Pass the current track to create playlist with it included
+            this.app.playlistRenderer.showPlaylistModalWithTrack(this.currentContextTrack);
+          } else if (this.app.playlistRenderer) {
             this.app.playlistRenderer.showPlaylistModal();
           }
         });

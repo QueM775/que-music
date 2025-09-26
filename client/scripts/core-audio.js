@@ -645,6 +645,12 @@ class CoreAudio {
     }
 
     this.currentTrackIndex = nextIndex;
+
+    // Perform periodic cleanup every 10 tracks to prevent memory accumulation
+    if (this.currentTrackIndex % 10 === 0) {
+      this.performPeriodicCleanup();
+    }
+
     this.playSong(this.playlist[nextIndex].path, false);
 
     // Update library track highlighting if we're in library view
@@ -1702,26 +1708,133 @@ class CoreAudio {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  // Cleanup method
+  // Enhanced cleanup method to prevent memory leaks and crashes
   cleanup() {
-    // console.log('🧹 Cleaning up CoreAudio...');
+    console.log('🧹 Enhanced cleanup starting...');
 
-    // Stop audio
-    if (this.audioPlayer) {
-      this.audioPlayer.pause();
-      this.audioPlayer.src = '';
+    try {
+      // Clear all timeouts to prevent orphaned operations
+      if (this.saveStateTimeout) {
+        clearTimeout(this.saveStateTimeout);
+        this.saveStateTimeout = null;
+      }
+
+      if (this.playTrackingTimeout) {
+        clearTimeout(this.playTrackingTimeout);
+        this.playTrackingTimeout = null;
+      }
+
+      // Stop and cleanup audio player properly
+      if (this.audioPlayer) {
+        // Remove all event listeners to prevent memory leaks
+        this.audioPlayer.removeEventListener('loadedmetadata', this.loadedMetadataHandler);
+        this.audioPlayer.removeEventListener('timeupdate', this.timeUpdateHandler);
+        this.audioPlayer.removeEventListener('ended', this.endedHandler);
+        this.audioPlayer.removeEventListener('play', this.playHandler);
+        this.audioPlayer.removeEventListener('pause', this.pauseHandler);
+        this.audioPlayer.removeEventListener('error', this.errorHandler);
+        this.audioPlayer.removeEventListener('canplay', this.canPlayHandler);
+
+        // Stop playback and clear source
+        this.audioPlayer.pause();
+        this.audioPlayer.src = '';
+        this.audioPlayer.load(); // Force reload to clear any cached data
+      }
+
+      // Cleanup visualizer completely
+      this.cleanupVisualizer();
+
+      // Clear all arrays and objects to free memory
+      this.playlist = [];
+      this.originalPlaylist = [];
+      this.currentTrack = null;
+      this.dataArray = null;
+
+      // Reset state variables
+      this.isPlaying = false;
+      this.currentTrackIndex = -1;
+      this.duration = 0;
+      this.currentTime = 0;
+
+      console.log('✅ Enhanced CoreAudio cleanup complete');
+    } catch (error) {
+      console.error('❌ Error during cleanup:', error);
     }
+  }
 
-    // Cleanup visualizer
-    if (this.visualizerAnimationId) {
-      cancelAnimationFrame(this.visualizerAnimationId);
+  // Separate visualizer cleanup method
+  cleanupVisualizer() {
+    try {
+      // Stop animation frame
+      if (this.visualizerAnimationId) {
+        cancelAnimationFrame(this.visualizerAnimationId);
+        this.visualizerAnimationId = null;
+      }
+
+      // Disconnect audio source if connected
+      if (this.audioSource) {
+        try {
+          this.audioSource.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        this.audioSource = null;
+      }
+
+      // Close audio context properly
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        try {
+          this.audioContext.close();
+        } catch (e) {
+          console.warn('⚠️ Error closing audio context:', e);
+        }
+        this.audioContext = null;
+      }
+
+      // Clear analyser
+      this.analyser = null;
+
+      console.log('🎨 Visualizer cleanup complete');
+    } catch (error) {
+      console.error('❌ Error during visualizer cleanup:', error);
     }
+  }
 
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close();
+  // Periodic memory cleanup method (call every few songs)
+  performPeriodicCleanup() {
+    try {
+      console.log('🧹 Performing periodic memory cleanup...');
+
+      // Force garbage collection if available (for development)
+      if (window.gc && typeof window.gc === 'function') {
+        window.gc();
+      }
+
+      // Clear any stale event listeners
+      this.cleanupStaleEventListeners();
+
+      // Restart audio context if it's in a bad state
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        console.log('🔄 Restarting suspended audio context...');
+        this.setupAudioContext();
+      }
+
+      console.log('✅ Periodic cleanup complete');
+    } catch (error) {
+      console.error('❌ Error during periodic cleanup:', error);
     }
+  }
 
-    // console.log('✅ CoreAudio cleanup complete');
+  // Clean up stale event listeners
+  cleanupStaleEventListeners() {
+    try {
+      // Re-setup audio events to ensure they're fresh
+      if (this.audioPlayer) {
+        this.setupAudioEvents();
+      }
+    } catch (error) {
+      console.error('❌ Error cleaning up event listeners:', error);
+    }
   }
 
   // ========================================
