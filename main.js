@@ -9,12 +9,21 @@ const mm = require('music-metadata'); // Works with both v7 and v8
 const MusicDatabase = require('./server/database');
 const MusicScanner = require('./server/music-scanner');
 
+// Initialize logger
+const SimpleLogger = require('./simple-logger');
+const logger = new SimpleLogger({
+  appName: 'QueMusicMain',
+  level: 'HIGH',
+  compactMode: false,
+  enableColors: true
+});
+
 // Simple settings management (JSON file)
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
 // Database initialization
 const dbPath = path.join(app.getPath('userData'), 'music-library.db');
-console.log('🗄️ Database path:', dbPath);
+logger.info('Database path initialized', { dbPath });
 
 let musicDB = null;
 let musicScanner = null;
@@ -30,11 +39,11 @@ let mainWindow;
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
-  console.log('🚫 Another instance of Que-Music is already running. Exiting...');
+  logger.warn('Another instance of Que-Music is already running. Exiting...');
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
-    console.log('🔄 Second instance attempted to start - focusing existing window');
+    logger.info('Second instance attempted to start - focusing existing window');
     // Someone tried to run a second instance, we should focus our window instead
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -131,12 +140,12 @@ async function createWindow() {
   
   // Handle ready-to-show to prevent flash
   mainWindow.once('ready-to-show', () => {
-    console.log('🎵 Window ready to show - basic DOM loaded');
+    logger.info('Window ready to show - basic DOM loaded');
     // Don't show yet - wait for renderer to signal it's fully loaded
   });
 
   await mainWindow.loadFile('./client/pages/index.html');
-  console.log('🎵 Que-Music window loaded HTML file');
+  logger.info('Que-Music window loaded HTML file');
 
   // Open DevTools in development
   const isDevelopment = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
@@ -149,22 +158,22 @@ async function createWindow() {
 app.whenReady().then(async () => {
   // Initialize database
   try {
-    console.log('🚀 Initializing music database and scanner...');
-    console.log('🗄️ Using database path:', dbPath);
+    logger.info('Initializing music database and scanner...');
+    logger.info('Using database path', { dbPath });
     musicDB = new MusicDatabase(dbPath);
-    console.log('✅ Database initialized successfully');
+    logger.info('Database initialized successfully');
     musicScanner = new MusicScanner(musicDB);
-    console.log('✅ Scanner initialized successfully');
-    console.log('🗄️ Music database ready');
+    logger.info('Scanner initialized successfully');
+    logger.info('Music database ready');
 
     // Validate database schema (tables are already initialized by the new consolidated schema)
     try {
       const schemaValidation = await musicDB.validateSchema();
       if (!schemaValidation.valid) {
-        console.warn('⚠️ Database schema validation warnings:', schemaValidation.missingTables);
+        logger.warn('Database schema validation warnings', { missingTables: schemaValidation.missingTables });
       }
     } catch (error) {
-      console.error('❌ Error validating database schema:', error);
+      logger.error('Error validating database schema', { error: error.message });
     }
 
     // Initialize playlist folder if music folder is already set
@@ -173,9 +182,9 @@ app.whenReady().then(async () => {
       await musicDB.setPlaylistFolder(savedMusicFolder);
     }
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
+    logger.error('Database initialization failed', { error: error.message });
   }
-  console.log('🎨 Album art system initialized');
+  logger.info('Album art system initialized');
 
   // Clean up expired cache entries on startup (after 5 seconds)
   setTimeout(() => {
@@ -190,7 +199,7 @@ app.whenReady().then(async () => {
     }
 
     if (removedEntries > 0) {
-      console.log(`🧹 Cleaned up ${removedEntries} expired cache entries`);
+      logger.info('Cleaned up expired cache entries', { removedEntries });
     }
   }, 5000);
 
@@ -201,7 +210,7 @@ app.whenReady().then(async () => {
 app.on('before-quit', () => {
   if (musicDB) {
     musicDB.close();
-    console.log('🗄️ Database closed');
+    logger.info('Database closed');
   }
 });
 
@@ -230,7 +239,7 @@ ipcMain.handle('app:get-version', () => {
 
 // Handle renderer fully loaded signal
 ipcMain.handle('app:renderer-ready', () => {
-  console.log('🎨 Renderer fully loaded - showing window');
+  logger.info('Renderer fully loaded - showing window');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
     mainWindow.focus();
@@ -275,7 +284,7 @@ ipcMain.handle('files:select-music-folder', async () => {
       lastScanned: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error selecting music folder:', error);
+    logger.error('Error selecting music folder', { error: error.message });
     throw error;
   }
 });
@@ -284,7 +293,7 @@ ipcMain.handle('files:get-folder-tree', async (event, folderPath) => {
   try {
     return await buildFolderTree(folderPath);
   } catch (error) {
-    console.error('Error building folder tree:', error);
+    logger.error('Error building folder tree', { error: error.message });
     throw error;
   }
 });
@@ -293,7 +302,7 @@ ipcMain.handle('files:get-songs-in-folder', async (event, folderPath) => {
   try {
     return await getSongsInFolder(folderPath);
   } catch (error) {
-    console.error('Error getting songs:', error);
+    logger.error('Error getting songs', { error: error.message });
     throw error;
   }
 });
@@ -331,7 +340,7 @@ ipcMain.handle('database:getTrackByPath', async (event, trackPath) => {
   try {
     return await musicDB.getTrackByPath(trackPath);
   } catch (error) {
-    console.error('❌ Error getting track by path:', error);
+    logger.error('Error getting track by path', { error: error.message });
     throw error;
   }
 });
@@ -375,7 +384,7 @@ ipcMain.handle('database:populateFromTracks', async () => {
   try {
     return await musicDB.populateArtistsAndAlbumsFromTracks();
   } catch (error) {
-    console.error('❌ Error populating artists/albums:', error);
+    logger.error('Error populating artists/albums', { error: error.message });
     throw error;
   }
 });
@@ -389,7 +398,7 @@ ipcMain.handle('database:updateDurations', async () => {
   try {
     return await musicDB.updateMissingDurations();
   } catch (error) {
-    console.error('❌ Error updating durations:', error);
+    logger.error('Error updating durations', { error: error.message });
     throw error;
   }
 });
@@ -1726,7 +1735,7 @@ async function buildFolderTree(rootPath, maxDepth = 8, currentDepth = 0) {
     // Sort folders alphabetically
     return folders.sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
-    console.error('Error building folder tree:', error);
+    logger.error('Error building folder tree', { error: error.message });
     return [];
   }
 }
@@ -2055,4 +2064,4 @@ async function extractEmbeddedArt(filePath) {
   }
 }
 
-console.log('🚀 Que-Music main process loaded');
+logger.info('Que-Music main process loaded');

@@ -59,9 +59,25 @@
 
 ### Advanced Settings
 
-- **Debug Logging**: Enable detailed logging for troubleshooting
+- **Logging Level**: Choose logging verbosity level
+  - **None**: No logging output
+  - **Low**: Errors only
+  - **Medium**: Errors and warnings
+  - **High**: All information, debug, errors (recommended)
+  - **Development**: Everything including development logs
+- **Debug Logging (deprecated)**: Legacy logging toggle
 - **Buffer Size**: Audio processing buffer size
 - **Performance Mode**: Optimize for speed vs features
+
+### Logging System
+
+The integrated logging system provides detailed application insights:
+
+- **Log Files**: Automatically created in `logs/` directory
+- **File Naming**: `QueMusicMain-YYYY-MM-DD.log` format
+- **Real-time Console**: Colored output during development
+- **Structured Data**: JSON formatting for complex information
+- **Persistent Storage**: Daily log rotation with automatic cleanup
 
 ## Settings Management
 

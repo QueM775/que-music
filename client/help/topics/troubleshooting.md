@@ -96,9 +96,24 @@
 
 ### Debug Information
 
-1. Enable debug logging in settings
-2. Check console output (Ctrl+Shift+I)
-3. Include error messages when reporting issues
+The integrated logging system provides comprehensive debugging capabilities:
+
+1. **Set Logging Level**: Go to Settings → Advanced → Logging Level → Development
+2. **View Console Output**: Press Ctrl+Shift+I (or Cmd+Option+I on Mac) to open DevTools
+3. **Check Log Files**: Look in the `logs/` directory for detailed file logs
+4. **Structured Data**: All logs include contextual information and error details
+
+**Useful Log Information**:
+- **Database operations**: Connection status, query performance, errors
+- **File loading**: Path resolution, permission issues, format problems
+- **Audio playback**: Source loading, codec issues, playback state changes
+- **Settings changes**: Configuration updates, validation errors
+- **Memory usage**: Performance monitoring and cleanup activities
+
+**Log File Locations**:
+- Main process: `logs/QueMusicMain-YYYY-MM-DD.log`
+- Daily rotation with automatic cleanup
+- Plain text format for easy analysis
 
 ### Reporting Bugs
 

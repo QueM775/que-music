@@ -1,10 +1,10 @@
 # 🎵 Que-Music
 
-**A Modern Desktop Music Player & Library Manager**  
-**Version**: 3.0.1  
-**Author**: Erich Quade  
-**License**: MIT  
-**Last Updated**: January 2025
+**A Modern Desktop Music Player & Library Manager**
+**Version**: 3.1.0
+**Author**: Erich Quade
+**License**: MIT
+**Last Updated**: September 2025
 
 Que-Music is an Electron-based desktop application that provides advanced music library management, intelligent search capabilities, playlist functionality, and a beautiful audio visualization experience.
 
@@ -47,12 +47,20 @@ Que-Music is an Electron-based desktop application that provides advanced music 
 ### Advanced Features
 
 - **Built-in Help System**: Comprehensive in-app documentation with F1 access
+- **Integrated Logging System**: 5-level logging with file output and user-configurable verbosity
 - **Unicode Support**: Full support for international characters in filenames
 - **Context Menus**: Right-click functionality throughout the interface
 - **Crossfade**: Smooth transitions between tracks
 - **Auto-scan**: Automatic detection of new music files
 - **Folder Watching**: Real-time updates when files change
 - **Export/Import**: M3U playlist compatibility
+
+### New in Version 3.1.0
+
+- **Advanced Logging**: Integrated logger with 5 configurable levels (NONE, LOW, MED, HIGH, DEV)
+- **File Logging**: Automatic daily log files in `logs/` directory with structured data
+- **Debug Tools**: Enhanced troubleshooting with colored console output and persistent logs
+- **Settings Integration**: Logger level configurable via Settings → Advanced → Logging level
 
 ---
 

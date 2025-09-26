@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2025-01-25",
+  "version": "1.1.0",
+  "lastUpdated": "2025-09-26",
   "helpTopics": [
     {
       "id": "getting-started",
@@ -54,7 +54,7 @@
       "id": "settings-themes",
       "title": "🎨 Settings & Themes",
       "icon": "🎨",
-      "description": "Customizing appearance and configuring settings",
+      "description": "Customizing appearance, logging settings, and configuration",
       "file": "topics/settings-themes.md",
       "order": 7
     },
@@ -78,7 +78,7 @@
       "id": "troubleshooting",
       "title": "🔧 Troubleshooting",
       "icon": "🔧",
-      "description": "Common issues and solutions",
+      "description": "Common issues, debugging with logger, and solutions",
       "file": "topics/troubleshooting.md",
       "order": 10
     }

@@ -839,7 +839,17 @@
                 </select>
               </div>
               <div class="setting-item">
-                <label for="enableLogging">Enable debug logging</label>
+                <label for="loggerLevel">Logging level</label>
+                <select id="loggerLevel" class="setting-select">
+                  <option value="NONE">None - No logging</option>
+                  <option value="LOW">Low - Errors only</option>
+                  <option value="MED">Medium - Errors and warnings</option>
+                  <option value="HIGH">High - All info, debug, errors</option>
+                  <option value="DEV">Development - Everything</option>
+                </select>
+              </div>
+              <div class="setting-item">
+                <label for="enableLogging">Enable debug logging (deprecated)</label>
                 <input type="checkbox" id="enableLogging" class="setting-checkbox" />
               </div>
             </div>
@@ -875,6 +885,7 @@
     </div>
 
     <!-- Load modules in the correct order (deferred to prevent flashing) -->
+    <script src="../../simple-logger.js" defer></script>
     <script src="../scripts/window-controls.js" defer></script>
     <script src="../scripts/core-audio.js" defer></script>
     <script src="../scripts/library-manager.js" defer></script>

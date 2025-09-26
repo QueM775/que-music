@@ -7,6 +7,7 @@ out/
 
 # Runtime files
 *.log
+logs/
 .DS_Store
 Thumbs.db
 

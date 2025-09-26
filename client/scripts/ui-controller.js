@@ -2890,7 +2890,7 @@ Path: ${track.path}`;
   // ========================================
 
   showSettingsModal() {
-    console.log('⚙️ Opening settings...');
+    this.app.logger.info('Opening settings...');
 
     // Load current settings
     this.loadSettingsIntoModal();
@@ -2923,7 +2923,7 @@ Path: ${track.path}`;
   // Replace the existing showSettingsModal and hideSettingsModal methods with these:
 
   showSettingsModal() {
-    console.log('⚙️ Opening settings...');
+    this.app.logger.info('Opening settings...');
 
     // Load current settings
     this.loadSettingsIntoModal();
@@ -3138,8 +3138,9 @@ Path: ${track.path}`;
       this.setSelectValue('crossfade', settings.crossfade || '0');
       this.setSelectValue('skipShortTracks', settings.skipShortTracks || '0');
       this.setSelectValue('bufferSize', settings.bufferSize || '4096');
+      this.setSelectValue('loggerLevel', settings.loggerLevel || 'HIGH');
     } catch (error) {
-      console.error('Error loading settings:', error);
+      this.app.logger.error('Error loading settings', { error: error.message });
     }
   }
 
@@ -3160,6 +3161,7 @@ Path: ${track.path}`;
         compactMode: document.getElementById('compactMode')?.checked || false,
         bufferSize: parseInt(document.getElementById('bufferSize')?.value || 4096),
         enableLogging: document.getElementById('enableLogging')?.checked || false,
+        loggerLevel: document.getElementById('loggerLevel')?.value || 'HIGH',
       };
 
       // Save settings
@@ -3171,7 +3173,7 @@ Path: ${track.path}`;
       this.app.showNotification('Settings saved successfully!', 'success');
       this.hideSettingsModal();
     } catch (error) {
-      console.error('Error saving settings:', error);
+      this.app.logger.error('Error saving settings', { error: error.message });
       this.app.showNotification('Failed to save settings', 'error');
     }
   }
@@ -3196,6 +3198,7 @@ Path: ${track.path}`;
           compactMode: false,
           bufferSize: 4096,
           enableLogging: false,
+          loggerLevel: 'HIGH',
         };
 
         await this.setSettings(defaultSettings);
@@ -3204,7 +3207,7 @@ Path: ${track.path}`;
 
         this.app.showNotification('Settings reset to defaults', 'success');
       } catch (error) {
-        console.error('Error resetting settings:', error);
+        this.app.logger.error('Error resetting settings', { error: error.message });
         this.app.showNotification('Failed to reset settings', 'error');
       }
     }
@@ -3244,7 +3247,12 @@ Path: ${track.path}`;
       document.body.classList.remove('compact-mode');
     }
 
-    console.log('⚙️ Settings applied:', settings);
+    // Apply logger level
+    if (settings.loggerLevel && this.app.logger) {
+      this.app.logger.setLevel(settings.loggerLevel);
+    }
+
+    this.app.logger.info('Settings applied', settings);
   }
 
   // Helper methods
@@ -3264,6 +3272,7 @@ Path: ${track.path}`;
     return {
       theme: this.currentTheme || 'dark',
       volume: this.app.coreAudio.volume || 0.5,
+      loggerLevel: this.app.logger?.getLevel() || 'HIGH',
     };
   }
 
@@ -3271,7 +3280,7 @@ Path: ${track.path}`;
     // You can implement this to save to your settings system
     // For now, just store in memory
     this.appSettings = settings;
-    console.log('💾 Settings saved:', settings);
+    this.app.logger.info('Settings saved', settings);
   }
 
   // When user switches different view windows

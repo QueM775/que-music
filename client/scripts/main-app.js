@@ -2,6 +2,15 @@
 
 class QueMusicApp {
   constructor() {
+    // Initialize logger first
+    this.logger = new SimpleLogger({
+      appName: 'QueMusicRenderer',
+      level: 'HIGH',
+      compactMode: true,
+      enableColors: true,
+      enableFileLogging: false // Browser environment
+    });
+
     // Basic state
     this.currentView = 'library';
 
@@ -128,7 +137,7 @@ class QueMusicApp {
     // Set up memory pressure monitoring
     this.setupMemoryMonitoring();
 
-    console.log('🛡️ Global error handlers and memory monitoring established');
+    this.logger.info('Global error handlers and memory monitoring established');
   }
 
   // Monitor memory usage and perform cleanup when needed
@@ -533,13 +542,13 @@ class QueMusicApp {
     if (this.playlistRenderer && this.playlistRenderer.playPlaylist) {
       return this.playlistRenderer.playPlaylist(startIndex);
     } else {
-      console.error('❌ PlaylistRenderer or playPlaylist method not available');
+      this.logger.error('PlaylistRenderer or playPlaylist method not available');
     }
   }
 
   shuffleAndPlay() {
     if (!this.coreAudio.playlist || this.coreAudio.playlist.length === 0) {
-      console.warn('⚠️ No tracks in playlist to shuffle');
+      this.logger.warn('No tracks in playlist to shuffle');
       return;
     }
 
@@ -722,10 +731,10 @@ class QueMusicApp {
       if (window.queMusicAPI?.app?.rendererReady) {
         await window.queMusicAPI.app.rendererReady();
       } else {
-        console.warn('⚠️ Renderer ready API not available');
+        this.logger.warn('Renderer ready API not available');
       }
     } catch (error) {
-      console.error('❌ Error signaling renderer ready:', error);
+      this.logger.error('Error signaling renderer ready', { error: error.message });
     }
   }
 
