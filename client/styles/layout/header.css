@@ -28,7 +28,32 @@
 .title-bar-controls {
   display: flex;
   align-items: center;
+  gap: 10px;
   -webkit-app-region: no-drag;
+}
+
+/* App version display in app-title area */
+.app-title .app-version {
+  position: static !important;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  user-select: none;
+  padding: 0 !important;
+  margin: 0 !important;
+  margin-right: 10px !important;
+  border: none !important;
+  background: transparent !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  -webkit-app-region: no-drag;
+}
+
+.app-title .app-version:hover {
+  opacity: 1;
 }
 
 .app-title {
@@ -68,6 +93,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  margin-right: 10px;
   -webkit-app-region: no-drag;
 }
 

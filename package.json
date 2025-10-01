@@ -1,7 +1,7 @@
 {
   "name": "que-music",
-  "version": "3.1.0",
-  "description": "Music player and library manager built with Electron",
+  "version": "3.1.6",
+  "description": "Music player and a Music library manager ",
   "main": "main.js",
   "author": "Que",
   "license": "MIT",

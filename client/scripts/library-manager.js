@@ -17,10 +17,10 @@ class LibraryManager {
     window.checkDuplicates = async () => {
       try {
         const duplicates = await window.queMusicAPI.database.checkDuplicates();
-        console.log('🔍 Duplicate check results:', duplicates);
+        this.app.logger.debug(' Duplicate check results:', duplicates);
         return duplicates;
       } catch (error) {
-        console.error('❌ Error checking duplicates:', error);
+        this.app.logger.error('❌ Error checking duplicates:', error);
         return [];
       }
     };
@@ -46,19 +46,19 @@ class LibraryManager {
   async selectMusicFolder() {
     // Prevent multiple simultaneous calls
     if (this.selectingFolder) {
-      console.log('📁 Folder selection already in progress, ignoring duplicate call');
+      this.app.logger.debug(' Folder selection already in progress, ignoring duplicate call');
       return;
     }
 
     try {
       this.selectingFolder = true;
-      console.log('📁 Opening folder selector...');
+      this.app.logger.debug(' Opening folder selector...');
       this.app.showNotification('Opening folder selector...', 'info');
 
       const folderData = await window.queMusicAPI.files.selectMusicFolder();
 
       if (folderData) {
-        console.log('📁 Folder selected:', folderData.path);
+        this.app.logger.debug(' Folder selected:', folderData.path);
         this.app.showNotification(
           `Selected: ${folderData.name} (${folderData.totalFiles} songs)`,
           'success'
@@ -68,12 +68,12 @@ class LibraryManager {
         this.hideWelcomeScreen();
 
         // Check if database is empty - if so, automatically scan
-        console.log('🔍 Checking database for existing tracks...');
+        this.app.logger.debug(' Checking database for existing tracks...');
         const existingTracks = await window.queMusicAPI.database.getAllTracks();
         console.log(`📊 Database check result: ${existingTracks.length} tracks found`);
 
         if (existingTracks.length === 0) {
-          console.log('🔍 Database is empty, starting initial library scan...');
+          this.app.logger.debug(' Database is empty, starting initial library scan...');
           this.app.showNotification('Setting up your music library for the first time...', 'info');
 
           // Automatically scan and populate database
@@ -86,7 +86,7 @@ class LibraryManager {
         this.app.showNotification('No folder selected', 'info');
       }
     } catch (error) {
-      console.error('❌ Folder selection failed:', error);
+      this.app.logger.error('❌ Folder selection failed:', error);
       this.app.showNotification('Failed to select folder', 'error');
     } finally {
       this.selectingFolder = false;
@@ -97,7 +97,7 @@ class LibraryManager {
     try {
       const savedFolder = await window.queMusicAPI.settings.getMusicFolder();
       if (savedFolder) {
-        console.log('📁 Found saved folder:', savedFolder);
+        this.app.logger.debug(' Found saved folder:', savedFolder);
         this.app.showNotification(`Loading: ${this.app.getBasename(savedFolder)}`, 'info');
 
         this.hideWelcomeScreen();
@@ -106,7 +106,7 @@ class LibraryManager {
         const existingTracks = await window.queMusicAPI.database.getAllTracks();
 
         if (existingTracks.length === 0) {
-          console.log('📁 Saved folder found but database is empty - may need to rescan');
+          this.app.logger.debug(' Saved folder found but database is empty - may need to rescan');
           // Load folder structure and let user know they might want to rescan
           await this.loadMusicLibraryStructure(savedFolder);
 
@@ -127,7 +127,7 @@ class LibraryManager {
       }
       return false;
     } catch (error) {
-      console.error('❌ Error checking saved folder:', error);
+      this.app.logger.error('❌ Error checking saved folder:', error);
       return false;
     }
   }
@@ -157,7 +157,7 @@ class LibraryManager {
 
       // Get folder structure
       const folderTree = await window.queMusicAPI.files.getFolderTree(folderPath);
-      console.log('📁 Folder tree loaded:', folderTree.length, 'folders');
+      this.app.logger.debug(' Folder tree loaded:', folderTree.length, 'folders');
       console.log(
         '🔍 DEBUG: First 5 folders:',
         folderTree.slice(0, 5).map((f) => f.name)
@@ -165,14 +165,14 @@ class LibraryManager {
 
       // Get all songs from database for folder counts
       const songs = await window.queMusicAPI.database.getAllTracks();
-      console.log('🎵 Songs loaded from database:', songs.length, 'tracks');
+      this.app.logger.debug(' Songs loaded from database:', songs.length, 'tracks');
 
       // Create folder browser but don't display songs initially - use dual-pane layout
       this.createEmptyFolderBrowser(folderTree, folderPath);
 
       this.app.showNotification('Music library loaded!', 'success');
     } catch (error) {
-      console.error('❌ Failed to load music library structure:', error);
+      this.app.logger.error('❌ Failed to load music library structure:', error);
       this.app.showNotification('Failed to load music library', 'error');
     }
   }
@@ -218,7 +218,7 @@ class LibraryManager {
         }
       }, 300);
 
-      console.log('✅ Library folder structure loaded in left pane');
+      this.app.logger.info(' Library folder structure loaded in left pane');
     }
 
     // Clear right pane and show instruction message
@@ -227,7 +227,7 @@ class LibraryManager {
 
   async loadMusicLibrary(folderPath) {
     try {
-      console.log('📚 Loading music library from:', folderPath);
+      this.app.logger.info(' Loading music library from:', folderPath);
 
       // Show loading message
       const musicContent = document.getElementById('musicContent');
@@ -242,25 +242,14 @@ class LibraryManager {
 
       // Get folder structure
       const folderTree = await window.queMusicAPI.files.getFolderTree(folderPath);
-      console.log('📁 Folder tree loaded:', folderTree.length, 'folders');
+      this.app.logger.debug(' Folder tree loaded:', folderTree.length, 'folders');
 
-      // Get all songs from database instead of just root folder
-      console.log('🔍 Loading all songs from database...');
-      const songs = await window.queMusicAPI.database.getAllTracks();
-      console.log('🎵 Songs loaded from database:', songs.length, 'tracks');
-
-      if (songs.length > 0) {
-        console.log('🎵 First few songs from database:', songs.slice(0, 3));
-      } else {
-        console.warn('⚠️ No songs found in database. Database may be empty or need rebuilding.');
-      }
-
-      // Create basic folder browser
-      this.createFolderBrowser(folderTree, songs, folderPath);
+      // Create basic folder browser with empty right pane initially
+      this.createFolderBrowser(folderTree, [], folderPath);
 
       this.app.showNotification('Music library loaded!', 'success');
     } catch (error) {
-      console.error('❌ Failed to load music library:', error);
+      this.app.logger.error('❌ Failed to load music library:', error);
       this.app.showNotification('Failed to load music library', 'error');
     }
   }
@@ -268,6 +257,19 @@ class LibraryManager {
   createFolderBrowser(folderTree, songs, currentPath) {
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
+
+    // Determine right pane content
+    let rightPaneContent;
+    if (songs.length === 0) {
+      rightPaneContent = `
+        <div class="empty-pane">
+          <div class="empty-pane-icon">📁</div>
+          <p>Select a folder from the left to view its tracks</p>
+        </div>
+      `;
+    } else {
+      rightPaneContent = this.renderSongList(songs);
+    }
 
     // Simple folder browser HTML
     const browserHTML = `
@@ -280,10 +282,10 @@ class LibraryManager {
         </div>
         <div class="song-list-panel">
           <div class="song-list-header">
-            <h3>${this.app.getBasename(currentPath)} (${songs.length} songs)</h3>
+            <h3>${songs.length > 0 ? this.app.getBasename(currentPath) : 'Select a Folder'} ${songs.length > 0 ? `(${songs.length} songs)` : ''}</h3>
           </div>
           <div class="song-list-content">
-            ${this.renderSongList(songs)}
+            ${rightPaneContent}
           </div>
         </div>
       </div>
@@ -294,8 +296,10 @@ class LibraryManager {
     // Setup folder click events
     this.setupFolderEvents();
 
-    // Setup initial song events with context menu support
-    this.setupInitialSongEvents();
+    // Setup initial song events with context menu support (only if songs exist)
+    if (songs.length > 0) {
+      this.setupInitialSongEvents();
+    }
   }
 
   setupInitialSongEvents() {
@@ -317,7 +321,7 @@ class LibraryManager {
       // NOTE: Context menu is handled by UIController's global delegation
     });
 
-    console.log('🖱️ Setup play events for initial song list (context menus via delegation)');
+    this.app.logger.debug(' Setup play events for initial song list (context menus via delegation)');
   }
 
   renderFolderTree(folders, level = 0) {
@@ -389,7 +393,7 @@ class LibraryManager {
         const node = item.closest('.tree-node');
         const folderPath = node.dataset.path;
 
-        console.log('🔵 Folder clicked:', folderPath);
+        this.app.logger.debug(' Folder clicked:', folderPath);
 
         // Remove previous selection
         document.querySelectorAll('.tree-item').forEach((i) => i.classList.remove('selected'));
@@ -397,12 +401,12 @@ class LibraryManager {
 
         // Toggle folder if it has children
         if (item.classList.contains('has-children')) {
-          console.log('🔵 Toggling folder with children');
+          this.app.logger.debug(' Toggling folder with children');
           this.toggleFolder(node);
         }
 
         // Load songs from selected folder
-        console.log('🔵 Loading songs from folder');
+        this.app.logger.debug(' Loading songs from folder');
         await this.loadSongsFromFolder(folderPath);
       });
     });
@@ -419,7 +423,7 @@ class LibraryManager {
       // NOTE: Context menu is handled by UIController's global delegation
     });
 
-    console.log('🖱️ Setup folder events (context menus via delegation)');
+    this.app.logger.debug(' Setup folder events (context menus via delegation)');
   }
 
   toggleFolder(node) {
@@ -490,7 +494,7 @@ class LibraryManager {
         }, 100);
       }
     } catch (error) {
-      console.error('❌ Failed to load songs:', error);
+      this.app.logger.error('❌ Failed to load songs:', error);
     }
   }
 
@@ -553,11 +557,11 @@ class LibraryManager {
       // NOTE: Context menu is handled by UIController's global delegation
     });
 
-    console.log('🖱️ Setup library song events (context menus via delegation)');
+    this.app.logger.debug(' Setup library song events (context menus via delegation)');
   }
 
   handlePlayAllClick(songs) {
-    console.log('🎵 Play All clicked with', songs.length, 'songs');
+    this.app.logger.debug(' Play All clicked with', songs.length, 'songs');
 
     if (songs.length === 0) {
       this.app.showNotification('No songs to play', 'warning');
@@ -568,14 +572,14 @@ class LibraryManager {
 
     // Check if path contains backslashes
     // if (firstSong.path) {
-    //   console.log('🔍 DEBUG: Contains backslashes:', firstSong.path.includes('\\'));
-    //   console.log('🔍 DEBUG: Contains forward slashes:', firstSong.path.includes('/'));
-    //   console.log('🔍 DEBUG: Raw path characters:', [...firstSong.path].slice(0, 20));
+    //   this.app.logger.debug(' DEBUG: Contains backslashes:', firstSong.path.includes('\\'));
+    //   this.app.logger.debug(' DEBUG: Contains forward slashes:', firstSong.path.includes('/'));
+    //   this.app.logger.debug(' DEBUG: Raw path characters:', [...firstSong.path].slice(0, 20));
     // }
 
     // Final validation check
     if (!firstSong.path || (!firstSong.path.includes('\\') && !firstSong.path.includes('/'))) {
-      console.error('❌ Invalid first song path:', firstSong.path);
+      this.app.logger.error('❌ Invalid first song path:', firstSong.path);
       this.app.showNotification('Invalid file path detected', 'error');
       return;
     }
@@ -591,7 +595,7 @@ class LibraryManager {
 
     this.app.coreAudio.currentTrackIndex = 0;
 
-    // console.log('🔍 DEBUG: About to call playSong with path:', firstSong.path);
+    // this.app.logger.debug(' DEBUG: About to call playSong with path:', firstSong.path);
     this.app.coreAudio.playSong(firstSong.path, false);
     this.app.showNotification(`Playing ${songs.length} tracks`, 'success');
 
@@ -627,14 +631,14 @@ class LibraryManager {
       'click',
       (event) => {
         if (event.target && event.target.dataset && event.target.dataset.action === 'play-all') {
-          console.log('🎵 Play All button clicked via delegation!');
+          this.app.logger.debug(' Play All button clicked via delegation!');
           event.preventDefault();
           event.stopPropagation();
 
           if (this.currentFolderSongs && this.currentFolderSongs.length > 0) {
             this.handlePlayAllClick(this.currentFolderSongs);
           } else {
-            console.warn('⚠️ No songs available for Play All');
+            this.app.logger.warn('⚠️ No songs available for Play All');
           }
         }
       },
@@ -672,7 +676,7 @@ class LibraryManager {
 
   async loadArtistsView() {
     try {
-      // console.log('📚 Loading artists view...');
+      // this.app.logger.info(' Loading artists view...');
       const artists = await window.queMusicAPI.database.getAllArtists();
 
       this.app.currentView = 'artists';
@@ -687,7 +691,7 @@ class LibraryManager {
 
       console.log(`📚 Loaded ${artists.length} artists`);
     } catch (error) {
-      console.error('Error loading artists view:', error);
+      this.app.logger.error('Error loading artists view:', error);
       this.app.showNotification('Failed to load artists', 'error');
     }
   }
@@ -709,7 +713,7 @@ class LibraryManager {
 
       console.log(`💿 Loaded ${albums.length} albums`);
     } catch (error) {
-      console.error('Error loading albums view:', error);
+      this.app.logger.error('Error loading albums view:', error);
       this.app.showNotification('Failed to load albums', 'error');
     }
   }
@@ -874,12 +878,12 @@ class LibraryManager {
 
   async showLibraryView() {
     try {
-      console.log('📚 showLibraryView called - SAFE VERSION');
+      this.app.logger.info(' showLibraryView called - SAFE VERSION');
 
       const savedFolder = await window.queMusicAPI.settings.getMusicFolder();
 
       if (savedFolder) {
-        console.log('📚 Loading library for:', savedFolder);
+        this.app.logger.info(' Loading library for:', savedFolder);
 
         // Get the dual pane elements
         const leftPaneContent = document.getElementById('leftPaneContent');
@@ -891,7 +895,7 @@ class LibraryManager {
 
         // Verify elements exist
         if (!leftPaneContent || !rightPaneContent) {
-          console.error('❌ Pane elements not found, cannot load library');
+          this.app.logger.error('❌ Pane elements not found, cannot load library');
           return;
         }
 
@@ -933,9 +937,9 @@ class LibraryManager {
             }
           }, 300);
 
-          console.log('✅ Library view loaded successfully');
+          this.app.logger.info(' Library view loaded successfully');
         } catch (error) {
-          console.error('❌ Error loading folder data:', error);
+          this.app.logger.error('❌ Error loading folder data:', error);
           leftPaneContent.innerHTML = `
           <div class="empty-pane">
             <div class="empty-pane-icon">❌</div>
@@ -946,17 +950,17 @@ class LibraryManager {
         `;
         }
       } else {
-        console.log('📚 No saved folder, showing empty state');
+        this.app.logger.info(' No saved folder, showing empty state');
         this.showEmptyLibraryState();
       }
     } catch (error) {
-      console.error('❌ Error in showLibraryView:', error);
+      this.app.logger.error('❌ Error in showLibraryView:', error);
       this.showEmptyLibraryState();
     }
   }
 
   async loadFolderBrowserInLeftPane(folderPath) {
-    console.log('📁 loadFolderBrowserInLeftPane FIXED - called with:', folderPath);
+    this.app.logger.debug(' loadFolderBrowserInLeftPane FIXED - called with:', folderPath);
 
     const leftPaneTitle = document.getElementById('leftPaneTitle');
     const leftPaneContent = document.getElementById('leftPaneContent');
@@ -964,7 +968,7 @@ class LibraryManager {
 
     // Verify elements exist
     if (!leftPaneContent) {
-      console.error('❌ leftPaneContent element not found!');
+      this.app.logger.error('❌ leftPaneContent element not found!');
       return;
     }
 
@@ -982,11 +986,11 @@ class LibraryManager {
 
       // Get folder structure
       const folderTree = await window.queMusicAPI.files.getFolderTree(folderPath);
-      console.log('📁 Folder tree received:', folderTree.length, 'folders');
+      this.app.logger.debug(' Folder tree received:', folderTree.length, 'folders');
 
       // Get all songs from database instead of just root folder
       const songs = await window.queMusicAPI.database.getAllTracks();
-      console.log('🎵 All songs loaded from database:', songs.length, 'tracks');
+      this.app.logger.debug(' All songs loaded from database:', songs.length, 'tracks');
 
       // Create folder browser HTML
       const folderHTML = this.createFolderBrowserForLeftPane(folderTree, folderPath);
@@ -994,7 +998,7 @@ class LibraryManager {
 
       // Update left pane content
       leftPaneContent.innerHTML = folderHTML;
-      console.log('✅ Left pane content updated');
+      this.app.logger.info(' Left pane content updated');
 
       // Setup event listeners
       this.setupLeftPaneFolderEvents();
@@ -1002,7 +1006,7 @@ class LibraryManager {
       // Show initial songs in right pane
       this.showSongsInRightPane(songs, folderPath);
     } catch (error) {
-      console.error('❌ Failed to load folder browser:', error);
+      this.app.logger.error('❌ Failed to load folder browser:', error);
       leftPaneContent.innerHTML = `
       <div class="empty-pane">
         <div class="empty-pane-icon">❌</div>
@@ -1132,7 +1136,7 @@ class LibraryManager {
   }
 
   setupLeftPaneFolderEvents() {
-    // console.log('🖱️ Setting up left pane folder events');
+    // this.app.logger.debug(' Setting up left pane folder events');
 
     document.querySelectorAll('.tree-item').forEach((item) => {
       item.addEventListener('click', async (e) => {
@@ -1142,7 +1146,7 @@ class LibraryManager {
         const folderPath = node.dataset.path;
         const isSystemFolder = node.dataset.isSystem === 'true';
 
-        console.log('🔵 Folder clicked:', folderPath);
+        this.app.logger.debug(' Folder clicked:', folderPath);
 
         // Prevent interaction with system folders
         if (isSystemFolder) {
@@ -1185,13 +1189,13 @@ class LibraryManager {
 
   // The Discover back button
   showDiscoverHome() {
-    console.log('🔍 Returning to Discover home...');
+    this.app.logger.debug(' Returning to Discover home...');
     this.app.uiController.switchView('discover');
   }
 
   async loadSongsFromFolderForRightPane(folderPath) {
     try {
-      // console.log('🔍 DEBUG loadSongsFromFolderForRightPane called with:', folderPath);
+      // this.app.logger.debug(' DEBUG loadSongsFromFolderForRightPane called with:', folderPath);
 
       // Get all tracks from database and filter by folder path
       const allTracks = await window.queMusicAPI.database.getAllTracks();
@@ -1215,11 +1219,11 @@ class LibraryManager {
       // console.log(
       //   `🔍 DEBUG Filtered to ${songs.length} songs in specific folder only: ${folderPath}`
       // );
-      // console.log('🔍 DEBUG Filtered songs (first 3):', songs.slice(0, 3));
+      // this.app.logger.debug(' DEBUG Filtered songs (first 3):', songs.slice(0, 3));
 
       this.showSongsInRightPane(songs, folderPath);
     } catch (error) {
-      console.error('❌ Failed to load songs for right pane:', error);
+      this.app.logger.error('❌ Failed to load songs for right pane:', error);
     }
   }
 
@@ -1392,12 +1396,12 @@ class LibraryManager {
     // });
 
     if (!songList) {
-      console.warn('Song list not found in library view');
+      this.app.logger.warn('Song list not found in library view');
       return;
     }
 
     if (!selectAllBtn) {
-      console.error('❌ Select All button not found! HTML might not be inserted yet.');
+      this.app.logger.error('❌ Select All button not found! HTML might not be inserted yet.');
       // Let's check what's actually in the right pane
       const rightPaneContent = document.getElementById('rightPaneContent');
       // console.log('Right pane content:', rightPaneContent?.innerHTML?.substring(0, 200));
@@ -1493,7 +1497,7 @@ class LibraryManager {
     const loadMoreContainer = songListContainer?.querySelector('.load-more-container');
 
     if (!songListContainer) {
-      console.error('Song list container not found');
+      this.app.logger.error('Song list container not found');
       return;
     }
 
@@ -1728,7 +1732,7 @@ class LibraryManager {
         );
       }, 0);
     } catch (error) {
-      console.error('Error showing library bulk menu:', error);
+      this.app.logger.error('Error showing library bulk menu:', error);
       this.app.showNotification('Failed to load playlists', 'error');
     }
   }
@@ -1776,7 +1780,7 @@ class LibraryManager {
       this.app.showNotification(message, 'success');
       // console.log(`Library bulk add complete: ${addedCount} added, ${skippedCount} skipped`);
     } catch (error) {
-      console.error('Error adding songs to playlist:', error);
+      this.app.logger.error('Error adding songs to playlist:', error);
       this.app.showNotification('Failed to add songs to playlist', 'error');
     }
   }
@@ -1784,24 +1788,21 @@ class LibraryManager {
   async createPlaylistWithSelectedSongs(selectedSongs) {
     if (!selectedSongs || selectedSongs.length === 0) return;
 
-    const playlistName = prompt(
-      `Create new playlist with ${selectedSongs.length} songs:\n\nPlaylist name:`
-    );
+    // Use the playlist modal system instead of prompt()
+    // Convert selected songs to track format expected by playlist renderer
+    const tracks = selectedSongs.map(song => ({
+      path: song.path,
+      title: song.title || song.name,
+      artist: song.artist,
+      album: song.album
+    }));
 
-    if (!playlistName || !playlistName.trim()) return;
-
-    try {
-      // Create new playlist
-      const newPlaylist = await window.queMusicAPI.playlists.create({
-        name: playlistName.trim(),
-        description: `Created with ${selectedSongs.length} selected songs from library`,
-      });
-
-      // Add all selected songs
-      await this.addSelectedSongsToPlaylist(selectedSongs, newPlaylist.id);
-    } catch (error) {
-      console.error('Error creating playlist with selected songs:', error);
-      this.app.showNotification('Failed to create playlist', 'error');
+    // Use the playlist renderer's modal system for creating with multiple tracks
+    if (this.app.playlistRenderer) {
+      this.app.playlistRenderer.showPlaylistModalWithTracks(tracks);
+    } else {
+      this.app.logger.error('PlaylistRenderer not available');
+      this.app.showNotification('Playlist system not available', 'error');
     }
   }
 
@@ -1892,7 +1893,7 @@ class LibraryManager {
 
       // Double click to play
       card.addEventListener('dblclick', () => {
-        // console.log('🎵 Double-click detected, playing:', songPath);
+        // this.app.logger.debug(' Double-click detected, playing:', songPath);
         this.app.coreAudio.playSong(songPath);
       });
 
@@ -1956,11 +1957,11 @@ class LibraryManager {
   setupRightPaneSongEvents() {
     const trackList = document.querySelector('.track-list-content-right');
     if (!trackList) {
-      console.warn('⚠️ Track list not found in right pane');
+      this.app.logger.warn('⚠️ Track list not found in right pane');
       return;
     }
 
-    // console.log('🖱️ Setting up right pane song events');
+    // this.app.logger.debug(' Setting up right pane song events');
 
     // Clear existing event listeners
     const newTrackList = trackList.cloneNode(true);
@@ -1974,7 +1975,7 @@ class LibraryManager {
       if (!trackCard) return;
 
       const songPath = trackCard.dataset.path;
-      console.log('🎵 Track clicked:', songPath);
+      this.app.logger.debug(' Track clicked:', songPath);
 
       if (event.target.closest('.track-play-btn-right')) {
         // Play button clicked
@@ -1985,7 +1986,7 @@ class LibraryManager {
         // console.log('⋮ More options clicked - context menu via delegation');
       } else {
         // Track clicked - play
-        // console.log('🎵 Track info clicked, playing');
+        // this.app.logger.debug(' Track info clicked, playing');
         this.app.coreAudio.playSong(songPath);
       }
     });
@@ -2002,7 +2003,7 @@ class LibraryManager {
 
     // NOTE: Right-click context menu is handled by UIController's global delegation
 
-    // console.log('✅ Right pane song events setup complete (context menus via delegation)');
+    // this.app.logger.info(' Right pane song events setup complete (context menus via delegation)');
   }
 
   extractSongDataFromRightPaneCard(card) {
@@ -2025,7 +2026,7 @@ class LibraryManager {
   }
 
   showEmptyLibraryState() {
-    // console.log('📚 showEmptyLibraryState FIXED - showing in dual panes');
+    // this.app.logger.info(' showEmptyLibraryState FIXED - showing in dual panes');
 
     const leftPaneTitle = document.getElementById('leftPaneTitle');
     const leftPaneContent = document.getElementById('leftPaneContent');
@@ -2059,7 +2060,7 @@ class LibraryManager {
     `;
     }
 
-    // console.log('✅ Empty library state set in both panes');
+    // this.app.logger.info(' Empty library state set in both panes');
   }
 
   // Helper method
@@ -2074,7 +2075,7 @@ class LibraryManager {
       const tracks = await window.queMusicAPI.database.getTracksByArtist(artist);
       this.displaySearchResults(tracks, `by ${artist}`);
     } catch (error) {
-      console.error('Error loading artist tracks:', error);
+      this.app.logger.error('Error loading artist tracks:', error);
       this.app.showNotification('Failed to load artist tracks', 'error');
     }
   }
@@ -2084,7 +2085,7 @@ class LibraryManager {
       const tracks = await window.queMusicAPI.database.getTracksByAlbum(album, artist);
       this.displaySearchResults(tracks, `${album} by ${artist}`);
     } catch (error) {
-      console.error('Error loading album tracks:', error);
+      this.app.logger.error('Error loading album tracks:', error);
       this.app.showNotification('Failed to load album tracks', 'error');
     }
   }
@@ -2097,7 +2098,7 @@ class LibraryManager {
         this.app.showNotification(`Playing ${artist} (${tracks.length} tracks)`, 'success');
       }
     } catch (error) {
-      console.error('Error playing artist:', error);
+      this.app.logger.error('Error playing artist:', error);
       this.app.showNotification('Failed to play artist', 'error');
     }
   }
@@ -2110,7 +2111,7 @@ class LibraryManager {
         this.app.showNotification(`Playing ${album} (${tracks.length} tracks)`, 'success');
       }
     } catch (error) {
-      console.error('Error playing album:', error);
+      this.app.logger.error('Error playing album:', error);
       this.app.showNotification('Failed to play album', 'error');
     }
   }
@@ -2120,8 +2121,8 @@ class LibraryManager {
   // ========================================
 
   async initializeSearch() {
-    // console.log('🔍 Initializing search functionality...');
-    // console.log('🔍 Document ready state:', document.readyState);
+    // this.app.logger.debug(' Initializing search functionality...');
+    // this.app.logger.debug(' Document ready state:', document.readyState);
 
     // Wait a bit to ensure DOM is fully loaded
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -2131,11 +2132,11 @@ class LibraryManager {
       await new Promise((resolve) => {
         document.addEventListener('DOMContentLoaded', resolve);
       });
-      // console.log('🔍 DOM content loaded, continuing search initialization');
+      // this.app.logger.debug(' DOM content loaded, continuing search initialization');
     }
 
     const searchBtn = document.getElementById('searchBtn');
-    // console.log('🔍 Search button found:', !!searchBtn);
+    // this.app.logger.debug(' Search button found:', !!searchBtn);
 
     if (searchBtn) {
       // Remove any existing listeners using AbortController
@@ -2158,9 +2159,9 @@ class LibraryManager {
         { signal: controller.signal }
       );
 
-      // console.log('✅ Search button listener added');
+      // this.app.logger.info(' Search button listener added');
     } else {
-      console.warn('⚠️ Search button not found during initialization');
+      this.app.logger.warn('⚠️ Search button not found during initialization');
     }
 
     // Ensure search input exists but don't show it yet
@@ -2168,19 +2169,19 @@ class LibraryManager {
   }
 
   ensureSearchInput() {
-    // console.log('🔍 ensureSearchInput() called');
+    // this.app.logger.debug(' ensureSearchInput() called');
     let searchContainer = document.getElementById('searchContainer');
-    // console.log('🔍 Existing search container found:', !!searchContainer);
+    // this.app.logger.debug(' Existing search container found:', !!searchContainer);
 
     if (!searchContainer) {
-      // console.log('🔍 Creating search input container in ensureSearchInput()...');
+      // this.app.logger.debug(' Creating search input container in ensureSearchInput()...');
       searchContainer = this.createSearchInput();
 
       // Add to header
       const headerActions = document.querySelector('.header-actions');
       const searchBtn = document.getElementById('searchBtn');
 
-      // console.log('🔍 ensureSearchInput - DOM elements:', {
+      // this.app.logger.debug(' ensureSearchInput - DOM elements:', {
       //   headerActions: !!headerActions,
       //   searchBtn: !!searchBtn,
       //   searchContainer: !!searchContainer,
@@ -2189,12 +2190,12 @@ class LibraryManager {
 
       if (headerActions && searchBtn && searchContainer) {
         headerActions.insertBefore(searchContainer, searchBtn);
-        // console.log('✅ Search container added to header in ensureSearchInput()');
+        // this.app.logger.info(' Search container added to header in ensureSearchInput()');
       } else {
-        console.warn('⚠️ Could not add search container in ensureSearchInput() - DOM not ready?');
+        this.app.logger.warn('⚠️ Could not add search container in ensureSearchInput() - DOM not ready?');
       }
     } else {
-      console.log('🔍 Search container already exists, skipping creation');
+      this.app.logger.debug(' Search container already exists, skipping creation');
     }
 
     return searchContainer;
@@ -2225,11 +2226,11 @@ class LibraryManager {
   `;
 
     // FIXED: Setup events immediately after DOM creation
-    // console.log('🔍 About to call setupSearchInputEventsFixed...');
+    // this.app.logger.debug(' About to call setupSearchInputEventsFixed...');
     this.setupSearchInputEventsFixed(searchContainer);
-    // console.log('🔍 setupSearchInputEventsFixed completed');
+    // this.app.logger.debug(' setupSearchInputEventsFixed completed');
 
-    // console.log('✅ Search input created with events');
+    // this.app.logger.info(' Search input created with events');
     return searchContainer;
   }
 
@@ -2238,19 +2239,19 @@ class LibraryManager {
     const searchInput = container.querySelector('#searchInput');
     const clearBtn = container.querySelector('#clearSearchBtn');
 
-    // console.log('🔍 Setting up search input events...');
-    // console.log('🔍 Search input found:', !!searchInput);
-    // console.log('🔍 Clear button found:', !!clearBtn);
+    // this.app.logger.debug(' Setting up search input events...');
+    // this.app.logger.debug(' Search input found:', !!searchInput);
+    // this.app.logger.debug(' Clear button found:', !!clearBtn);
 
     if (!searchInput || !clearBtn) {
-      console.error('❌ Search input elements not found');
+      this.app.logger.error('❌ Search input elements not found');
       return;
     }
 
     // Simple input event handler (proven to work)
     searchInput.addEventListener('input', (e) => {
       const query = e.target.value.trim();
-      // console.log('🔍 Search input event:', query);
+      // this.app.logger.debug(' Search input event:', query);
 
       if (query.length >= 2) {
         // Simple debouncing
@@ -2281,7 +2282,7 @@ class LibraryManager {
     clearBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // console.log('🔍 Clear button clicked - clearing input only');
+      // this.app.logger.debug(' Clear button clicked - clearing input only');
       searchInput.value = '';
       searchInput.focus();
       // Don't clear results - just clear the input text
@@ -2289,16 +2290,16 @@ class LibraryManager {
 
     // Focus/blur tracking
     searchInput.addEventListener('focus', () => {
-      // console.log('🔍 Search input focused');
+      // this.app.logger.debug(' Search input focused');
       searchInput.parentElement.classList.add('focused');
     });
 
     searchInput.addEventListener('blur', () => {
-      // console.log('🔍 Search input blurred');
+      // this.app.logger.debug(' Search input blurred');
       searchInput.parentElement.classList.remove('focused');
     });
 
-    console.log('✅ Search input events setup');
+    this.app.logger.info(' Search input events setup');
   }
 
   setupSearchInputEvents(container) {
@@ -2306,7 +2307,7 @@ class LibraryManager {
     const clearBtn = container.querySelector('#clearSearchBtn');
 
     if (searchInput) {
-      console.log('🔍 Setting up search input events...');
+      this.app.logger.debug(' Setting up search input events...');
 
       // FIXED: Remove any existing listeners by cloning
       const newSearchInput = searchInput.cloneNode(true);
@@ -2314,13 +2315,13 @@ class LibraryManager {
 
       // Input events
       newSearchInput.addEventListener('input', (e) => {
-        // console.log('🔍 Search input:', e.target.value);
+        // this.app.logger.debug(' Search input:', e.target.value);
         this.handleSearchInput(e.target.value);
       });
 
       // Keydown events
       newSearchInput.addEventListener('keydown', (e) => {
-        // console.log('🔍 Key pressed:', e.key);
+        // this.app.logger.debug(' Key pressed:', e.key);
         if (e.key === 'Escape') {
           this.closeSearch();
         } else if (e.key === 'Enter') {
@@ -2332,14 +2333,14 @@ class LibraryManager {
 
       // Focus events for debugging
       newSearchInput.addEventListener('focus', () => {
-        // console.log('🔍 Search input focused');
+        // this.app.logger.debug(' Search input focused');
       });
 
       newSearchInput.addEventListener('blur', () => {
-        // console.log('🔍 Search input blurred');
+        // this.app.logger.debug(' Search input blurred');
       });
 
-      console.log('✅ Search input events added');
+      this.app.logger.info(' Search input events added');
     }
 
     if (clearBtn) {
@@ -2350,7 +2351,7 @@ class LibraryManager {
       newClearBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔍 Clear button clicked');
+        this.app.logger.debug(' Clear button clicked');
 
         const input = container.querySelector('#searchInput');
         if (input) {
@@ -2360,12 +2361,12 @@ class LibraryManager {
         this.clearSearchResults();
       });
 
-      // console.log('✅ Clear button events added');
+      // this.app.logger.info(' Clear button events added');
     }
   }
 
   toggleSearch() {
-    // console.log('🔍 toggleSearch called');
+    // this.app.logger.debug(' toggleSearch called');
 
     // Check if we currently have search results displayed
     const hasSearchResults =
@@ -2374,12 +2375,12 @@ class LibraryManager {
       this.currentSearchResults.length > 0;
 
     let searchContainer = document.getElementById('searchContainer');
-    // console.log('🔍 Search container exists:', !!searchContainer);
-    // console.log('🔍 Has search results:', hasSearchResults);
+    // this.app.logger.debug(' Search container exists:', !!searchContainer);
+    // this.app.logger.debug(' Has search results:', hasSearchResults);
 
     // If we have search results showing, clear them and return to library
     if (hasSearchResults) {
-      // console.log('🔍 Clearing search results and returning to library');
+      // this.app.logger.debug(' Clearing search results and returning to library');
       this.clearSearchResults();
       this.app.uiController.switchView('library');
       return;
@@ -2387,13 +2388,13 @@ class LibraryManager {
 
     // Create search container if it doesn't exist
     if (!searchContainer) {
-      // console.log('🔍 Creating new search container...');
+      // this.app.logger.debug(' Creating new search container...');
       searchContainer = this.createSearchInput();
       const headerActions = document.querySelector('.header-actions');
       const searchBtn = document.getElementById('searchBtn');
 
-      console.log('🔍 Header actions found:', !!headerActions);
-      console.log('🔍 Search button found:', !!searchBtn);
+      this.app.logger.debug(' Header actions found:', !!headerActions);
+      this.app.logger.debug(' Search button found:', !!searchBtn);
 
       if (headerActions && searchBtn) {
         headerActions.insertBefore(searchContainer, searchBtn);
@@ -2403,7 +2404,7 @@ class LibraryManager {
     const searchInput = searchContainer.querySelector('#searchInput');
 
     if (!searchContainer || !searchInput) {
-      console.error('❌ Search elements not found');
+      this.app.logger.error('❌ Search elements not found');
       return;
     }
 
@@ -2411,7 +2412,7 @@ class LibraryManager {
     const isVisible = searchContainer.classList.contains('visible');
 
     if (!isVisible) {
-      // console.log('🔍 Showing search container');
+      // this.app.logger.debug(' Showing search container');
 
       // Show the container
       searchContainer.classList.add('visible');
@@ -2424,16 +2425,16 @@ class LibraryManager {
       setTimeout(() => {
         searchInput.focus();
         searchInput.setSelectionRange(0, 0);
-        // console.log('🔍 Search input focused');
+        // this.app.logger.debug(' Search input focused');
       }, 50);
     } else {
-      // console.log('🔍 Hiding search container');
+      // this.app.logger.debug(' Hiding search container');
       this.closeSearch();
     }
   }
 
   closeSearch() {
-    // console.log('🔍 closeSearch called');
+    // this.app.logger.debug(' closeSearch called');
 
     const searchContainer = document.getElementById('searchContainer');
     const searchInput = document.getElementById('searchInput');
@@ -2457,33 +2458,33 @@ class LibraryManager {
 
     // DON'T clear search results - keep them visible for user interaction
     // this.clearSearchResults(); // REMOVED - results should persist
-    // console.log('✅ Search input closed (results kept visible)');
+    // this.app.logger.info(' Search input closed (results kept visible)');
   }
 
   async handleSearchInput(query) {
-    // console.log('🔍 handleSearchInput called with:', query);
+    // this.app.logger.debug(' handleSearchInput called with:', query);
 
     if (!query || query.trim().length < 2) {
-      // console.log('🔍 Query too short, clearing results');
+      // this.app.logger.debug(' Query too short, clearing results');
       this.clearSearchResults();
       return;
     }
 
     const trimmedQuery = query.trim();
-    // console.log('🔍 Searching for:', trimmedQuery);
+    // this.app.logger.debug(' Searching for:', trimmedQuery);
 
     try {
       // Show loading state
       this.showSearchLoading();
 
-      // console.log('🔍 Calling API search...');
+      // this.app.logger.debug(' Calling API search...');
 
       // First, check if we have any tracks in the library at all
       try {
         const allTracks = await window.queMusicAPI.database.getAllTracks();
         // console.log(`🔍 Total tracks in library: ${allTracks ? allTracks.length : 0}`);
       } catch (dbError) {
-        console.error('❌ Error getting all tracks:', dbError);
+        this.app.logger.error('❌ Error getting all tracks:', dbError);
       }
 
       const results = await window.queMusicAPI.database.searchTracks(trimmedQuery);
@@ -2493,11 +2494,11 @@ class LibraryManager {
       if (results.length > 0) {
         this.displaySearchResults(results, trimmedQuery);
       } else {
-        console.log('🔍 No results found, showing empty state');
+        this.app.logger.debug(' No results found, showing empty state');
         this.displayNoResults(trimmedQuery);
       }
     } catch (error) {
-      console.error('❌ Search error:', error);
+      this.app.logger.error('❌ Search error:', error);
       this.app.showNotification('Search failed: ' + error.message, 'error');
     }
   }
@@ -2639,7 +2640,7 @@ class LibraryManager {
       }
     }
 
-    console.error('❌ No content element found at all!');
+    this.app.logger.error('❌ No content element found at all!');
     return null;
   }
 
@@ -2757,7 +2758,7 @@ class LibraryManager {
       });
     }
 
-    // console.log('🖱️ Setup search result events (context menus via delegation)');
+    // this.app.logger.debug(' Setup search result events (context menus via delegation)');
   }
 
   // Extract track data from search result cards
@@ -2813,7 +2814,7 @@ class LibraryManager {
   }
 
   clearSearchResults() {
-    // console.log('🔍 clearSearchResults called');
+    // this.app.logger.debug(' clearSearchResults called');
 
     // Remove loading state
     const searchContainer = document.getElementById('searchContainer');
@@ -2822,7 +2823,7 @@ class LibraryManager {
     }
 
     if (this.app.currentView === 'search') {
-      // console.log('🔍 Returning to library view from search');
+      // this.app.logger.debug(' Returning to library view from search');
       // Return to library view
       this.app.uiController.switchView('library');
     }
@@ -2838,7 +2839,7 @@ class LibraryManager {
       const genres = await window.queMusicAPI.database.getGenreStats();
       return genres.filter((genre) => genre.genre && genre.genre.trim() !== '');
     } catch (error) {
-      console.error('Error loading genres:', error);
+      this.app.logger.error('Error loading genres:', error);
       return [];
     }
   }
@@ -2850,7 +2851,7 @@ class LibraryManager {
         (year) => year.year && year.year > 1900 && year.year <= new Date().getFullYear()
       );
     } catch (error) {
-      console.error('Error loading years:', error);
+      this.app.logger.error('Error loading years:', error);
       return [];
     }
   }
@@ -2879,7 +2880,7 @@ class LibraryManager {
         case 'genre':
           // console.log(`🎵 Filtering by genre: ${filterValue}`);
           const allTracks = await window.queMusicAPI.database.getAllTracks();
-          // console.log('🔍 DEBUG: Raw database tracks count:', allTracks.length);
+          // this.app.logger.debug(' DEBUG: Raw database tracks count:', allTracks.length);
 
           // First, let's check if allTracks itself has duplicates
           const allPaths = allTracks.map((t) => t.path);
@@ -2897,7 +2898,7 @@ class LibraryManager {
             const duplicatePaths = Object.entries(pathCounts).filter(([path, count]) => count > 1);
             console.log('🚨 Duplicate paths found:', duplicatePaths.slice(0, 5));
           } else {
-            console.log('✅ No duplicates found in getAllTracks()');
+            this.app.logger.info(' No duplicates found in getAllTracks()');
           }
 
           // Use filename-based deduplication since you have duplicate files in Albums vs Genre folders
@@ -2934,10 +2935,10 @@ class LibraryManager {
 
           tracks = uniqueTracks;
 
-          // console.log('🔍 DEBUG: Total tracks:', allTracks.length);
-          // console.log('🔍 DEBUG: Matching tracks:', tracks.length);
-          // console.log('🔍 DEBUG: Seen filenames count:', seenFilenames.size);
-          // console.log('🔍 DEBUG: Final tracks array length:', tracks.length);
+          // this.app.logger.debug(' DEBUG: Total tracks:', allTracks.length);
+          // this.app.logger.debug(' DEBUG: Matching tracks:', tracks.length);
+          // this.app.logger.debug(' DEBUG: Seen filenames count:', seenFilenames.size);
+          // this.app.logger.debug(' DEBUG: Final tracks array length:', tracks.length);
 
           headerText = `Genre: ${filterValue}`;
           break;
@@ -3035,7 +3036,7 @@ class LibraryManager {
         `${tracks.length} tracks`
       );
     } catch (error) {
-      console.error('❌ Error applying filter:', error);
+      this.app.logger.error('❌ Error applying filter:', error);
     }
   }
 
@@ -3055,9 +3056,9 @@ class LibraryManager {
       mainContent.innerHTML = this.renderAdvancedFilters(genres, years, stats);
       this.setupAdvancedFiltersEvents();
 
-      // console.log('✅ Advanced filters loaded in main content (fallback)');
+      // this.app.logger.info(' Advanced filters loaded in main content (fallback)');
     } catch (error) {
-      console.error('❌ Error in fallback method:', error);
+      this.app.logger.error('❌ Error in fallback method:', error);
       mainContent.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">⚠️</div>
@@ -3069,17 +3070,17 @@ class LibraryManager {
   }
 
   async showAdvancedFilters() {
-    console.log('🔍 Loading advanced filters...');
+    this.app.logger.debug(' Loading advanced filters...');
 
     // FIXED: Use single pane content instead of mainContent
     const singlePaneContent = document.getElementById('singlePaneContent');
     if (!singlePaneContent) {
-      console.error('❌ Single pane content not found - trying mainContent fallback');
+      this.app.logger.error('❌ Single pane content not found - trying mainContent fallback');
 
       // Fallback to mainContent if single pane not available
       const mainContent = document.getElementById('mainContent');
       if (!mainContent) {
-        console.error('❌ No content container found');
+        this.app.logger.error('❌ No content container found');
         return;
       }
 
@@ -3102,9 +3103,9 @@ class LibraryManager {
       singlePaneContent.innerHTML = this.renderAdvancedFiltersForSinglePane(genres, years, stats);
       this.setupAdvancedFiltersEvents();
 
-      // console.log('✅ Advanced filters loaded in single pane');
+      // this.app.logger.info(' Advanced filters loaded in single pane');
     } catch (error) {
-      console.error('❌ Error showing advanced filters:', error);
+      this.app.logger.error('❌ Error showing advanced filters:', error);
       singlePaneContent.innerHTML = `
       <div class="error-state">
         <div class="error-icon">⚠️</div>
@@ -3378,7 +3379,7 @@ class LibraryManager {
       this.displaySearchResults(filtered, `${decade}s Music`);
       // console.log(`🔍 Decade filter: ${decade}s, found ${filtered.length} tracks`);
     } catch (error) {
-      console.error('Error applying decade filter:', error);
+      this.app.logger.error('Error applying decade filter:', error);
       this.app.showNotification('Decade filter failed', 'error');
     }
   }
@@ -3417,7 +3418,7 @@ class LibraryManager {
       // Display the database manager interface
       this.displayDatabaseManager(stats, genres, years, playlists, musicFolder, playlistFolder);
     } catch (error) {
-      console.error('❌ Error opening database manager:', error);
+      this.app.logger.error('❌ Error opening database manager:', error);
       this.app.showNotification('Failed to load database manager', 'error');
     }
   }
@@ -3729,7 +3730,7 @@ class LibraryManager {
 
   async performInitialLibraryScan(folderPath) {
     try {
-      // console.log('🎵 Performing initial library scan for:', folderPath);
+      // this.app.logger.debug(' Performing initial library scan for:', folderPath);
 
       // Show progress modal for initial scan
       this.showScanProgressModal();
@@ -3746,7 +3747,7 @@ class LibraryManager {
 
       try {
         // Call scanner with progress tracking
-        // console.log('🔍 Calling scanner API for folder:', folderPath);
+        // this.app.logger.debug(' Calling scanner API for folder:', folderPath);
         const trackCount = await window.queMusicAPI.scanner.scanLibrary(folderPath);
 
         // console.log(`✅ Initial scan complete! Found ${trackCount} tracks`);
@@ -3758,8 +3759,8 @@ class LibraryManager {
         // Now load the library normally
         await this.loadMusicLibrary(folderPath);
       } catch (scanError) {
-        console.error('❌ Initial scan error:', scanError);
-        console.error('❌ Scan error details:', scanError.stack || scanError);
+        this.app.logger.error('❌ Initial scan error:', scanError);
+        this.app.logger.error('❌ Scan error details:', scanError.stack || scanError);
         this.hideScanProgressModal();
         this.app.showNotification('Failed to scan music library: ' + scanError.message, 'error');
 
@@ -3767,7 +3768,7 @@ class LibraryManager {
         await this.loadMusicLibraryStructure(folderPath);
       }
     } catch (error) {
-      console.error('❌ Error in initial library scan:', error);
+      this.app.logger.error('❌ Error in initial library scan:', error);
       this.app.showNotification('Library setup failed. Please try again.', 'error');
       this.hideScanProgressModal();
 
@@ -3775,7 +3776,7 @@ class LibraryManager {
       try {
         await this.loadMusicLibraryStructure(folderPath);
       } catch (fallbackError) {
-        console.error('❌ Fallback loading also failed:', fallbackError);
+        this.app.logger.error('❌ Fallback loading also failed:', fallbackError);
       }
     }
   }
@@ -3875,7 +3876,7 @@ class LibraryManager {
   }
 
   updateScanProgress(progress) {
-    console.log('📊 Scan progress update:', progress);
+    this.app.logger.debug(' Scan progress update:', progress);
     const progressFill = document.getElementById('scanProgressFill');
     const progressText = document.getElementById('scanProgressText');
     const progressStats = document.getElementById('scanProgressStats');
@@ -3966,13 +3967,13 @@ class LibraryManager {
             this.openDatabaseManager();
           }, 1000);
         } catch (scanError) {
-          console.error('❌ Scan error:', scanError);
+          this.app.logger.error('❌ Scan error:', scanError);
           this.hideScanProgressModal();
           this.app.showNotification('Rescan failed: ' + scanError.message, 'error');
         }
       }
     } catch (error) {
-      console.error('❌ Error rescanning library:', error);
+      this.app.logger.error('❌ Error rescanning library:', error);
       this.app.showNotification('Rescan failed. Please try again.', 'error');
       this.hideScanProgressModal();
     }
@@ -3998,7 +3999,7 @@ class LibraryManager {
             result.summary ||
             `Cleanup complete! Fixed ${result.pathsCorrected} paths, removed ${result.recordsRemoved.tracks} orphaned tracks.`;
           this.app.showNotification(message, 'success');
-          console.log('✅ Database cleanup completed:', result);
+          this.app.logger.info(' Database cleanup completed:', result);
 
           // If paths were corrected, suggest refreshing the view
           if (result.pathsCorrected > 0) {
@@ -4013,7 +4014,7 @@ class LibraryManager {
           this.app.showNotification('Database cleanup failed. Check console for details.', 'error');
         }
       } catch (error) {
-        console.error('❌ Database cleanup failed:', error);
+        this.app.logger.error('❌ Database cleanup failed:', error);
         this.app.showNotification('Database cleanup failed: ' + error.message, 'error');
       }
     }
@@ -4022,7 +4023,7 @@ class LibraryManager {
   async findMissingFiles() {
     try {
       this.app.showNotification('Validating file paths...', 'info');
-      // console.log('🔍 Starting file path validation...');
+      // this.app.logger.debug(' Starting file path validation...');
 
       // Use the real path validation
       const result = await window.queMusicAPI.database.validatePaths();
@@ -4053,7 +4054,7 @@ class LibraryManager {
         }, 1000);
       }
     } catch (error) {
-      console.error('❌ File validation failed:', error);
+      this.app.logger.error('❌ File validation failed:', error);
       this.app.showNotification('File validation failed: ' + error.message, 'error');
     }
   }
@@ -4077,7 +4078,7 @@ class LibraryManager {
         this.app.showNotification('Playlist folder not configured', 'warning');
       }
     } catch (error) {
-      console.error('❌ Error opening playlist folder:', error);
+      this.app.logger.error('❌ Error opening playlist folder:', error);
       this.app.showNotification('Failed to open playlist folder', 'error');
     }
   }
@@ -4095,7 +4096,7 @@ class LibraryManager {
       // ✅ SIMPLE: Just call the database method directly
       const result = await window.queMusicAPI.database.populateFromTracks();
 
-      // console.log('📊 Normalization result:', result);
+      // this.app.logger.debug(' Normalization result:', result);
 
       this.app.showNotification(
         `Database normalized! Added ${result.artists} artists and ${result.albums} albums.`,
@@ -4106,7 +4107,7 @@ class LibraryManager {
         this.openDatabaseManager();
       }, 1500);
     } catch (error) {
-      console.error('❌ Error normalizing database:', error);
+      this.app.logger.error('❌ Error normalizing database:', error);
       this.app.showNotification('Database normalization failed. Please try again.', 'error');
     }
   }
@@ -4169,14 +4170,14 @@ class LibraryManager {
       document.querySelector('.song-list');
 
     if (!songContainer) {
-      console.warn('❌ No song container found');
+      this.app.logger.warn('❌ No song container found');
       return;
     }
 
     const songCards = Array.from(songContainer.querySelectorAll('.song-card'));
 
     if (songCards.length === 0) {
-      console.warn('❌ No song cards found');
+      this.app.logger.warn('❌ No song cards found');
       return;
     }
 
@@ -4233,7 +4234,7 @@ class LibraryManager {
       })
     );
 
-    // console.log('🔍 Sorting data by:', sortBy);
+    // this.app.logger.debug(' Sorting data by:', sortBy);
     this.sortDataArray(sortedData, sortBy);
 
     // console.log(
@@ -4262,7 +4263,7 @@ class LibraryManager {
 
     const libraryGrid = document.querySelector('.library-grid');
     if (!libraryGrid) {
-      console.warn('❌ No library grid found for artists view');
+      this.app.logger.warn('❌ No library grid found for artists view');
       return;
     }
 
@@ -4271,7 +4272,7 @@ class LibraryManager {
     // console.log(`🔍 Found ${artistCards.length} artist cards`);
 
     if (artistCards.length === 0) {
-      console.warn('❌ No artist cards found');
+      this.app.logger.warn('❌ No artist cards found');
       return;
     }
 
@@ -4317,7 +4318,7 @@ class LibraryManager {
           const countDiff = b.trackCount - a.trackCount; // Most tracks first
           return countDiff !== 0 ? countDiff : a.artist.localeCompare(b.artist);
         });
-        // console.log('📊 Sorted by track count (most tracks first)');
+        // this.app.logger.debug(' Sorted by track count (most tracks first)');
         break;
 
       case 'album':

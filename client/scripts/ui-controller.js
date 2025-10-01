@@ -5,6 +5,7 @@ class UIController {
     this.app = app;
     this.currentTheme = 'dark';
     this.currentContextTrack = null;
+    this.selectedTracks = []; // Track multiple selected tracks for batch operations
     this.albumArtCache = new Map();
     this.contextMenuInitialized = false;
 
@@ -144,7 +145,7 @@ class UIController {
       
       // If click was outside all context menus, close them
       if (!clickedInContextMenu && !clickedInSubmenu && !clickedInCustomMenu) {
-        console.log('🖱️ Closing context menu - outside click detected');
+        this.app.logger.debug(' Closing context menu - outside click detected');
         this.hideAllContextMenus();
         // Also remove custom playlist menu if it exists
         if (customPlaylistMenu && customPlaylistMenu.parentNode) {
@@ -488,7 +489,7 @@ class UIController {
   // ========================================
 
   async showLibraryView() {
-    console.log('📚 Loading library view...');
+    this.app.logger.info(' Loading library view...');
 
     const leftPaneTitle = document.getElementById('leftPaneTitle');
     const leftPaneActions = document.getElementById('leftPaneActions');
@@ -505,7 +506,7 @@ class UIController {
       // Use the existing library manager method
       await this.app.libraryManager.showLibraryView();
     } catch (error) {
-      console.error('❌ Error loading library view:', error);
+      this.app.logger.error('❌ Error loading library view:', error);
       this.showErrorInLeftPane('Failed to load music library');
     }
   }
@@ -546,7 +547,7 @@ class UIController {
       try {
         await this.loadPlaylistBrowser(leftPaneContent);
       } catch (error) {
-        console.error('❌ Error loading playlists:', error);
+        this.app.logger.error('❌ Error loading playlists:', error);
         this.showErrorInLeftPane('Failed to load playlists');
       }
     }
@@ -633,12 +634,12 @@ class UIController {
           const playlist = playlists.find((p) => p.id == playlistId);
 
           if (!playlist) {
-            console.error('❌ Playlist not found for ID:', playlistId);
+            this.app.logger.error('❌ Playlist not found for ID:', playlistId);
             return;
           }
 
           if (!this.app.playlistRenderer.showPlaylistContextMenu) {
-            console.error('❌ showPlaylistContextMenu method not found!');
+            this.app.logger.error('❌ showPlaylistContextMenu method not found!');
             return;
           }
 
@@ -650,12 +651,12 @@ class UIController {
               this.refreshContextMenuSystem();
             }, 100);
           } catch (error) {
-            console.error('❌ Error showing context menu:', error);
+            this.app.logger.error('❌ Error showing context menu:', error);
           }
         });
       });
     } catch (error) {
-      console.error('❌ Error loading playlist browser:', error);
+      this.app.logger.error('❌ Error loading playlist browser:', error);
       container.innerHTML = `
       <div class="empty-pane">
         <div class="empty-pane-icon">❌</div>
@@ -785,11 +786,11 @@ class UIController {
           console.log('🔧 About to setup playlist context menus');
           this.setupPlaylistTrackContextMenus();
           
-          console.log('✅ Playlist tracks loaded with context menu support');
+          this.app.logger.info(' Playlist tracks loaded with context menu support');
         }
       }
     } catch (error) {
-      console.error('Error loading playlist in right pane:', error);
+      this.app.logger.error('Error loading playlist in right pane:', error);
       if (rightPaneContent) {
         rightPaneContent.innerHTML = `
         <div class="empty-pane">
@@ -811,7 +812,7 @@ class UIController {
     trackCards.forEach((card) => {
       // Add right-click event listener with higher priority
       card.addEventListener('contextmenu', (e) => {
-        console.log('🖱️ Playlist-specific context menu triggered');
+        this.app.logger.debug(' Playlist-specific context menu triggered');
         e.preventDefault();
         e.stopPropagation();
         
@@ -931,7 +932,7 @@ class UIController {
       try {
         await this.loadFavoritesList(leftPaneContent);
       } catch (error) {
-        console.error('❌ Error loading favorites:', error);
+        this.app.logger.error('❌ Error loading favorites:', error);
         this.showErrorInLeftPane('Failed to load favorites');
       }
     }
@@ -960,11 +961,11 @@ class UIController {
 
         // FIXED: Ensure favorites is always an array
         if (!Array.isArray(favorites)) {
-          console.warn('⚠️ Favorites API returned non-array:', favorites);
+          this.app.logger.warn('⚠️ Favorites API returned non-array:', favorites);
           favorites = [];
         }
       } catch (apiError) {
-        console.error('❌ Favorites API call failed:', apiError);
+        this.app.logger.error('❌ Favorites API call failed:', apiError);
         favorites = [];
       }
 
@@ -1036,7 +1037,7 @@ class UIController {
       // Add event listeners
       this.setupFavoritesEventListeners(container, favorites);
     } catch (error) {
-      console.error('❌ Error loading favorites list:', error);
+      this.app.logger.error('❌ Error loading favorites list:', error);
       container.innerHTML = `
       <div class="empty-pane">
         <div class="empty-pane-icon">❌</div>
@@ -1231,7 +1232,7 @@ class UIController {
         this.app.showNotification(`Removed "${track.title}" from favorites`, 'success');
         console.log(`💔 Removed from favorites: ${track.title}`);
       } catch (error) {
-        console.error('❌ Error removing favorite:', error);
+        this.app.logger.error('❌ Error removing favorite:', error);
         this.app.showNotification('Failed to remove from favorites', 'error');
       }
     }
@@ -1255,7 +1256,7 @@ class UIController {
         this.app.showNotification('Removed from favorites', 'success');
       }
     } catch (error) {
-      console.error('❌ Error removing favorite from right pane:', error);
+      this.app.logger.error('❌ Error removing favorite from right pane:', error);
       this.app.showNotification('Failed to remove from favorites', 'error');
     }
   }
@@ -1277,7 +1278,7 @@ class UIController {
       this.app.showNotification(`Playing ${favorites.length} favorite tracks`, 'success');
       console.log(`⭐ Playing all ${favorites.length} favorites`);
     } catch (error) {
-      console.error('❌ Error playing all favorites:', error);
+      this.app.logger.error('❌ Error playing all favorites:', error);
       this.app.showNotification('Failed to play favorites', 'error');
     }
   }
@@ -1298,7 +1299,7 @@ class UIController {
         this.app.showNotification(`Cleared ${result.cleared} favorites`, 'success');
         console.log(`🧹 Cleared all favorites: ${result.cleared} tracks`);
       } catch (error) {
-        console.error('❌ Error clearing favorites:', error);
+        this.app.logger.error('❌ Error clearing favorites:', error);
         this.app.showNotification('Failed to clear favorites', 'error');
       }
     }
@@ -1319,7 +1320,7 @@ class UIController {
         // Reload with new sort
         await this.loadFavoritesList(container);
       } catch (error) {
-        console.error('❌ Error reloading favorites:', error);
+        this.app.logger.error('❌ Error reloading favorites:', error);
       }
     }
   }
@@ -1377,7 +1378,7 @@ class UIController {
       try {
         await this.loadRecentlyPlayedList(leftPaneContent);
       } catch (error) {
-        console.error('❌ Error loading recently played:', error);
+        this.app.logger.error('❌ Error loading recently played:', error);
         this.showErrorInLeftPane('Failed to load recently played tracks');
       }
     }
@@ -1404,13 +1405,13 @@ class UIController {
 
         // FIXED: Better validation of API response
         if (recentTracks === undefined || recentTracks === null || !Array.isArray(recentTracks)) {
-          console.warn('⚠️ Invalid recentTracks response, using empty array');
+          this.app.logger.warn('⚠️ Invalid recentTracks response, using empty array');
           console.log('🕒 Raw API response:', recentTracks);
           console.log('🕒 Response type:', typeof recentTracks);
           recentTracks = [];
         }
       } catch (apiError) {
-        console.error('❌ API call failed:', apiError);
+        this.app.logger.error('❌ API call failed:', apiError);
         recentTracks = [];
       }
 
@@ -1473,7 +1474,7 @@ class UIController {
       // Add event listeners
       this.setupRecentlyPlayedEventListeners(container, recentTracks);
     } catch (error) {
-      console.error('❌ Error loading recently played list:', error);
+      this.app.logger.error('❌ Error loading recently played list:', error);
       container.innerHTML = `
       <div class="empty-pane">
         <div class="empty-pane-icon">❌</div>
@@ -1649,7 +1650,7 @@ class UIController {
       // Play the track
       await this.app.coreAudio.playSong(track.path, false); // false to not rebuild playlist
     } catch (error) {
-      console.error('❌ Error playing recent track:', error);
+      this.app.logger.error('❌ Error playing recent track:', error);
       this.app.showNotification(`Failed to play: ${track.title}`, 'error');
     }
   }
@@ -1701,7 +1702,7 @@ class UIController {
       this.app.showNotification(`Playing ${recentTracks.length} recent tracks`, 'success');
       console.log(`🕒 Playing ${recentTracks.length} recent tracks from index ${startIndex}`);
     } catch (error) {
-      console.error('❌ Error playing recent tracks:', error);
+      this.app.logger.error('❌ Error playing recent tracks:', error);
       this.app.showNotification('Failed to play recent tracks', 'error');
     }
   }
@@ -1719,7 +1720,7 @@ class UIController {
         this.app.showNotification(`Cleared ${result.cleared} recently played tracks`, 'success');
         console.log(`🧹 Cleared recently played history: ${result.cleared} tracks`);
       } catch (error) {
-        console.error('❌ Error clearing recently played:', error);
+        this.app.logger.error('❌ Error clearing recently played:', error);
         this.app.showNotification('Failed to clear history', 'error');
       }
     }
@@ -1743,7 +1744,7 @@ class UIController {
         this.app.updateFavoriteButton(result.added || !result.removed);
       }
     } catch (error) {
-      console.error('❌ Error toggling favorite from recent:', error);
+      this.app.logger.error('❌ Error toggling favorite from recent:', error);
       this.app.showNotification('Failed to update favorites', 'error');
     }
   }
@@ -1773,7 +1774,7 @@ class UIController {
       `;
       }
     } catch (error) {
-      console.error('❌ Error toggling favorite from right pane:', error);
+      this.app.logger.error('❌ Error toggling favorite from right pane:', error);
       this.app.showNotification('Failed to update favorites', 'error');
     }
   }
@@ -1783,7 +1784,7 @@ class UIController {
       const isFavorite = await window.queMusicAPI.favorites.isFavorite(trackPath);
       this.updateRecentFavoriteButtonState(buttonElement, isFavorite);
     } catch (error) {
-      console.error('❌ Error checking favorite status:', error);
+      this.app.logger.error('❌ Error checking favorite status:', error);
     }
   }
 
@@ -1919,7 +1920,7 @@ class UIController {
         });
       });
     } catch (error) {
-      console.error('❌ Error loading artists:', error);
+      this.app.logger.error('❌ Error loading artists:', error);
       this.showErrorInLeftPane('Failed to load artists');
     }
   }
@@ -1984,7 +1985,7 @@ class UIController {
         });
       });
     } catch (error) {
-      console.error('❌ Error loading albums:', error);
+      this.app.logger.error('❌ Error loading albums:', error);
       this.showErrorInLeftPane('Failed to load albums');
     }
   }
@@ -2004,7 +2005,7 @@ class UIController {
       const tracks = await window.queMusicAPI.database.getTracksByArtist(artist);
       this.displayTracksInRightPane(tracks, `🎤 ${artist}`, `${tracks.length} tracks`);
     } catch (error) {
-      console.error('❌ Error loading artist tracks:', error);
+      this.app.logger.error('❌ Error loading artist tracks:', error);
     }
   }
 
@@ -2027,7 +2028,7 @@ class UIController {
         `by ${artist} • ${tracks.length} tracks`
       );
     } catch (error) {
-      console.error('❌ Error loading album tracks:', error);
+      this.app.logger.error('❌ Error loading album tracks:', error);
     }
   }
 
@@ -2117,7 +2118,7 @@ class UIController {
 
     // Validate first track path
     if (!firstTrack.path || (!firstTrack.path.includes('\\') && !firstTrack.path.includes('/'))) {
-      console.error('Invalid first track path:', firstTrack.path);
+      this.app.logger.error('Invalid first track path:', firstTrack.path);
       this.app.showNotification('Invalid file path detected', 'error');
       return;
     }
@@ -2151,7 +2152,7 @@ class UIController {
         // Call your existing advanced filters method
         await this.app.libraryManager.showAdvancedFilters();
       } catch (error) {
-        console.error('❌ Error loading discover view:', error);
+        this.app.logger.error('❌ Error loading discover view:', error);
         singlePaneContent.innerHTML = `
           <div class="error-state">
             <div class="error-icon">⚠️</div>
@@ -2233,7 +2234,7 @@ class UIController {
       this.ensureContextMenuSystem();
       this.setupGlobalEventDelegation(); // NEW: Global event delegation
     } catch (error) {
-      console.error('❌ Error initializing context menus:', error);
+      this.app.logger.error('❌ Error initializing context menus:', error);
       // Retry after a delay
       setTimeout(() => {
         this.initializeContextMenus();
@@ -2410,7 +2411,7 @@ class UIController {
     const songPath = card.dataset.path || card.dataset.trackPath;
 
     if (!songPath) {
-      console.warn('No song path found in card data', card);
+      this.app.logger.warn('No song path found in card data', card);
       return null;
     }
 
@@ -2524,9 +2525,9 @@ class UIController {
             if (trackPath) {
               // Use the audio engine's addToQueue method
               this.app.coreAudio.addToQueue(trackPath);
-              console.log('🎵 Added track to queue via context menu:', trackPath);
+              this.app.logger.debug(' Added track to queue via context menu:', trackPath);
             } else {
-              console.error('❌ No track path found for context menu item');
+              this.app.logger.error('❌ No track path found for context menu item');
               this.app.showNotification('Unable to add track to queue', 'error');
             }
             this.hideAllContextMenus();
@@ -2566,9 +2567,13 @@ class UIController {
       if (createNewPlaylistContext) {
         createNewPlaylistContext.addEventListener('click', () => {
           this.hideAllContextMenus();
-          if (this.app.playlistRenderer && this.currentContextTrack) {
-            // Pass the current track to create playlist with it included
-            this.app.playlistRenderer.showPlaylistModalWithTrack(this.currentContextTrack);
+          if (this.app.playlistRenderer && this.selectedTracks.length > 0) {
+            // Pass all selected tracks to create playlist with them included
+            if (this.selectedTracks.length === 1) {
+              this.app.playlistRenderer.showPlaylistModalWithTrack(this.selectedTracks[0]);
+            } else {
+              this.app.playlistRenderer.showPlaylistModalWithTracks(this.selectedTracks);
+            }
           } else if (this.app.playlistRenderer) {
             this.app.playlistRenderer.showPlaylistModal();
           }
@@ -2583,15 +2588,40 @@ class UIController {
     event.stopPropagation();
 
     this.currentContextTrack = track;
+
+    // Check if the clicked track is already selected
+    const clickedCard = event.target.closest('.song-card, .search-result-card, .track-item, .favorite-item-card, .recent-item-card, .track-card-right');
+    const isClickedTrackSelected = clickedCard?.classList.contains('selected');
+
+    // If right-clicking on an unselected track, collect all selected tracks
+    if (!isClickedTrackSelected) {
+      // Clear previous selection and select only this track
+      this.selectedTracks = [track];
+    } else {
+      // Collect all currently selected tracks
+      const selectedCards = document.querySelectorAll('.song-card.selected, .search-result-card.selected, .track-item.selected, .favorite-item-card.selected, .recent-item-card.selected, .track-card-right.selected');
+      this.selectedTracks = Array.from(selectedCards).map(card => this.extractSongDataFromAnyCard(card));
+
+      // If no tracks selected, use the clicked track
+      if (this.selectedTracks.length === 0) {
+        this.selectedTracks = [track];
+      }
+    }
+
+    console.log(`🎵 Context menu for ${this.selectedTracks.length} track(s)`);
+
     const contextMenu = document.getElementById('songContextMenu');
 
     if (!contextMenu) {
-      console.error('Context menu not found');
+      this.app.logger.error('Context menu not found');
       return;
     }
 
     // Check if we're currently viewing a playlist and update menu accordingly
     this.updateContextMenuForCurrentView();
+
+    // Update menu text for multiple selections
+    this.updateContextMenuForMultiSelect();
 
     // Position the context menu
     this.positionContextMenu(contextMenu, event.clientX, event.clientY);
@@ -2599,6 +2629,53 @@ class UIController {
     // Show the menu
     contextMenu.style.display = 'block';
 
+  }
+
+  // Update context menu text for multiple track selections
+  updateContextMenuForMultiSelect() {
+    const contextMenu = document.getElementById('songContextMenu');
+    if (!contextMenu) return;
+
+    const trackCount = this.selectedTracks.length;
+
+    // Update "Add to Playlist" text
+    const addToPlaylistContext = document.getElementById('addToPlaylistContext');
+    if (addToPlaylistContext && trackCount > 1) {
+      const textSpan = addToPlaylistContext.querySelector('span:not(.context-icon):not(.context-arrow)');
+      if (textSpan) {
+        textSpan.textContent = `Add ${trackCount} Tracks to Playlist`;
+      }
+    } else if (addToPlaylistContext) {
+      const textSpan = addToPlaylistContext.querySelector('span:not(.context-icon):not(.context-arrow)');
+      if (textSpan) {
+        textSpan.textContent = 'Add to Playlist';
+      }
+    }
+
+    // Update submenu header
+    const playlistSubmenu = document.getElementById('playlistSubmenu');
+    if (playlistSubmenu) {
+      const submenuHeader = playlistSubmenu.querySelector('.submenu-header span');
+      if (submenuHeader && trackCount > 1) {
+        submenuHeader.textContent = `Add ${trackCount} Tracks to Playlist`;
+      } else if (submenuHeader) {
+        submenuHeader.textContent = 'Add to Playlist';
+      }
+    }
+
+    // Update "Create New Playlist" text in submenu
+    const createNewPlaylistContext = document.getElementById('createNewPlaylistContext');
+    if (createNewPlaylistContext && trackCount > 1) {
+      const textSpan = createNewPlaylistContext.querySelector('span:not(.context-icon)');
+      if (textSpan) {
+        textSpan.textContent = `Create Playlist with ${trackCount} Tracks`;
+      }
+    } else if (createNewPlaylistContext) {
+      const textSpan = createNewPlaylistContext.querySelector('span:not(.context-icon)');
+      if (textSpan) {
+        textSpan.textContent = 'Create New Playlist';
+      }
+    }
   }
 
   // Update context menu based on current view (playlist vs library)
@@ -2651,7 +2728,7 @@ class UIController {
     console.log('🗑️ Current playlist data:', this.app.playlistRenderer?.currentPlaylistData);
     
     if (!this.currentContextTrack || !this.app.playlistRenderer || !this.app.playlistRenderer.currentPlaylistData) {
-      console.error('❌ Cannot remove track: missing context track or playlist data');
+      this.app.logger.error('❌ Cannot remove track: missing context track or playlist data');
       return;
     }
 
@@ -2666,7 +2743,7 @@ class UIController {
       ];
       
       let trackElement = null;
-      console.log('🔍 Looking for track with path:', this.currentContextTrack.path);
+      this.app.logger.debug(' Looking for track with path:', this.currentContextTrack.path);
 
       for (const selector of trackSelectors) {
         const elements = document.querySelectorAll(selector);
@@ -2676,7 +2753,7 @@ class UIController {
           const elementPath = element.dataset.path || element.dataset.trackPath;
           if (elementPath === this.currentContextTrack.path) {
             trackElement = element;
-            console.log('✅ Found matching track element:', element);
+            this.app.logger.info(' Found matching track element:', element);
             
             // Extract the track ID from the DOM element if available
             if (element.dataset.trackId) {
@@ -2693,11 +2770,11 @@ class UIController {
       if (trackElement) {
         await this.app.playlistRenderer.removeTrackFromCurrentPlaylist(this.currentContextTrack, trackElement);
       } else {
-        console.error('❌ Could not find track element in DOM');
+        this.app.logger.error('❌ Could not find track element in DOM');
         this.app.showNotification('Failed to remove track from playlist', 'error');
       }
     } catch (error) {
-      console.error('❌ Error removing track from playlist via context menu:', error);
+      this.app.logger.error('❌ Error removing track from playlist via context menu:', error);
       this.app.showNotification('Failed to remove track from playlist', 'error');
     }
 
@@ -2711,7 +2788,7 @@ class UIController {
     const submenuContent = document.getElementById('playlistSubmenuContent');
 
     if (!submenu || !submenuContent) {
-      console.error('❌ Playlist submenu elements not found');
+      this.app.logger.error('❌ Playlist submenu elements not found');
       this.ensureContextMenuSystem(); // Try to recreate
       return;
     }
@@ -2771,54 +2848,97 @@ class UIController {
         submenu.style.display = 'block';
       }
     } catch (error) {
-      console.error('❌ Error loading playlists for submenu:', error);
+      this.app.logger.error('❌ Error loading playlists for submenu:', error);
       submenuContent.innerHTML =
         '<div class="context-item disabled"><span class="context-icon">❌</span><span>Error loading playlists</span></div>';
       submenu.style.display = 'block';
     }
   }
 
-  // Add track to playlist from context menu
+  // Add track(s) to playlist from context menu
   async addTrackToPlaylistFromContext(playlistId) {
-    if (!this.currentContextTrack || !playlistId) {
-      console.error('❌ Missing track or playlist ID');
+    const tracksToAdd = this.selectedTracks.length > 0 ? this.selectedTracks : [this.currentContextTrack];
+
+    if (!tracksToAdd[0] || !playlistId) {
+      this.app.logger.error('❌ Missing track or playlist ID');
       return;
     }
 
     try {
-      console.log(`📋 Adding track "${this.currentContextTrack.title}" to playlist ${playlistId}`);
-
-      // Search for the track in the database to get its ID
-      const searchQuery = this.currentContextTrack.title || this.currentContextTrack.name || '';
-      const searchResults = await window.queMusicAPI.database.searchTracks(searchQuery);
-
-      // Find the exact track by path
-      const dbTrack = searchResults.find((track) => track.path === this.currentContextTrack.path);
-
-      if (!dbTrack) {
-        console.error('❌ Track not found in database:', this.currentContextTrack.path);
-        this.app.showNotification('Track not found in database', 'error');
-        this.hideAllContextMenus();
-        return;
-      }
-
       // Get playlist name for notification
       const playlist = await window.queMusicAPI.playlists.getById(playlistId);
 
-      // Add track to playlist
-      await window.queMusicAPI.playlists.addTrack(playlistId, dbTrack.id);
+      if (tracksToAdd.length === 1) {
+        // Single track - use original logic
+        console.log(`📋 Adding track "${tracksToAdd[0].title}" to playlist ${playlistId}`);
 
-      this.app.showNotification(
-        `Added "${this.currentContextTrack.title}" to "${playlist.name}"`,
-        'success'
-      );
+        // Get track from database
+        const dbTrack = await window.queMusicAPI.database.getTrackByPath(tracksToAdd[0].path);
+
+        if (!dbTrack) {
+          this.app.logger.error('❌ Track not found in database:', tracksToAdd[0].path);
+          this.app.showNotification('Track not found in database', 'error');
+          this.hideAllContextMenus();
+          return;
+        }
+
+        // Add track to playlist
+        await window.queMusicAPI.playlists.addTrack(playlistId, dbTrack.id);
+
+        this.app.showNotification(
+          `Added "${tracksToAdd[0].title}" to "${playlist.name}"`,
+          'success'
+        );
+      } else {
+        // Multiple tracks
+        console.log(`📋 Adding ${tracksToAdd.length} tracks to playlist ${playlistId}`);
+
+        let successCount = 0;
+        let failCount = 0;
+        let duplicateCount = 0;
+
+        for (const track of tracksToAdd) {
+          try {
+            const dbTrack = await window.queMusicAPI.database.getTrackByPath(track.path);
+
+            if (dbTrack && dbTrack.id) {
+              await window.queMusicAPI.playlists.addTrack(playlistId, dbTrack.id);
+              successCount++;
+            } else {
+              this.app.logger.warn('⚠️ Track not found in database:', track.path);
+              failCount++;
+            }
+          } catch (error) {
+            if (error.message && error.message.includes('already in this playlist')) {
+              duplicateCount++;
+            } else {
+              this.app.logger.error('❌ Error adding track:', error);
+              failCount++;
+            }
+          }
+        }
+
+        // Show summary notification
+        const messages = [];
+        if (successCount > 0) {
+          messages.push(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to "${playlist.name}"`);
+        }
+        if (duplicateCount > 0) {
+          messages.push(`${duplicateCount} already in playlist`);
+        }
+        if (failCount > 0) {
+          messages.push(`${failCount} failed`);
+        }
+
+        this.app.showNotification(messages.join(', '), successCount > 0 ? 'success' : 'warning');
+      }
     } catch (error) {
-      console.error('❌ Error adding track to playlist:', error);
+      this.app.logger.error('❌ Error adding track(s) to playlist:', error);
 
       if (error.message && error.message.includes('already in this playlist')) {
         this.app.showNotification('Track is already in this playlist', 'warning');
       } else {
-        this.app.showNotification('Failed to add track to playlist', 'error');
+        this.app.showNotification('Failed to add track(s) to playlist', 'error');
       }
     }
 
@@ -2915,7 +3035,7 @@ Path: ${track.path}`;
       // Add escape key listener
       this.addModalEscapeListener();
     } else {
-      console.error('❌ Settings modal element not found');
+      this.app.logger.error('❌ Settings modal element not found');
     }
   }
 
@@ -2948,7 +3068,7 @@ Path: ${track.path}`;
       // Add escape key listener
       this.addModalEscapeListener();
     } else {
-      console.error('❌ Settings modal element not found');
+      this.app.logger.error('❌ Settings modal element not found');
     }
   }
 
@@ -3285,7 +3405,7 @@ Path: ${track.path}`;
 
   // When user switches different view windows
   async switchToNowPlaying() {
-    console.log('🎵 Loading Now Playing view...');
+    this.app.logger.debug(' Loading Now Playing view...');
 
     const currentTrackPath = this.app.coreAudio?.currentTrack || this.app.currentTrack?.path;
     const playlist = this.app.playlist || [];
@@ -3311,7 +3431,7 @@ Path: ${track.path}`;
           currentTrackData = { ...currentTrackData, ...fullTrackData };
         }
       } catch (error) {
-        console.warn('⚠️ Could not fetch full track data:', error);
+        this.app.logger.warn('⚠️ Could not fetch full track data:', error);
       }
     }
 
@@ -3503,8 +3623,41 @@ Path: ${track.path}`;
 
         // Add click handlers
         rightPaneContent.querySelectorAll('.song-card').forEach((item, index) => {
-          item.addEventListener('click', () => {
+          item.addEventListener('click', (e) => {
             const track = playlist[index];
+
+            // Handle multi-selection with Ctrl/Cmd key
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              item.classList.toggle('selected');
+              console.log(`🎵 Multi-select toggled for "${track.name}"`);
+              return;
+            }
+
+            // Handle range selection with Shift key
+            if (e.shiftKey) {
+              e.preventDefault();
+              const allCards = Array.from(rightPaneContent.querySelectorAll('.song-card'));
+              const lastSelectedIndex = allCards.findIndex(card => card.classList.contains('selected'));
+
+              if (lastSelectedIndex !== -1) {
+                const start = Math.min(lastSelectedIndex, index);
+                const end = Math.max(lastSelectedIndex, index);
+
+                // Clear previous selection
+                allCards.forEach(card => card.classList.remove('selected'));
+
+                // Select range
+                for (let i = start; i <= end; i++) {
+                  allCards[i].classList.add('selected');
+                }
+                console.log(`🎵 Range selection: ${end - start + 1} tracks`);
+                return;
+              }
+            }
+
+            // Normal click - clear selection and play track
+            rightPaneContent.querySelectorAll('.song-card').forEach(card => card.classList.remove('selected'));
             console.log(`🎵 Playing track ${index + 1}: "${track.name}"`);
 
             if (track.path) {
@@ -3584,7 +3737,7 @@ Path: ${track.path}`;
    */
   async loadAlbumArt(track) {
     if (!track) {
-      console.warn('⚠️ No track provided to loadAlbumArt');
+      this.app.logger.warn('⚠️ No track provided to loadAlbumArt');
       this.showAlbumArtPlaceholder();
       return;
     }
@@ -3615,7 +3768,7 @@ Path: ${track.path}`;
         this.showAlbumArtPlaceholder();
       }
     } catch (error) {
-      console.error('❌ Error loading album art:', error);
+      this.app.logger.error('❌ Error loading album art:', error);
       this.showAlbumArtPlaceholder();
     }
   }
@@ -3626,7 +3779,7 @@ Path: ${track.path}`;
   async updateAlbumArtDisplay(artDataUrl) {
     const container = document.querySelector('.album-art');
     if (!container) {
-      console.error('❌ Album art container not found');
+      this.app.logger.error('❌ Album art container not found');
       return;
     }
 
@@ -3663,7 +3816,7 @@ Path: ${track.path}`;
 
       // Validate data URL format
       if (!artDataUrl.startsWith('data:image/')) {
-        console.error('❌ Invalid data URL format - does not start with data:image/');
+        this.app.logger.error('❌ Invalid data URL format - does not start with data:image/');
         this.showAlbumArtPlaceholder();
         return;
       }
@@ -3678,15 +3831,15 @@ Path: ${track.path}`;
 
       // Set up error handler with detailed logging
       albumArtImg.onerror = (event) => {
-        console.error('❌ Album art failed to load');
-        console.error('❌ Error event:', event);
-        console.error('❌ Data URL preview:', artDataUrl.substring(0, 100) + '...');
+        this.app.logger.error('❌ Album art failed to load');
+        this.app.logger.error('❌ Error event:', event);
+        this.app.logger.error('❌ Data URL preview:', artDataUrl.substring(0, 100) + '...');
 
         // Show the base64 data for debugging
         const base64Part = artDataUrl.split(',')[1];
         if (base64Part) {
-          console.error('❌ Base64 data length:', base64Part.length);
-          console.error('❌ Base64 preview:', base64Part.substring(0, 100) + '...');
+          this.app.logger.error('❌ Base64 data length:', base64Part.length);
+          this.app.logger.error('❌ Base64 preview:', base64Part.substring(0, 100) + '...');
         }
 
         this.showAlbumArtPlaceholder();
@@ -3736,21 +3889,15 @@ Path: ${track.path}`;
     const albumPlaceholder = document.querySelector('.album-placeholder');
 
     if (albumArtImg) {
-      albumArtImg.style.display = 'none';
-      albumArtImg.style.opacity = '0';
-      albumArtImg.src = '';
-      albumArtImg.classList.remove('album-art-loaded');
+      // Use sample cover image as fallback
+      albumArtImg.src = '../../assets/covers/sample-cover.jpg';
+      albumArtImg.style.display = 'block';
+      albumArtImg.style.opacity = '1';
+      albumArtImg.classList.add('album-art-loaded');
     }
 
     if (albumPlaceholder) {
-      albumPlaceholder.style.display = 'flex';
-      albumPlaceholder.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polygon points="10,8 16,12 10,16"></polygon>
-        </svg>
-        <small>No Image</small>
-      `;
+      albumPlaceholder.style.display = 'none';
     }
   }
 
@@ -3762,7 +3909,7 @@ Path: ${track.path}`;
       const testImg = new Image();
 
       const timeout = setTimeout(() => {
-        console.warn('⚠️ Data URL validation timeout');
+        this.app.logger.warn('⚠️ Data URL validation timeout');
         resolve(false);
       }, 3000); // 3 second timeout
 
@@ -3773,7 +3920,7 @@ Path: ${track.path}`;
 
       testImg.onerror = (error) => {
         clearTimeout(timeout);
-        console.error('❌ Data URL validation failed:', error);
+        this.app.logger.error('❌ Data URL validation failed:', error);
         resolve(false);
       };
 
@@ -3802,7 +3949,7 @@ Path: ${track.path}`;
       // Reset current display
       this.showAlbumArtPlaceholder();
     } catch (error) {
-      console.error('❌ Error clearing album art cache:', error);
+      this.app.logger.error('❌ Error clearing album art cache:', error);
       this.app.showNotification('Failed to clear album art cache', 'error');
     }
   }
@@ -3923,12 +4070,12 @@ Path: ${track.path}`;
       console.log('Modal classes:', modal.className);
       console.log('Modal inline styles:', modal.style.cssText);
     } else {
-      console.error('❌ Modal element not found');
+      this.app.logger.error('❌ Modal element not found');
     }
 
     if (settingsBtn) {
     } else {
-      console.error('❌ Settings button not found');
+      this.app.logger.error('❌ Settings button not found');
     }
 
     console.log('🚀 Testing direct modal show...');
@@ -3959,7 +4106,7 @@ Path: ${track.path}`;
       modal.classList.add('show');
       this.setupSettingsEventListeners();
     } else {
-      console.error('❌ Cannot force show - modal element not found');
+      this.app.logger.error('❌ Cannot force show - modal element not found');
     }
   }
 }

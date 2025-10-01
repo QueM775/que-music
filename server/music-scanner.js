@@ -5,25 +5,25 @@ const path = require('path');
 const { parseFile } = require('music-metadata');
 
 class MusicScanner {
-  constructor(database) {
-    console.log('🔧 MusicScanner constructor called with database:', !!database);
+  constructor(database, logger = null) {
     this.db = database;
+    this.logger = logger || console; // Fallback to console if no logger provided
+    this.logger.info('MusicScanner initialized', { hasDatabase: !!database });
     this.supportedFormats = ['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.wma'];
     this.scannedCount = 0;
     this.totalFiles = 0;
   }
 
   async scanFolder(folderPath, progressCallback = null) {
-    console.log('🔍 Starting music library scan:', folderPath);
-    console.log('🔍 Progress callback provided:', !!progressCallback);
+    this.logger.info('Starting music library scan', { folderPath, hasProgressCallback: !!progressCallback });
     this.scannedCount = 0;
 
     // First, count total files
     this.totalFiles = await this.countAudioFiles(folderPath);
-    console.log(`📊 Found ${this.totalFiles} audio files to scan`);
+    this.logger.info('Audio files found', { totalFiles: this.totalFiles });
 
     if (this.totalFiles === 0) {
-      console.log('⚠️ No audio files found in directory');
+      this.logger.warn('No audio files found in directory', { folderPath });
       if (progressCallback) {
         progressCallback({
           current: 0,
@@ -39,7 +39,7 @@ class MusicScanner {
     // Then scan and extract metadata
     const tracks = await this.scanDirectory(folderPath, progressCallback);
 
-    console.log(`✅ Scan complete: ${tracks.length} tracks processed`);
+    this.logger.info('Scan complete', { tracksProcessed: tracks.length });
     return tracks;
   }
 
@@ -95,18 +95,17 @@ class MusicScanner {
               currentFile: item.name,
               percentage: Math.round((this.scannedCount / this.totalFiles) * 100),
             };
-            console.log('📈 Sending progress:', progressData);
             progressCallback(progressData);
           }
 
           // Log progress every 100 files
           if (this.scannedCount % 100 === 0) {
-            console.log(`📄 Scanned ${this.scannedCount}/${this.totalFiles} files...`);
+            this.logger.debug('Scan progress', { scanned: this.scannedCount, total: this.totalFiles });
           }
         }
       }
     } catch (error) {
-      console.error('Error scanning directory:', dirPath, error.message);
+      this.logger.error('Error scanning directory', { dirPath, error: error.message });
     }
 
     return tracks;
@@ -125,7 +124,7 @@ class MusicScanner {
           skipCovers: true, // Skip cover art for performance
         });
       } catch (mmError) {
-        console.warn(`⚠️ music-metadata error for ${path.basename(filePath)}: ${mmError.message}`);
+        this.logger.debug('music-metadata extraction failed', { file: path.basename(filePath), error: mmError.message });
       }
 
       // For MP3 files, also use node-id3 as fallback
@@ -133,7 +132,7 @@ class MusicScanner {
         try {
           metadata = NodeID3.read(filePath);
         } catch (id3Error) {
-          console.warn(`⚠️ ID3 read error for ${path.basename(filePath)}: ${id3Error.message}`);
+          this.logger.debug('ID3 read failed', { file: path.basename(filePath), error: id3Error.message });
         }
       }
 
@@ -163,7 +162,7 @@ class MusicScanner {
 
       return trackData;
     } catch (error) {
-      console.warn(`⚠️ Could not process file: ${path.basename(filePath)} - ${error.message}`);
+      this.logger.warn('Could not process file', { file: path.basename(filePath), error: error.message });
 
       // Return basic file info if everything fails
       try {
@@ -184,7 +183,7 @@ class MusicScanner {
           bitrate: null,
         };
       } catch (statError) {
-        console.error(`❌ Could not read file: ${filePath}`);
+        this.logger.error('Could not read file', { filePath });
         return null;
       }
     }
@@ -234,11 +233,11 @@ class MusicScanner {
   }
 
   async scanAndSaveToDatabase(folderPath, progressCallback = null) {
-    console.log('🔍 Starting comprehensive library scan...');
+    this.logger.info('Starting comprehensive library scan', { folderPath });
     const tracks = await this.scanFolder(folderPath, progressCallback);
 
     if (tracks.length > 0) {
-      console.log(`💾 Saving ${tracks.length} tracks to database...`);
+      this.logger.info('Saving tracks to database', { trackCount: tracks.length });
 
       // Notify progress callback that we're saving to database
       if (progressCallback) {
@@ -252,7 +251,7 @@ class MusicScanner {
       }
 
       await this.db.addTracks(tracks);
-      console.log('✅ Library scan and database update completed successfully');
+      this.logger.info('Library scan and database update completed');
 
       // Final completion notification
       if (progressCallback) {
@@ -265,7 +264,7 @@ class MusicScanner {
         });
       }
     } else {
-      console.log('⚠️ No audio tracks found in the specified folder');
+      this.logger.warn('No audio tracks found', { folderPath });
 
       if (progressCallback) {
         progressCallback({

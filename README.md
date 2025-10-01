@@ -1,10 +1,10 @@
 # 🎵 Que-Music
 
 **A Modern Desktop Music Player & Library Manager**
-**Version**: 3.1.0
+**Version**: 3.1.6
 **Author**: Erich Quade
 **License**: MIT
-**Last Updated**: September 2025
+**Last Updated**: January 2025
 
 Que-Music is an Electron-based desktop application that provides advanced music library management, intelligent search capabilities, playlist functionality, and a beautiful audio visualization experience.
 
@@ -55,12 +55,17 @@ Que-Music is an Electron-based desktop application that provides advanced music 
 - **Folder Watching**: Real-time updates when files change
 - **Export/Import**: M3U playlist compatibility
 
-### New in Version 3.1.0
+### New in Version 3.1.6
 
+- **Fixed Default Album Art**: Default album artwork now displays correctly on startup and when tracks have no embedded art
+- **Multi-Track Selection**: Select multiple tracks with Ctrl+Click or Shift+Click for batch operations
+- **Batch Playlist Creation**: Create playlists with multiple tracks in one operation
+- **Enhanced Context Menus**: Dynamic menu text showing selection count ("Add 5 Tracks to Playlist")
 - **Advanced Logging**: Integrated logger with 5 configurable levels (NONE, LOW, MED, HIGH, DEV)
 - **File Logging**: Automatic daily log files in `logs/` directory with structured data
-- **Debug Tools**: Enhanced troubleshooting with colored console output and persistent logs
-- **Settings Integration**: Logger level configurable via Settings → Advanced → Logging level
+- **Clean Console**: Music scanner logs now go to files instead of flooding the console
+- **Improved Initial View**: Clean folder structure view after library scan (no overwhelming track lists)
+- **Version Display**: Application version shown in sidebar and About dialog
 
 ---
 
@@ -228,19 +233,26 @@ Music/
 2. Enter playlist name and optional description
 3. Click "Create Playlist"
 
-**Method 2: From Selected Tracks**
+**Method 2: From Selected Tracks** (New in 3.1.0!)
 
-1. Select multiple tracks (Ctrl+click or Shift+click)
-2. Right-click selection → "Add to Playlist" → "Create New Playlist"
-3. Enter playlist details
+1. Select one or more tracks using:
+   - **Single track**: Click on track
+   - **Multiple tracks**: Ctrl+Click to toggle individual tracks
+   - **Range**: Shift+Click to select range from last selected
+2. Right-click on selection → "Create Playlist with X Tracks"
+3. Enter playlist name and click "Create"
+4. All selected tracks are automatically added to the new playlist
 
 ### Managing Playlists
 
 **Adding Tracks:**
 
-- Drag and drop tracks onto playlist
-- Right-click track → "Add to Playlist" → Select playlist
-- Use multi-select to add multiple tracks at once
+- **Single track**: Right-click track → "Add to Playlist" → Select playlist
+- **Multiple tracks**:
+  1. Select tracks with Ctrl+Click or Shift+Click
+  2. Right-click selection → "Add X Tracks to Playlist"
+  3. Choose existing playlist or create new one
+- **Progress feedback**: See status of batch operations ("Added 5 tracks, 2 already in playlist")
 
 **Editing Playlists:**
 
@@ -490,8 +502,26 @@ Access settings via the **Settings button** ⚙️ in the header.
 
 ### Advanced Settings
 
+- **Logging Level**: Control console and file logging verbosity
+  - **NONE** - No logging (default for clean console)
+  - **LOW** - Errors only
+  - **MED** - Errors and warnings
+  - **HIGH** - Errors, warnings, and info messages
+  - **DEV** - Everything including debug messages
 - **Debug Logging**: Enable detailed logging for troubleshooting
 - **Buffer Size**: Audio processing buffer size
+
+### Logging System
+
+Que-Music includes an integrated logging system with the following features:
+
+- **User-Configurable Levels**: Set logging verbosity in Settings → Advanced → Logging Level
+- **Console Interception**: All console.log/error/warn calls are automatically routed through the logger
+- **File Logging**: Daily log files created in `logs/` directory (main process only)
+  - `logs/QueMusicMain-YYYY-MM-DD.log` - Main process logs with structured data
+- **Default: NONE**: By default, logging is disabled for a clean console experience
+- **Real-time Updates**: Changing the logging level updates both main and renderer processes immediately
+- **Development Mode**: Set to DEV level for comprehensive debugging information
 
 ---
 
@@ -658,7 +688,7 @@ que-music/
 
 ### Que-Music
 
-- **Version**: 3.0.1
+- **Version**: 3.1.6
 - **License**: MIT License
 - **Developer**: Erich Quade
 - **GitHub**: [ErichQuade/que-music](https://github.com/ErichQuade/que-music)
@@ -705,5 +735,5 @@ We welcome suggestions for new features! Please check existing requests before s
 
 **🎵 Enjoy your music with Que-Music! 🎵**
 
-_Last Updated: January 2025_  
-_Documentation Version: 3.0.1_
+_Last Updated: January 2025_
+_Documentation Version: 3.1.6_

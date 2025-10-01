@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
   app: {
     getName: () => ipcRenderer.invoke('app:get-name'),
     getVersion: () => ipcRenderer.invoke('app:get-version'),
+    showAbout: () => ipcRenderer.invoke('app:show-about'),
     rendererReady: () => ipcRenderer.invoke('app:renderer-ready'),
   },
 
@@ -22,6 +23,12 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
       electron: process.versions.electron,
       node: process.versions.node,
       chrome: process.versions.chrome,
+    },
+    onLogLevelChanged: (callback) => {
+      ipcRenderer.on('logger:level-changed', (event, level) => callback(level));
+    },
+    onShowHelp: (callback) => {
+      ipcRenderer.on('show-help', () => callback());
     },
   },
 
@@ -43,6 +50,9 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
 
     getPlayerState: () => ipcRenderer.invoke('settings:get-player-state'),
     setPlayerState: (state) => ipcRenderer.invoke('settings:set-player-state', state),
+
+    getLogLevel: () => ipcRenderer.invoke('settings:get-log-level'),
+    setLogLevel: (level) => ipcRenderer.invoke('settings:set-log-level', level),
   },
 
   // ============================================================================

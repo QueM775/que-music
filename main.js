@@ -13,18 +13,17 @@ const MusicScanner = require('./server/music-scanner');
 const SimpleLogger = require('./simple-logger');
 const logger = new SimpleLogger({
   appName: 'QueMusicMain',
-  level: 'HIGH',
+  level: 'NONE', // Default to NONE - will be set from user settings
   compactMode: false,
   enableColors: true
 });
 
-// Simple settings management (JSON file)
-const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+// Enable console interception to route all console.* calls through logger
+logger.enableConsoleReplacement();
 
-// Database initialization
-const dbPath = path.join(app.getPath('userData'), 'music-library.db');
-logger.info('Database path initialized', { dbPath });
-
+// These will be initialized after app is ready
+let settingsPath;
+let dbPath;
 let musicDB = null;
 let musicScanner = null;
 
@@ -96,6 +95,42 @@ function createMenu() {
       label: 'Window',
       submenu: [{ role: 'minimize' }, { role: 'close' }],
     },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Que-Music',
+          click: () => {
+            if (mainWindow) {
+              const { dialog } = require('electron');
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'About Que-Music',
+                message: `Que-Music v${app.getVersion()}`,
+                detail: `A Modern Desktop Music Player & Library Manager\n\n` +
+                        `Built with Electron ${process.versions.electron}\n` +
+                        `Node.js ${process.versions.node}\n` +
+                        `Chromium ${process.versions.chrome}\n\n` +
+                        `© 2025 Erich Quade\n` +
+                        `Licensed under MIT License`,
+                buttons: ['OK'],
+                icon: path.join(__dirname, 'assets/icons/icon.png')
+              });
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Open Help',
+          accelerator: 'F1',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('show-help');
+            }
+          }
+        }
+      ]
+    }
   ];
 
   if (process.platform === 'darwin') {
@@ -154,15 +189,26 @@ async function createWindow() {
   }
 }
 
+// Disable hardware acceleration to prevent GPU crashes
+app.disableHardwareAcceleration();
+
 // App event handlers
 app.whenReady().then(async () => {
+  // Initialize paths now that app is ready
+  settingsPath = path.join(app.getPath('userData'), 'settings.json');
+  dbPath = path.join(app.getPath('userData'), 'music-library.db');
+
+  // Load logging level from settings and apply to logger
+  const logLevel = await getSetting('logLevel', 'NONE');
+  logger.setLevel(logLevel);
+  logger.info('App paths initialized', { settingsPath, dbPath, logLevel });
+
   // Initialize database
   try {
     logger.info('Initializing music database and scanner...');
-    logger.info('Using database path', { dbPath });
     musicDB = new MusicDatabase(dbPath);
     logger.info('Database initialized successfully');
-    musicScanner = new MusicScanner(musicDB);
+    musicScanner = new MusicScanner(musicDB, logger);
     logger.info('Scanner initialized successfully');
     logger.info('Music database ready');
 
@@ -238,6 +284,25 @@ ipcMain.handle('app:get-version', () => {
 });
 
 // Handle renderer fully loaded signal
+ipcMain.handle('app:show-about', () => {
+  if (mainWindow) {
+    const { dialog } = require('electron');
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'About Que-Music',
+      message: `Que-Music v${app.getVersion()}`,
+      detail: `A Modern Desktop Music Player & Library Manager\n\n` +
+              `Built with Electron ${process.versions.electron}\n` +
+              `Node.js ${process.versions.node}\n` +
+              `Chromium ${process.versions.chrome}\n\n` +
+              `© 2025 Erich Quade\n` +
+              `Licensed under MIT License`,
+      buttons: ['OK'],
+      icon: path.join(__dirname, 'assets/icons/icon.png')
+    });
+  }
+});
+
 ipcMain.handle('app:renderer-ready', () => {
   logger.info('Renderer fully loaded - showing window');
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -497,6 +562,26 @@ ipcMain.handle('settings:get-player-state', async () => {
 
 ipcMain.handle('settings:set-player-state', async (event, state) => {
   return await saveSetting('playerState', state);
+});
+
+// Logging level handlers
+ipcMain.handle('settings:get-log-level', async () => {
+  return await getSetting('logLevel', 'NONE');
+});
+
+ipcMain.handle('settings:set-log-level', async (event, level) => {
+  // Update logger level immediately
+  logger.setLevel(level);
+
+  // Save to settings
+  const result = await saveSetting('logLevel', level);
+
+  // Notify renderer to update its logger level
+  if (mainWindow) {
+    mainWindow.webContents.send('logger:level-changed', level);
+  }
+
+  return result;
 });
 
 // ============================================================================

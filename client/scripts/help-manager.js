@@ -18,8 +18,8 @@ class HelpManager {
 
     // Embedded help content with all 10 topics
     this.helpContent = {
-      version: '1.0.0',
-      lastUpdated: '2025-01-25',
+      version: '1.0.1',
+      lastUpdated: '2025-01-30',
       helpTopics: [
         {
           id: 'getting-started',
@@ -326,7 +326,31 @@ The app automatically:
 ### Playback Settings
 - **Resume Playback**: Continue from last position on startup
 - **Remember Position**: Save track positions
-- **Skip Short Tracks**: Automatically skip tracks shorter than specified duration`,
+- **Skip Short Tracks**: Automatically skip tracks shorter than specified duration
+
+### Advanced Settings
+- **Logging Level**: Control console and file logging verbosity
+  - **NONE** - No logging (default for clean console)
+  - **LOW** - Errors only
+  - **MED** - Errors and warnings
+  - **HIGH** - Errors, warnings, and info messages
+  - **DEV** - Everything including debug messages
+- **Debug Logging**: Enable detailed logging for troubleshooting
+- **Buffer Size**: Audio processing buffer size
+
+## Logging System
+Que-Music includes an integrated logging system:
+- **User-Configurable Levels**: Set logging verbosity in Settings → Advanced → Logging Level
+- **Console Interception**: All console.log/error/warn calls automatically routed through logger
+- **File Logging**: Daily log files created in \`logs/\` directory (main process only)
+- **Default: NONE**: By default, logging is disabled for a clean console experience
+- **Real-time Updates**: Changing the logging level updates both main and renderer processes immediately
+
+## Version Information
+- **Sidebar Display**: Version number shown at bottom of left sidebar
+- **About Dialog**: Click version number or use Help → About Que-Music menu
+- **Build Information**: Shows Electron, Node.js, and Chromium versions
+- **Copyright & License**: View licensing information`,
           order: 7,
         },
         {

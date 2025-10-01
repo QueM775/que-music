@@ -411,11 +411,26 @@ class PlaylistRenderer {
 
     // Store the track to be added after playlist creation
     this.trackToAddAfterCreation = track;
+    this.tracksToAddAfterCreation = null; // Clear multiple tracks
 
     // Show the modal normally (for creating a new playlist)
     this.showPlaylistModal();
 
     // Note: The track will be added to the playlist in savePlaylistFromModal
+  }
+
+  // Show playlist modal with multiple tracks to be added
+  async showPlaylistModalWithTracks(tracks) {
+    console.log(`📋 Opening playlist modal with ${tracks.length} tracks to add`);
+
+    // Store the tracks to be added after playlist creation
+    this.tracksToAddAfterCreation = tracks;
+    this.trackToAddAfterCreation = null; // Clear single track
+
+    // Show the modal normally (for creating a new playlist)
+    this.showPlaylistModal();
+
+    // Note: The tracks will be added to the playlist in savePlaylistFromModal
   }
 
   createEmergencyModal(playlist = null) {
@@ -491,8 +506,36 @@ class PlaylistRenderer {
         } else {
           newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
 
-          // If we have a track to add after creation (from right-click context menu)
-          if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
+          // If we have multiple tracks to add after creation
+          if (this.tracksToAddAfterCreation && newPlaylist && newPlaylist.id) {
+            try {
+              console.log(`📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created emergency playlist`);
+
+              let successCount = 0;
+              for (const track of this.tracksToAddAfterCreation) {
+                try {
+                  const dbTrack = await window.queMusicAPI.database.getTrackByPath(track.path);
+                  if (dbTrack && dbTrack.id) {
+                    await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
+                    successCount++;
+                  }
+                } catch (error) {
+                  console.error('❌ Error adding track:', error);
+                }
+              }
+
+              if (successCount > 0) {
+                this.app.showNotification(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`, 'success');
+              }
+            } catch (error) {
+              console.error('❌ Error adding tracks to new emergency playlist:', error);
+            }
+
+            // Clear the tracks to add
+            this.tracksToAddAfterCreation = null;
+          }
+          // If we have a single track to add after creation (from right-click context menu)
+          else if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
             try {
               console.log('📋 Adding track to newly created emergency playlist:', this.trackToAddAfterCreation);
 
@@ -628,8 +671,47 @@ class PlaylistRenderer {
         newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
         this.app.showNotification('Playlist created', 'success');
 
-        // If we have a track to add after creation (from right-click context menu)
-        if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
+        // If we have multiple tracks to add after creation
+        if (this.tracksToAddAfterCreation && newPlaylist && newPlaylist.id) {
+          try {
+            console.log(`📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created playlist`);
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const track of this.tracksToAddAfterCreation) {
+              try {
+                // Get track ID from the database using the path
+                const dbTrack = await window.queMusicAPI.database.getTrackByPath(track.path);
+                if (dbTrack && dbTrack.id) {
+                  await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
+                  successCount++;
+                } else {
+                  console.warn('⚠️ Could not find track in database:', track.path);
+                  failCount++;
+                }
+              } catch (error) {
+                console.error('❌ Error adding track to new playlist:', error);
+                failCount++;
+              }
+            }
+
+            if (successCount > 0) {
+              this.app.showNotification(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`, 'success');
+            }
+            if (failCount > 0) {
+              this.app.showNotification(`Failed to add ${failCount} track${failCount !== 1 ? 's' : ''}`, 'warning');
+            }
+          } catch (error) {
+            console.error('❌ Error adding tracks to new playlist:', error);
+            this.app.showNotification('Playlist created but could not add tracks', 'warning');
+          }
+
+          // Clear the tracks to add
+          this.tracksToAddAfterCreation = null;
+        }
+        // If we have a single track to add after creation (from right-click context menu)
+        else if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
           try {
             console.log('📋 Adding track to newly created playlist:', this.trackToAddAfterCreation);
 

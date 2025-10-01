@@ -32,7 +32,7 @@ class CoreAudio {
     this.dataArray = null;
     this.visualizerAnimationId = null;
 
-    console.log('🎵 CoreAudio initialized');
+    this.app.logger.debug(' CoreAudio initialized');
   }
 
   // ========================================
@@ -43,7 +43,7 @@ class CoreAudio {
     // Get the hidden audio element from HTML
     this.audioPlayer = document.getElementById('audioPlayer');
     if (!this.audioPlayer) {
-      console.error('❌ Audio player element not found in HTML');
+      this.app.logger.error('❌ Audio player element not found in HTML');
       return;
     }
 
@@ -53,7 +53,7 @@ class CoreAudio {
     // Set initial volume
     this.audioPlayer.volume = this.volume;
 
-    console.log('🎵 Audio engine initialized');
+    this.app.logger.debug(' Audio engine initialized');
 
     // INITIALIZATION CALL for Favorites
     this.initializeFavoritesTracking();
@@ -62,7 +62,7 @@ class CoreAudio {
     // Start with not favorited
     this.updateFavoriteButton(false);
 
-    console.log('✅ Favorites and tracking fully initialized');
+    this.app.logger.info(' Favorites and tracking fully initialized');
   }
 
   setupAudioEvents() {
@@ -84,7 +84,7 @@ class CoreAudio {
 
     // When track ends
     audio.addEventListener('ended', () => {
-      console.log('🎵 Track ended');
+      this.app.logger.debug(' Track ended');
       this.handleTrackEnd();
     });
 
@@ -99,23 +99,23 @@ class CoreAudio {
           await this.audioContext.resume();
           console.log('🎨 Audio context resumed for visualizer');
         } catch (error) {
-          console.error('❌ Failed to resume audio context:', error);
+          this.app.logger.error('❌ Failed to resume audio context:', error);
         }
       }
 
-      console.log('🎵 Playback started');
+      this.app.logger.debug(' Playback started');
     });
 
     // When pause happens
     audio.addEventListener('pause', () => {
       this.isPlaying = false;
       this.updatePlayPauseButton();
-      console.log('🎵 Playback paused');
+      this.app.logger.debug(' Playback paused');
     });
 
     // Handle errors
     audio.addEventListener('error', (e) => {
-      console.error('🎵 Audio error:', e);
+      this.app.logger.error('🎵 Audio error:', e);
       this.app.showNotification('Error playing audio', 'error');
     });
 
@@ -134,7 +134,7 @@ class CoreAudio {
 
   async playSong(songPath, addToPlaylist = true) {
     try {
-      console.log('🎵 Loading track:', this.app.getBasename(songPath));
+      this.app.logger.debug(' Loading track:', this.app.getBasename(songPath));
 
       // Check if file path exists and is valid
       if (!songPath || songPath.trim() === '') {
@@ -154,14 +154,14 @@ class CoreAudio {
       // Add to playlist if requested
       if (addToPlaylist) {
         if (this.playlist.length === 0 || !this.playlist.find((track) => track.path === songPath)) {
-          console.log('🎵 Building new playlist...');
+          this.app.logger.debug(' Building new playlist...');
           await this.buildPlaylistFromCurrentFolder(songPath);
         }
       }
 
       // Find the current track index
       this.currentTrackIndex = this.playlist.findIndex((track) => track.path === songPath);
-      console.log('🎵 Current track index:', this.currentTrackIndex);
+      this.app.logger.debug(' Current track index:', this.currentTrackIndex);
 
       // Stop current playback
       if (!this.audioPlayer.paused) {
@@ -184,12 +184,12 @@ class CoreAudio {
 
       this.app.showNotification(`Playing: ${this.app.getBasename(songPath)}`, 'success');
     } catch (error) {
-      console.error('🎵 Error playing song:', error);
+      this.app.logger.error('🎵 Error playing song:', error);
       this.app.showNotification(`Failed to play: ${this.app.getBasename(songPath)}`, 'error');
 
       // Try to recover by playing next track
       if (this.playlist.length > 1) {
-        console.log('🎵 Attempting to recover by playing next track...');
+        this.app.logger.debug(' Attempting to recover by playing next track...');
         setTimeout(() => {
           this.nextTrack();
         }, 1000);
@@ -202,12 +202,12 @@ class CoreAudio {
       // Get the folder containing this song
       const folderPath = songPath.substring(0, songPath.lastIndexOf('\\'));
 
-      console.log('🎵 Building playlist from folder:', folderPath);
+      this.app.logger.debug(' Building playlist from folder:', folderPath);
 
       // Get all songs in that folder
       const songs = await window.queMusicAPI.files.getSongsInFolder(folderPath);
 
-      console.log('🎵 Found songs in folder:', songs.length);
+      this.app.logger.debug(' Found songs in folder:', songs.length);
 
       // Build playlist
       this.playlist = songs.map((song) => ({
@@ -216,12 +216,12 @@ class CoreAudio {
       }));
 
       console.log(`🎵 Built playlist: ${this.playlist.length} tracks`);
-      console.log('🎵 First track:', this.playlist[0]?.name);
+      this.app.logger.debug(' First track:', this.playlist[0]?.name);
     } catch (error) {
-      console.error('Error building playlist:', error);
+      this.app.logger.error('Error building playlist:', error);
       // Fallback to single song
       this.playlist = [{ path: songPath, name: this.app.getBasename(songPath) }];
-      console.log('🎵 Fallback playlist created with 1 track');
+      this.app.logger.debug(' Fallback playlist created with 1 track');
     }
   }
 
@@ -242,9 +242,9 @@ class CoreAudio {
 
       // Create file URL - properly encode all special characters for file URLs
       const fileUrl = `file:///${encodeURI(cleanPath).replace(/\s/g, '%20')}`;
-      console.log('🎵 Clean path:', cleanPath);
-      console.log('🎵 Original path:', songPath);
-      console.log('🎵 Encoded URL:', fileUrl);
+      this.app.logger.debug(' Clean path:', cleanPath);
+      this.app.logger.debug(' Original path:', songPath);
+      this.app.logger.debug(' Encoded URL:', fileUrl);
 
       // Clear any existing source first
       this.audioPlayer.src = '';
@@ -258,7 +258,7 @@ class CoreAudio {
         this.audioPlayer.removeEventListener('canplay', onCanPlay);
         this.audioPlayer.removeEventListener('error', onError);
         this.audioPlayer.removeEventListener('loadstart', onLoadStart);
-        console.log('🎵 Track ready to play');
+        this.app.logger.debug(' Track ready to play');
         resolve();
       };
 
@@ -266,23 +266,23 @@ class CoreAudio {
         this.audioPlayer.removeEventListener('canplay', onCanPlay);
         this.audioPlayer.removeEventListener('error', onError);
         this.audioPlayer.removeEventListener('loadstart', onLoadStart);
-        console.log('🎵 Track load error:', error);
-        console.log('🎵 Failed file URL:', fileUrl);
-        console.log('🎵 Original path:', songPath);
+        this.app.logger.debug(' Track load error:', error);
+        this.app.logger.debug(' Failed file URL:', fileUrl);
+        this.app.logger.debug(' Original path:', songPath);
 
         // Try to find alternative paths if the original fails
-        console.log('🔍 Attempting to find alternative file paths...');
+        this.app.logger.debug(' Attempting to find alternative file paths...');
         try {
           // Check if this might be a database path issue (like EQ_Genre in path)
           const filename = songPath.split(/[/\\]/).pop(); // Get just the filename
-          console.log('🔍 Searching for file:', filename);
+          this.app.logger.debug(' Searching for file:', filename);
 
           // Try to find the file using the API
           const searchResults = await window.queMusicAPI.database.searchTracks(filename);
           if (searchResults && searchResults.length > 0) {
             const matchingTrack = searchResults.find((track) => track.filename === filename);
             if (matchingTrack && matchingTrack.path && matchingTrack.path !== songPath) {
-              console.log('🔍 Found alternative path:', matchingTrack.path);
+              this.app.logger.debug(' Found alternative path:', matchingTrack.path);
               console.log('🔄 Updating current track path to use correct location');
 
               // Update the current track path
@@ -298,7 +298,7 @@ class CoreAudio {
             }
           }
         } catch (searchError) {
-          console.log('🔍 Alternative path search failed:', searchError);
+          this.app.logger.debug(' Alternative path search failed:', searchError);
         }
 
         reject(new Error(`Failed to load audio file: ${songPath}`));
@@ -306,7 +306,7 @@ class CoreAudio {
 
       // Track when loading starts
       const onLoadStart = () => {
-        console.log('🎵 Started loading audio file...');
+        this.app.logger.debug(' Started loading audio file...');
       };
 
       this.audioPlayer.addEventListener('canplay', onCanPlay);
@@ -356,7 +356,7 @@ class CoreAudio {
           }
         }
       } catch (error) {
-        console.error('Error getting track metadata:', error);
+        this.app.logger.error('Error getting track metadata:', error);
         // Use filename as fallback
         const fileName = this.app.getBasename(songPath);
         trackInfo.title = fileName.replace(/\.[^/.]+$/, '');
@@ -416,10 +416,10 @@ class CoreAudio {
       // Add appropriate class based on card type
       if (currentSongCard.classList.contains('recent-item-card')) {
         currentSongCard.classList.add('active');
-        console.log('🎵 Highlighted recent song card:', this.app.getBasename(songPath));
+        this.app.logger.debug(' Highlighted recent song card:', this.app.getBasename(songPath));
       } else {
         currentSongCard.classList.add('playing');
-        console.log('🎵 Highlighted song card:', this.app.getBasename(songPath));
+        this.app.logger.debug(' Highlighted song card:', this.app.getBasename(songPath));
       }
 
       // Scroll the song into view if it's not visible
@@ -428,23 +428,23 @@ class CoreAudio {
         block: 'nearest',
       });
     } else {
-      console.log('🎵 Current song not found in visible list for path:', songPath);
+      this.app.logger.debug(' Current song not found in visible list for path:', songPath);
     }
   }
 
   togglePlayPause() {
-    // console.log('🎵 togglePlayPause called');
-    // console.log('🎵 Current track:', this.currentTrack);
-    // console.log('🎵 Playlist length:', this.playlist?.length || 0);
-    // console.log('🎵 Current track index:', this.currentTrackIndex);
-    // console.log('🎵 Audio player src:', this.audioPlayer?.src || 'none');
-    // console.log('🎵 Audio ready state:', this.audioPlayer?.readyState || 'none');
+    // this.app.logger.debug(' togglePlayPause called');
+    // this.app.logger.debug(' Current track:', this.currentTrack);
+    // this.app.logger.debug(' Playlist length:', this.playlist?.length || 0);
+    // this.app.logger.debug(' Current track index:', this.currentTrackIndex);
+    // this.app.logger.debug(' Audio player src:', this.audioPlayer?.src || 'none');
+    // this.app.logger.debug(' Audio ready state:', this.audioPlayer?.readyState || 'none');
 
     // If no track is loaded but we have a playlist, start from selected track
     if (!this.currentTrack && this.playlist && this.playlist.length > 0) {
-      console.log('🎵 No track loaded, starting from selected track');
+      this.app.logger.debug(' No track loaded, starting from selected track');
       const startIndex = this.currentTrackIndex >= 0 ? this.currentTrackIndex : 0;
-      console.log('🎵 Starting from index:', startIndex);
+      this.app.logger.debug(' Starting from index:', startIndex);
 
       // Use the app's playPlaylist method instead of our own
       if (this.app.playPlaylist) {
@@ -457,7 +457,7 @@ class CoreAudio {
 
     // If we have a current track but no audio source, load it first
     if (this.currentTrack && (!this.audioPlayer.src || this.audioPlayer.src === '')) {
-      // console.log('🎵 Track selected but not loaded, loading now...');
+      // this.app.logger.debug(' Track selected but not loaded, loading now...');
       const startIndex = this.currentTrackIndex >= 0 ? this.currentTrackIndex : 0;
 
       // Use the app's playPlaylist method
@@ -473,18 +473,18 @@ class CoreAudio {
     if (this.audioPlayer && this.audioPlayer.src) {
       // Check if the source is properly loaded
       if (this.audioPlayer.readyState === 0) {
-        console.log('🎵 Audio not ready, waiting for load...');
+        this.app.logger.debug(' Audio not ready, waiting for load...');
 
         // Instead of waiting indefinitely, try to reload the current track
         if (this.currentTrack && this.currentTrackIndex >= 0) {
-          console.log('🎵 Reloading current track...');
+          this.app.logger.debug(' Reloading current track...');
           if (this.app.playPlaylist) {
             this.app.playPlaylist(this.currentTrackIndex);
           } else {
             this.playPlaylist(this.currentTrackIndex);
           }
         } else {
-          console.log('🎵 No current track to reload');
+          this.app.logger.debug(' No current track to reload');
         }
         return;
       }
@@ -502,7 +502,7 @@ class CoreAudio {
             // console.log('▶️ Resumed playback');
           })
           .catch((error) => {
-            console.error('❌ Play failed:', error);
+            this.app.logger.error('❌ Play failed:', error);
             console.log('🔄 Attempting to reload track...');
             if (this.app.playPlaylist && this.currentTrackIndex >= 0) {
               this.app.playPlaylist(this.currentTrackIndex);
@@ -518,7 +518,7 @@ class CoreAudio {
         // console.log('⏸️ Paused playback');
       }
     } else {
-      console.warn('⚠️ No audio source available to play');
+      this.app.logger.warn('⚠️ No audio source available to play');
       // Try to play from playlist if we have one
       if (this.playlist && this.playlist.length > 0) {
         // console.log('🔄 Attempting to start playlist...');
@@ -530,7 +530,7 @@ class CoreAudio {
         }
       } else {
         // No playlist exists, try to create one from currently visible songs
-        console.log('🎵 No playlist exists, trying to play from visible songs...');
+        this.app.logger.debug(' No playlist exists, trying to play from visible songs...');
         this.playFromVisibleSongs();
       }
     }
@@ -540,7 +540,7 @@ class CoreAudio {
   playFromVisibleSongs() {
     const songCards = document.querySelectorAll('.song-card');
     if (songCards.length === 0) {
-      console.warn('⚠️ No songs visible to play');
+      this.app.logger.warn('⚠️ No songs visible to play');
       this.app.showNotification('No songs available to play', 'warning');
       return;
     }
@@ -568,7 +568,7 @@ class CoreAudio {
       .filter((song) => song.path); // Only include songs with valid paths
 
     if (visibleSongs.length === 0) {
-      console.warn('⚠️ No valid song paths found');
+      this.app.logger.warn('⚠️ No valid song paths found');
       this.app.showNotification('No valid songs to play', 'warning');
       return;
     }
@@ -717,7 +717,7 @@ class CoreAudio {
   }
 
   handleTrackEnd() {
-    // console.log('🎵 Track finished');
+    // this.app.logger.debug(' Track finished');
 
     if (this.repeat === 'one') {
       // Repeat current track
@@ -884,13 +884,13 @@ class CoreAudio {
     const playIcon = document.querySelector('#playPauseBtn .play-icon');
     const pauseIcon = document.querySelector('#playPauseBtn .pause-icon');
 
-    // console.log('🔍 Icon elements found:', {
+    // this.app.logger.debug(' Icon elements found:', {
     //   playIcon: !!playIcon,
     //   pauseIcon: !!pauseIcon,
     // });
 
     if (!playIcon || !pauseIcon) {
-      console.error('❌ Play/pause icons not found');
+      this.app.logger.error('❌ Play/pause icons not found');
       return;
     }
 
@@ -903,8 +903,8 @@ class CoreAudio {
       pauseIcon.style.display = 'block';
 
       // console.log('⏸️ Showing pause icon');
-      // console.log('🔍 Play icon display:', playIcon.style.display);
-      // console.log('🔍 Pause icon display:', pauseIcon.style.display);
+      // this.app.logger.debug(' Play icon display:', playIcon.style.display);
+      // this.app.logger.debug(' Pause icon display:', pauseIcon.style.display);
     } else {
       // Hide pause icon, show play icon
       pauseIcon.classList.add('hidden');
@@ -914,8 +914,8 @@ class CoreAudio {
       playIcon.style.display = 'block';
 
       // console.log('▶️ Showing play icon');
-      // console.log('🔍 Play icon display:', playIcon.style.display);
-      // console.log('🔍 Pause icon display:', pauseIcon.style.display);
+      // this.app.logger.debug(' Play icon display:', playIcon.style.display);
+      // this.app.logger.debug(' Pause icon display:', pauseIcon.style.display);
     }
 
     // Also update the button title for accessibility
@@ -924,13 +924,13 @@ class CoreAudio {
       playPauseBtn.title = this.isPlaying ? 'Pause' : 'Play';
     }
 
-    // console.log('✅ Play/pause button updated successfully');
+    // this.app.logger.info(' Play/pause button updated successfully');
 
     // Verify the final state
     setTimeout(() => {
       const playVisible = window.getComputedStyle(playIcon).display !== 'none';
       const pauseVisible = window.getComputedStyle(pauseIcon).display !== 'none';
-      // console.log('🔍 Final visibility check:', {
+      // this.app.logger.debug(' Final visibility check:', {
       //   playVisible,
       //   pauseVisible,
       //   shouldShowPause: this.isPlaying,
@@ -1023,13 +1023,13 @@ class CoreAudio {
     // Note: We don't stop current playback or clear currentTrack
     // The user might still be listening to a song when switching views
 
-    // console.log('✅ Audio playlist cleared');
+    // this.app.logger.info(' Audio playlist cleared');
   }
 
   // Playlist playback method (stays here because it controls audio)
   async playPlaylist(startIndex = 0) {
     if (!this.playlist || this.playlist.length === 0) {
-      console.warn('⚠️ No tracks in playlist to play');
+      this.app.logger.warn('⚠️ No tracks in playlist to play');
       return;
     }
 
@@ -1062,7 +1062,7 @@ class CoreAudio {
 
       console.log(`▶️ Now playing: ${track.title || track.name}`);
     } catch (error) {
-      console.error('❌ Failed to play playlist track:', error);
+      this.app.logger.error('❌ Failed to play playlist track:', error);
       this.app.showNotification('Failed to play track', 'error');
     }
   }
@@ -1107,7 +1107,7 @@ class CoreAudio {
       await window.queMusicAPI.settings.setPlayerState(state);
       // console.log('💾 Player state saved');
     } catch (error) {
-      console.error('Error saving player state:', error);
+      this.app.logger.error('Error saving player state:', error);
     }
   }
 
@@ -1147,7 +1147,7 @@ class CoreAudio {
         // console.log('📂 Player state restored:', state);
       }
     } catch (error) {
-      console.error('Error loading player state:', error);
+      this.app.logger.error('Error loading player state:', error);
     }
   }
 
@@ -1203,7 +1203,7 @@ class CoreAudio {
     this.visualizerBtn = document.getElementById('visualizerBtn');
 
     if (!this.canvas || !this.visualizerContainer || !this.visualizerBtn) {
-      console.error('❌ Visualizer elements not found');
+      this.app.logger.error('❌ Visualizer elements not found');
       return;
     }
 
@@ -1228,17 +1228,17 @@ class CoreAudio {
     // Initial static state
     this.drawStaticState();
 
-    // console.log('✅ Real-time visualizer initialized');
+    // this.app.logger.info(' Real-time visualizer initialized');
   }
 
   async setupAudioContext() {
     if (this.audioContext) {
-      // console.log('🎵 Audio context already exists');
+      // this.app.logger.debug(' Audio context already exists');
       return true;
     }
 
     try {
-      // console.log('🎵 Setting up Web Audio Context...');
+      // this.app.logger.debug(' Setting up Web Audio Context...');
 
       // Create audio context
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1267,7 +1267,7 @@ class CoreAudio {
           this.audioSource = this.audioContext.createMediaElementSource(this.audioPlayer);
           this.audioSource.connect(this.analyser);
           this.analyser.connect(this.audioContext.destination);
-          // console.log('✅ Audio player connected to analyser');
+          // this.app.logger.info(' Audio player connected to analyser');
         }
 
         // Resume context if suspended
@@ -1278,11 +1278,11 @@ class CoreAudio {
 
         return true;
       } else {
-        console.error('❌ Audio player not found');
+        this.app.logger.error('❌ Audio player not found');
         return false;
       }
     } catch (error) {
-      console.error('❌ Failed to setup audio context:', error);
+      this.app.logger.error('❌ Failed to setup audio context:', error);
       return false;
     }
   }
@@ -1309,7 +1309,7 @@ class CoreAudio {
       this.visualizerBtn.classList.add('active');
       this.startVisualizerAnimation();
 
-      // console.log('✅ Real-time visualizer enabled');
+      // this.app.logger.info(' Real-time visualizer enabled');
       this.app.showNotification('Visualizer enabled - right-click to change type', 'success');
     } else {
       // Turn off visualizer
@@ -1318,14 +1318,14 @@ class CoreAudio {
       this.visualizerBtn.classList.remove('active');
       this.stopVisualizerAnimation();
 
-      // console.log('✅ Visualizer disabled');
+      // this.app.logger.info(' Visualizer disabled');
       this.app.showNotification('Visualizer disabled', 'info');
     }
   }
 
   startVisualizerAnimation() {
     if (!this.visualizerEnabled || !this.analyser || !this.dataArray) {
-      console.error('❌ Cannot start animation - missing components');
+      this.app.logger.error('❌ Cannot start animation - missing components');
       return;
     }
 
@@ -1366,7 +1366,7 @@ class CoreAudio {
 
         this.visualizerAnimationId = requestAnimationFrame(animate);
       } catch (error) {
-        console.error('❌ Animation error:', error);
+        this.app.logger.error('❌ Animation error:', error);
         this.stopVisualizerAnimation();
       }
     };
@@ -1671,9 +1671,9 @@ class CoreAudio {
         await this.setupAudioContext();
       }
 
-      // console.log('✅ Visualizer connection verified');
+      // this.app.logger.info(' Visualizer connection verified');
     } catch (error) {
-      console.error('❌ Failed to ensure visualizer connection:', error);
+      this.app.logger.error('❌ Failed to ensure visualizer connection:', error);
     }
   }
 
@@ -1691,9 +1691,9 @@ class CoreAudio {
         this.dataArray.fill(0); // Clear old frequency data
       }
 
-      // console.log('✅ Visualizer prepared for new track');
+      // this.app.logger.info(' Visualizer prepared for new track');
     } catch (error) {
-      console.error('❌ Failed to prepare visualizer:', error);
+      this.app.logger.error('❌ Failed to prepare visualizer:', error);
     }
   }
 
@@ -1756,9 +1756,9 @@ class CoreAudio {
       this.duration = 0;
       this.currentTime = 0;
 
-      console.log('✅ Enhanced CoreAudio cleanup complete');
+      this.app.logger.info(' Enhanced CoreAudio cleanup complete');
     } catch (error) {
-      console.error('❌ Error during cleanup:', error);
+      this.app.logger.error('❌ Error during cleanup:', error);
     }
   }
 
@@ -1786,7 +1786,7 @@ class CoreAudio {
         try {
           this.audioContext.close();
         } catch (e) {
-          console.warn('⚠️ Error closing audio context:', e);
+          this.app.logger.warn('⚠️ Error closing audio context:', e);
         }
         this.audioContext = null;
       }
@@ -1796,7 +1796,7 @@ class CoreAudio {
 
       console.log('🎨 Visualizer cleanup complete');
     } catch (error) {
-      console.error('❌ Error during visualizer cleanup:', error);
+      this.app.logger.error('❌ Error during visualizer cleanup:', error);
     }
   }
 
@@ -1819,9 +1819,9 @@ class CoreAudio {
         this.setupAudioContext();
       }
 
-      console.log('✅ Periodic cleanup complete');
+      this.app.logger.info(' Periodic cleanup complete');
     } catch (error) {
-      console.error('❌ Error during periodic cleanup:', error);
+      this.app.logger.error('❌ Error during periodic cleanup:', error);
     }
   }
 
@@ -1833,7 +1833,7 @@ class CoreAudio {
         this.setupAudioEvents();
       }
     } catch (error) {
-      console.error('❌ Error cleaning up event listeners:', error);
+      this.app.logger.error('❌ Error cleaning up event listeners:', error);
     }
   }
 
@@ -1853,7 +1853,7 @@ class CoreAudio {
     // Track when songs are played
     this.setupPlayTracking();
 
-    // console.log('✅ Favorites tracking initialized');
+    // this.app.logger.info(' Favorites tracking initialized');
   }
 
   /**
@@ -1874,7 +1874,7 @@ class CoreAudio {
 
       // console.log('⭐ Favorite button event listener added');
     } else {
-      console.warn('⚠️ Favorite button not found during setup');
+      this.app.logger.warn('⚠️ Favorite button not found during setup');
     }
   }
   /**
@@ -1949,7 +1949,7 @@ class CoreAudio {
 
       // console.log(`⭐ Favorite toggled: ${result.added ? 'added' : 'removed'}`);
     } catch (error) {
-      console.error('❌ Error toggling favorite:', error);
+      this.app.logger.error('❌ Error toggling favorite:', error);
       this.app.showNotification('Failed to update favorites', 'error');
     }
   }
@@ -1961,7 +1961,7 @@ class CoreAudio {
     const favoriteBtn = document.getElementById('favoriteBtn');
 
     if (!favoriteBtn) {
-      console.warn('⚠️ Favorite button not found');
+      this.app.logger.warn('⚠️ Favorite button not found');
       return;
     }
 
@@ -1972,7 +1972,7 @@ class CoreAudio {
         isFavorite = await window.queMusicAPI.favorites.isFavorite(this.currentTrack);
         // console.log(`⭐ Fresh database state: ${isFavorite ? 'favorited' : 'not favorited'}`);
       } catch (error) {
-        console.error('❌ Error checking favorite status for button update:', error);
+        this.app.logger.error('❌ Error checking favorite status for button update:', error);
         isFavorite = false;
       }
     }
@@ -2007,7 +2007,7 @@ class CoreAudio {
    */
   async toggleFavorite() {
     if (!this.currentTrack) {
-      // console.warn('⚠️ No current track to favorite');
+      // this.app.logger.warn('⚠️ No current track to favorite');
       this.app.showNotification('No track selected', 'warning');
       return;
     }
@@ -2066,11 +2066,11 @@ class CoreAudio {
           }
         }, 100);
       } else {
-        console.error('❌ Failed to toggle favorite:', result.error);
+        this.app.logger.error('❌ Failed to toggle favorite:', result.error);
         this.app.showNotification('Failed to update favorites', 'error');
       }
     } catch (error) {
-      console.error('❌ Error toggling favorite:', error);
+      this.app.logger.error('❌ Error toggling favorite:', error);
       this.app.showNotification('Failed to update favorites', 'error');
     }
   }
@@ -2080,7 +2080,7 @@ class CoreAudio {
    */
   async recordTrackPlay(trackPath) {
     if (!trackPath) {
-      console.warn('⚠️ No track path provided for play recording');
+      this.app.logger.warn('⚠️ No track path provided for play recording');
       return;
     }
 
@@ -2095,7 +2095,7 @@ class CoreAudio {
         console.error(`❌ Failed to record play: ${result.error}`);
       }
     } catch (error) {
-      console.error('❌ Error recording track play:', error);
+      this.app.logger.error('❌ Error recording track play:', error);
       // Don't show user notification for this error as it's background functionality
     }
   }
@@ -2211,7 +2211,7 @@ class CoreAudio {
     try {
       return await window.queMusicAPI.favorites.isFavorite(this.currentTrack);
     } catch (error) {
-      console.error('❌ Error checking if current track is favorite:', error);
+      this.app.logger.error('❌ Error checking if current track is favorite:', error);
       return false;
     }
   }
@@ -2225,7 +2225,7 @@ class CoreAudio {
     try {
       return await window.queMusicAPI.track.getStats(this.currentTrack);
     } catch (error) {
-      console.error('❌ Error getting current track stats:', error);
+      this.app.logger.error('❌ Error getting current track stats:', error);
       return null;
     }
   }
@@ -2250,7 +2250,7 @@ class CoreAudio {
       // Check if track is already in playlist
       const existingIndex = this.playlist.findIndex((track) => track.path === trackPath);
       if (existingIndex !== -1) {
-        // console.log('🎵 Track already in queue, skipping add');
+        // this.app.logger.debug(' Track already in queue, skipping add');
         this.app.showNotification('Track already in queue', 'info');
         return;
       }
@@ -2262,7 +2262,7 @@ class CoreAudio {
       // Show success notification
       this.app.showNotification(`Added "${trackObject.name}" to queue`, 'success');
     } catch (error) {
-      console.error('❌ Error adding track to queue:', error);
+      this.app.logger.error('❌ Error adding track to queue:', error);
       this.app.showNotification('Failed to add track to queue', 'error');
     }
   }

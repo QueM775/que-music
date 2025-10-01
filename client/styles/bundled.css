@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2025-09-26T15:52:45.519Z
+ * Generated: 2025-10-01T15:07:43.922Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -3661,7 +3661,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/header.css (5270 bytes)
+ * styles/layout/header.css (5866 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -3694,7 +3694,32 @@ Only favorites/recent-specific functionality remains
 .title-bar-controls {
   display: flex;
   align-items: center;
+  gap: 10px;
   -webkit-app-region: no-drag;
+}
+
+/* App version display in app-title area */
+.app-title .app-version {
+  position: static !important;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  user-select: none;
+  padding: 0 !important;
+  margin: 0 !important;
+  margin-right: 10px !important;
+  border: none !important;
+  background: transparent !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  -webkit-app-region: no-drag;
+}
+
+.app-title .app-version:hover {
+  opacity: 1;
 }
 
 .app-title {
@@ -3734,6 +3759,7 @@ Only favorites/recent-specific functionality remains
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  margin-right: 10px;
   -webkit-app-region: no-drag;
 }
 
@@ -3943,7 +3969,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/sidebar.css (4302 bytes)
+ * styles/layout/sidebar.css (5166 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -3960,6 +3986,7 @@ Only favorites/recent-specific functionality remains
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-lg) 0;
+  padding-bottom: 80px; /* Space for version display */
   height: 100%;
   position: relative;
 }
@@ -4117,6 +4144,46 @@ Only favorites/recent-specific functionality remains
 
 .sidebar::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);
+}
+
+/* ========================================
+   APP VERSION DISPLAY
+   ======================================== */
+
+.app-version {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-lg);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.version-info {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.version-info:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.version-text {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: 2px;
+}
+
+.version-number {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+  font-family: 'Courier New', monospace;
 }
 
 /* ========================================

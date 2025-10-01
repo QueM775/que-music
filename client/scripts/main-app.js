@@ -5,11 +5,14 @@ class QueMusicApp {
     // Initialize logger first
     this.logger = new SimpleLogger({
       appName: 'QueMusicRenderer',
-      level: 'HIGH',
+      level: 'NONE', // Default to NONE - will be set from user settings
       compactMode: true,
       enableColors: true,
       enableFileLogging: false // Browser environment
     });
+
+    // Enable console interception to route all console.* calls through logger
+    this.logger.enableConsoleReplacement();
 
     // Basic state
     this.currentView = 'library';
@@ -45,6 +48,10 @@ class QueMusicApp {
     this.setupGlobalErrorHandlers();
 
     await this.testAPI();
+
+    // Load logging level from settings and apply to logger
+    await this.loadLoggingLevel();
+
     this.setupEventListeners();
 
     this.coreAudio.initAudioEngine();
@@ -78,12 +85,23 @@ class QueMusicApp {
     await this.signalRendererReady();
   }
 
-  initializeUI() {
+  async initializeUI() {
     // Set initial theme
     document.documentElement.setAttribute('data-theme', this.uiController.currentTheme);
 
     // Set active nav item
     this.updateActiveNavItem('library');
+
+    // Load and display app version dynamically
+    await this.loadAppVersion();
+
+    // Setup version click handler
+    const appVersion = document.getElementById('appVersion');
+    if (appVersion) {
+      appVersion.addEventListener('click', () => {
+        window.queMusicAPI?.app?.showAbout?.();
+      });
+    }
   }
 
   // Setup global error handlers to prevent crashes during playlist playback
@@ -181,11 +199,52 @@ class QueMusicApp {
     }
   }
 
+  async loadLoggingLevel() {
+    try {
+      if (window.queMusicAPI?.settings?.getLogLevel) {
+        const level = await window.queMusicAPI.settings.getLogLevel();
+        this.logger.setLevel(level || 'NONE');
+        this.logger.info('Logging level loaded from settings', { level });
+      }
+    } catch (error) {
+      // Keep default NONE level on error
+      console.error('Failed to load logging level:', error);
+    }
+  }
+
+  async loadAppVersion() {
+    try {
+      const appVersion = document.getElementById('appVersion');
+      if (appVersion && window.queMusicAPI?.app?.getVersion) {
+        const version = await window.queMusicAPI.app.getVersion();
+        appVersion.textContent = `v${version}`;
+        this.logger.info('App version loaded', { version });
+      }
+    } catch (error) {
+      this.logger.error('Failed to load app version', { error: error.message });
+    }
+  }
+
   // ============================================================================
   // EVENT LISTENERS SETUP
   // ============================================================================
 
   setupEventListeners() {
+    // Listen for logging level changes from main process
+    window.queMusicAPI?.system?.onLogLevelChanged?.((level) => {
+      this.logger.setLevel(level);
+      this.logger.info('Logging level updated', { level });
+    });
+
+    // Listen for show-help event from Help menu
+    if (window.queMusicAPI?.system?.onShowHelp) {
+      window.queMusicAPI.system.onShowHelp(() => {
+        if (this.helpManager) {
+          this.helpManager.showHelp();
+        }
+      });
+    }
+
     // Theme toggle
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {

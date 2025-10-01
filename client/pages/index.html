@@ -4,23 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Que-Music</title>
-    
+
     <!-- Anti-flash styles - applied immediately -->
     <style>
       /* CRITICAL: Force immediate dark background to prevent white flash */
-      html, body {
+      html,
+      body {
         margin: 0 !important;
         padding: 0 !important;
         background: #1a1a1a !important;
         color: #fff !important;
-        font-family: system-ui, -apple-system, sans-serif !important;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif !important;
       }
-      
+
       /* Ensure all elements inherit dark theme immediately */
       * {
         box-sizing: border-box;
       }
-      
+
       /* Brief loading overlay - only shows for first 800ms */
       .loading-overlay {
         position: fixed;
@@ -37,7 +41,7 @@
         opacity: 1;
         transition: opacity 0.3s ease;
       }
-      
+
       .loading-spinner {
         width: 32px;
         height: 32px;
@@ -47,27 +51,35 @@
         animation: spin 0.8s linear infinite;
         margin-bottom: 12px;
       }
-      
+
       .loading-text {
         color: #888;
         font-size: 12px;
         opacity: 0.8;
       }
-      
+
       @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
-      
+
       /* Quick hide transition */
       .loading-overlay.hidden {
         opacity: 0;
         pointer-events: none;
       }
     </style>
-    
+
     <!-- Load bundled CSS after critical styles -->
-    <link rel="stylesheet" href="../styles/bundled.css" onload="window.bundledCSSLoaded = true; console.log('📦 Bundled CSS loaded')" />
+    <link
+      rel="stylesheet"
+      href="../styles/bundled.css"
+      onload="window.bundledCSSLoaded = true; console.log('📦 Bundled CSS loaded')"
+    />
   </head>
   <body>
     <!-- Loading overlay to prevent flashing during CSS load -->
@@ -75,7 +87,7 @@
       <div class="loading-spinner"></div>
       <div class="loading-text">Loading Que-Music...</div>
     </div>
-    
+
     <div class="app-container">
       <!-- Title Bar -->
       <header class="title-bar">
@@ -90,6 +102,7 @@
           <h1>
             <img src="../../assets/images/QueMusicDark.png" alt="🎵 Que-Music" class="app-logo" />
           </h1>
+          <div class="app-version" id="appVersion"></div>
         </div>
         <div class="header-actions">
           <button class="icon-btn" id="searchBtn" title="Search Library">
@@ -449,8 +462,8 @@
           <div class="player-bar">
             <div class="now-playing-info">
               <div class="album-art">
-                <img id="currentAlbumArt" src="" alt="Album Art" class="album-image" />
-                <div class="album-placeholder">
+                <img id="currentAlbumArt" src="../../assets/covers/sample-cover.jpg" alt="Album Art" class="album-image" />
+                <div class="album-placeholder" style="display: none;">
                   <svg
                     width="24"
                     height="24"
@@ -898,12 +911,12 @@
     <!-- Quick Loading Handler -->
     <script>
       console.log('🎨 Anti-flash loading...');
-      
+
       // Hide loading overlay quickly once DOM and CSS are ready
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         console.log('📄 DOM ready');
         const loadingOverlay = document.getElementById('loadingOverlay');
-        
+
         // Quick check for CSS and hide overlay
         const hideOverlay = () => {
           if (loadingOverlay) {
@@ -917,7 +930,7 @@
             }, 400);
           }
         };
-        
+
         // Hide after CSS loads or 800ms maximum
         if (window.bundledCSSLoaded) {
           hideOverlay();
