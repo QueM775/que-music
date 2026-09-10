@@ -497,41 +497,130 @@ class MusicDatabase {
     }
   }
 
-  async importExistingM3UFiles() {
-    if (!this.playlistFolder) return;
+  // Normalized key for matching an M3U entry against tracks.path.
+  // Handles separator style, BOM, surrounding whitespace, file:// URLs and case.
+  _normalizePathKey(p) {
+    if (!p) return '';
+    let s = String(p).replace(/^\uFEFF/, '').trim();
+    if (/^file:\/\//i.test(s)) {
+      try {
+        s = decodeURI(s.replace(/^file:\/+/i, ''));
+      } catch (e) {
+        /* leave as-is */
+      }
+    }
+    s = s.replace(/\//g, '\\').replace(/\\{2,}/g, '\\');
+    return s.toLowerCase();
+  }
+
+  // One-shot lookup of every known track, keyed by normalized path.
+  _buildTrackPathIndex() {
+    const index = new Map();
+    for (const row of this.db.prepare('SELECT id, path FROM tracks').all()) {
+      index.set(this._normalizePathKey(row.path), row);
+    }
+    return index;
+  }
+
+  async importExistingM3UFiles(options = {}) {
+    if (!this.playlistFolder) return { processed: 0, playlists: [] };
 
     try {
       const files = await fs.readdir(this.playlistFolder);
       const m3uFiles = files.filter((file) => file.toLowerCase().endsWith('.m3u'));
+      console.log(`📂 Found ${m3uFiles.length} M3U file(s) in ${this.playlistFolder}`);
+      if (m3uFiles.length === 0) return { processed: 0, playlists: [] };
 
-      console.log(`📂 Found ${m3uFiles.length} M3U files to import`);
-
+      // Build the track index once and reuse it for every file.
+      const trackIndex = this._buildTrackPathIndex();
+      const results = [];
       for (const m3uFile of m3uFiles) {
-        await this.importM3UFile(path.join(this.playlistFolder, m3uFile));
+        results.push(
+          await this.importM3UFile(path.join(this.playlistFolder, m3uFile), {
+            ...options,
+            trackIndex,
+          })
+        );
       }
+
+      const matched = results.reduce((n, r) => n + (r.matched || 0), 0);
+      const missing = results.reduce((n, r) => n + (r.missing || 0), 0);
+      console.log(
+        `📂 M3U import complete: ${results.length} file(s), ${matched} track(s) matched, ${missing} unmatched`
+      );
+      return { processed: results.length, playlists: results };
     } catch (error) {
       console.warn('⚠️ Could not read playlist folder:', error.message);
+      return { processed: 0, playlists: [], error: error.message };
     }
   }
 
-  async importM3UFile(m3uFilePath) {
+  // Import a single .m3u into the database.
+  //   replace = false (default): skip if a playlist with this name already exists.
+  //   replace = true: rebuild the existing playlist's tracks from the file.
+  async importM3UFile(m3uFilePath, options = {}) {
+    const { replace = false, trackIndex = null } = options;
+    const name = path.basename(m3uFilePath, path.extname(m3uFilePath));
+
     try {
-      const content = await fs.readFile(m3uFilePath, 'utf8');
-      const filename = path.basename(m3uFilePath, '.m3u');
-
-      // Check if playlist already exists in database
-      const existingPlaylist = this.db
-        .prepare('SELECT id FROM playlists WHERE name = ?')
-        .get(filename);
-
-      if (existingPlaylist) {
-        console.log(`📋 Playlist "${filename}" already exists in database, skipping import`);
-        return;
+      const existing = this.db.prepare('SELECT * FROM playlists WHERE name = ?').get(name);
+      if (existing && !replace) {
+        console.log(`📋 Playlist "${name}" already in database — skipping (use force re-import to replace)`);
+        return { name, playlistId: existing.id, matched: 0, missing: 0, skipped: true };
       }
 
-      console.log(`📂 Importing playlist "${filename}"...`);
+      const raw = await fs.readFile(m3uFilePath, 'utf8');
+      const index = trackIndex || this._buildTrackPathIndex();
+      const m3uDir = path.dirname(m3uFilePath);
+
+      // Resolve every entry to a known track, preserving order and dropping dupes.
+      const resolved = [];
+      const missingPaths = [];
+      const seen = new Set();
+      for (const entry of this.parseM3UContent(raw)) {
+        const abs = path.isAbsolute(entry) ? entry : path.resolve(m3uDir, entry);
+        const hit = index.get(this._normalizePathKey(abs));
+        if (!hit) {
+          missingPaths.push(entry);
+          continue;
+        }
+        if (seen.has(hit.path)) continue;
+        seen.add(hit.path);
+        resolved.push(hit);
+      }
+
+      const runImport = this.db.transaction(() => {
+        let playlistId;
+        if (existing) {
+          playlistId = existing.id;
+          this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(playlistId);
+        } else {
+          const res = this.db
+            .prepare('INSERT INTO playlists (name, description) VALUES (?, ?)')
+            .run(name, `Imported from ${path.basename(m3uFilePath)}`);
+          playlistId = res.lastInsertRowid;
+        }
+        const insert = this.db.prepare(
+          'INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, track_path, position) VALUES (?, ?, ?, ?)'
+        );
+        resolved.forEach((track, i) => insert.run(playlistId, track.id, track.path, i + 1));
+        return playlistId;
+      });
+      const playlistId = runImport();
+
+      console.log(
+        `📋 Imported "${name}": ${resolved.length} track(s) matched, ${missingPaths.length} unmatched`
+      );
+      return {
+        name,
+        playlistId,
+        matched: resolved.length,
+        missing: missingPaths.length,
+        missingPaths,
+      };
     } catch (error) {
       console.error(`❌ Error importing M3U file ${m3uFilePath}:`, error);
+      return { name, playlistId: null, matched: 0, missing: 0, error: error.message };
     }
   }
 

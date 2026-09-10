@@ -877,145 +877,31 @@ ipcMain.handle('debug:playlist-tables', async (event, playlistId) => {
   }
 });
 
-// Force re-import M3U files handler
-ipcMain.handle('playlist:force-reimport-m3u', async (event) => {
+// Force re-import M3U files handler — rebuilds every playlist from its .m3u on disk
+ipcMain.handle('playlist:force-reimport-m3u', async () => {
   try {
-    console.log('🔄 Force re-importing M3U files...');
-
     if (!musicDB) {
-      return { error: 'Database not available' };
+      return { success: false, error: 'Database not available' };
     }
 
-    // Get music folder
     const savedMusicFolder = await getSetting('musicFolder', null);
     if (!savedMusicFolder) {
-      return { error: 'No music folder set' };
+      return { success: false, error: 'No music folder set' };
     }
 
-    const playlistFolder = path.join(savedMusicFolder, 'Playlists');
-
-    // Check if playlist folder exists
-    if (!(await fs.pathExists(playlistFolder))) {
-      return { error: `Playlist folder not found: ${playlistFolder}` };
+    if (!musicDB.playlistFolder) {
+      musicDB.playlistFolder = path.join(savedMusicFolder, 'Playlists');
+    }
+    if (!(await fs.pathExists(musicDB.playlistFolder))) {
+      return { success: false, error: `Playlist folder not found: ${musicDB.playlistFolder}` };
     }
 
-    // Get M3U files
-    const files = await fs.readdir(playlistFolder);
-    const m3uFiles = files.filter((file) => file.toLowerCase().endsWith('.m3u'));
-
-    console.log(`🔄 Found ${m3uFiles.length} M3U files to process`);
-
-    let imported = 0;
-    let errors = [];
-
-    for (const m3uFile of m3uFiles) {
-      try {
-        const m3uPath = path.join(playlistFolder, m3uFile);
-        const content = await fs.readFile(m3uPath, 'utf8');
-        const playlistName = path.basename(m3uFile, '.m3u');
-
-        console.log(`🔄 Processing M3U: ${playlistName}`);
-
-        // Parse M3U content to get track paths
-        const trackPaths = musicDB.parseM3UContent(content);
-        console.log(`🔄 Found ${trackPaths.length} tracks in ${playlistName}`);
-
-        if (trackPaths.length === 0) {
-          console.log(`⚠️ No tracks in M3U file: ${playlistName}`);
-          continue;
-        }
-
-        // Get or create playlist
-        let playlist;
-        try {
-          playlist = await new Promise((resolve, reject) => {
-            musicDB.db.get('SELECT * FROM playlists WHERE name = ?', [playlistName], (err, row) => {
-              if (err) reject(err);
-              else resolve(row);
-            });
-          });
-        } catch (err) {
-          errors.push(`Error getting playlist ${playlistName}: ${err.message}`);
-          continue;
-        }
-
-        if (!playlist) {
-          // Create playlist if it doesn't exist
-          try {
-            playlist = await musicDB.createPlaylist({
-              name: playlistName,
-              description: `Imported from ${m3uFile}`,
-            });
-            console.log(`✅ Created playlist: ${playlistName}`);
-          } catch (err) {
-            errors.push(`Error creating playlist ${playlistName}: ${err.message}`);
-            continue;
-          }
-        } else {
-          console.log(`📋 Using existing playlist: ${playlistName} (ID: ${playlist.id})`);
-
-          // Clear existing tracks from playlist
-          try {
-            await new Promise((resolve, reject) => {
-              musicDB.db.run(
-                'DELETE FROM playlist_tracks WHERE playlist_id = ?',
-                [playlist.id],
-                (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                }
-              );
-            });
-            console.log(`🧹 Cleared existing tracks from playlist: ${playlistName}`);
-          } catch (err) {
-            errors.push(`Error clearing playlist ${playlistName}: ${err.message}`);
-            continue;
-          }
-        }
-
-        // Add tracks to playlist
-        let addedCount = 0;
-        for (const trackPath of trackPaths) {
-          try {
-            // Find track in database by path
-            const track = await new Promise((resolve, reject) => {
-              musicDB.db.get('SELECT id FROM tracks WHERE path = ?', [trackPath], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-              });
-            });
-
-            if (track) {
-              await musicDB.addTrackToPlaylist(playlist.id, track.id);
-              addedCount++;
-              console.log(`✅ Added track to ${playlistName}: ${path.basename(trackPath)}`);
-            } else {
-              console.warn(`⚠️ Track not found in database: ${trackPath}`);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Could not add track to playlist: ${trackPath}`, error.message);
-          }
-        }
-
-        console.log(
-          `✅ Successfully imported playlist "${playlistName}" with ${addedCount}/${trackPaths.length} tracks`
-        );
-        imported++;
-      } catch (error) {
-        errors.push(`Error processing ${m3uFile}: ${error.message}`);
-        console.error(`❌ Error processing M3U file ${m3uFile}:`, error);
-      }
-    }
-
-    const result = {
-      success: true,
-      processed: m3uFiles.length,
-      imported,
-      errors,
-    };
-
-    console.log('🔄 M3U re-import complete:', result);
-    return result;
+    const result = await musicDB.importExistingM3UFiles({ replace: true });
+    console.log('🔄 M3U force re-import complete:', {
+      processed: result.processed,
+      matched: (result.playlists || []).reduce((n, r) => n + (r.matched || 0), 0),
+    });
+    return { success: true, ...result };
   } catch (error) {
     console.error('❌ Error in force M3U re-import:', error);
     return { success: false, error: error.message };

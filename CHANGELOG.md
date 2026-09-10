@@ -5,6 +5,21 @@ All notable changes to Que-Music will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-09-10
+
+### Fixed
+
+- **Folder tree hid nothing**: the left-pane folder browser listed every subfolder, including non-music scaffolding (`_Docs`, `_Inbox`) and the app's own empty `Playlists/` folder.
+  - **Root Cause**: `LibraryManager.filterSystemFolders()` only dimmed a hardcoded name list; it never hid folders with no audio in them.
+  - **Solution**: `filterSystemFolders()` now removes any folder that is a known system folder or has a total `songCount` of 0 (children included). Artist folders that only contain album subfolders still appear.
+  - **Files Modified**: `client/scripts/library-manager.js`
+
+- **M3U playlists never imported**: `.m3u` files in `{musicFolder}/Playlists/` were ignored; the playlists table stayed empty and the manual re-import handler threw.
+  - **Root Cause**: `MusicDatabase.importM3UFile()` was a stub (parsed and inserted nothing). The `playlist:force-reimport-m3u` handler used the old `sqlite3` callback API against a `better-sqlite3` connection.
+  - **Solution**: rewrote `importM3UFile()` / `importExistingM3UFiles()` to parse each M3U, resolve entries against `tracks.path` through a normalized-path index (separators, BOM, `file://`, case, relative paths), and create-or-rebuild the playlist + `playlist_tracks` in one transaction. Startup import is non-destructive (`replace: false`); the force handler passes `replace: true` and is now a thin delegate.
+  - **Files Modified**: `server/database.js`, `main.js`
+  - **Result**: all 19 existing playlists import on launch (348/352 tracks matched; the rest are dead paths inside the M3U files).
+
 ## [3.2.3] - 2025-10-06
 
 ### Fixed

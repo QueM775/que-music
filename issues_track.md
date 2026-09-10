@@ -2,6 +2,28 @@
 
 ## Version History & Bug Fixes
 
+### Unreleased - 2026-09-10
+
+#### Issues Fixed ✅
+
+**Issue #16: Folder tree showed non-music / empty folders**
+- **Description**: Selecting a music folder listed every subfolder in the left pane — including scaffolding like `_Docs`, `_Inbox`, and the app's own empty `Playlists/` folder — with no relation to actual songs.
+- **Root Cause**: `LibraryManager.filterSystemFolders()` only *marked* a hardcoded list of folder names as "system" (dimmed but still visible) and never hid folders that contain no audio.
+- **Solution**: `filterSystemFolders()` now drops any folder that is a known system folder **or** whose `songCount` (total including children, from `buildFolderTree`) is 0. Artist folders that only hold album subfolders still show. Single chokepoint — both `createFolderBrowserForLeftPane` and `createFolderBrowser` use it.
+- **Files Modified**: `client/scripts/library-manager.js` (`filterSystemFolders`, ~line 1075)
+- **Verified**: Against live library `E:\Erich\Music` — before: `_Docs, Library, Organized, Playlists`; after: `Library, Organized`.
+
+**Issue #17: M3U playlists never imported (playlist system dead on arrival)**
+- **Description**: `.m3u` files in `{musicFolder}/Playlists/` were never imported. DB `playlists` table stayed empty. The manual "force re-import" path threw.
+- **Root Cause**: Two separate breakages. (1) `MusicDatabase.importM3UFile()` was a stub — it read the file, checked for an existing playlist, logged "Importing…", then returned without parsing or inserting anything. (2) `main.js` `playlist:force-reimport-m3u` handler was written against the old `sqlite3` callback API (`musicDB.db.get(sql, params, cb)`); the DB is `better-sqlite3` (synchronous), so `musicDB.db.get` is not a function.
+- **Solution**:
+  - Rewrote `importM3UFile()` to parse the M3U, resolve every entry against `tracks.path` via a normalized-path index (`_normalizePathKey` handles separators, BOM, `file://`, case, relative paths), then create-or-rebuild the playlist and its `playlist_tracks` rows inside a single transaction. Stores the canonical `tracks.path` so the app's `getPlaylistById` JOIN (`pt.track_path = t.path`) resolves.
+  - `importM3UFile(path, { replace })`: `replace=false` (default, used on startup) skips playlists that already exist — non-destructive; `replace=true` rebuilds from disk.
+  - `importExistingM3UFiles(options)` builds the track index once and reuses it for all files; returns a `{ processed, playlists:[{name, matched, missing, missingPaths}] }` summary.
+  - Gutted the broken `playlist:force-reimport-m3u` handler down to a thin delegate calling `importExistingM3UFiles({ replace: true })`.
+- **Files Modified**: `server/database.js` (`importExistingM3UFiles`, `importM3UFile`, new `_normalizePathKey` / `_buildTrackPathIndex`), `main.js` (`playlist:force-reimport-m3u` handler, ~line 880)
+- **Verified**: Clean app launch imported all 19 of Erich's playlists — 348/352 tracks matched (the 4 misses are genuinely broken paths inside the `.m3u` files, e.g. a `…Copperhead Road Steve Earle.Mp3\` directory component). Idempotent on re-run; non-destructive default confirmed; `getPlaylistById` JOIN returns tracks.
+
 ### Version 3.2.4 - 2025-10-07
 
 #### Issues Fixed ✅

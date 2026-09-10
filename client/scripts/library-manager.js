@@ -1073,7 +1073,7 @@ class LibraryManager {
   }
 
   filterSystemFolders(folders) {
-    // System folders that should be dimmed/unclickable but still visible
+    // Names that are never a real music folder, even if a stray file lands inside.
     const systemFolders = [
       'assets', // Application assets
       'Assets', // Case variation
@@ -1093,28 +1093,17 @@ class LibraryManager {
       'Thumbs.db', // Windows thumbnail cache
     ];
 
-    // console.log(`🔍 DEBUG: ORIGINAL ${folders.length} folders BEFORE filtering:`);
-    // folders.forEach((f, i) => {
-    //   console.log(`  ${i + 1}. "${f.name}" (${f.songCount} songs)`);
-    // });
-
-    // Mark system folders as disabled instead of filtering them out
-    const processed = folders.map((folder) => ({
-      ...folder,
-      isSystemFolder: systemFolders.includes(folder.name),
-      children: folder.children ? this.filterSystemFolders(folder.children) : [],
-    }));
-
-    // console.log(
-    //   `📁 Folder processing: ${folders.length} folders (${processed.filter((f) => f.isSystemFolder).length} marked as system folders)`
-    // );
-    // console.log(`🔍 DEBUG: PROCESSED folders:`);
-    // processed.forEach((f, i) => {
-    //   const status = f.isSystemFolder ? '🔒 SYSTEM' : '📁 NORMAL';
-    //   console.log(`  ${i + 1}. ${status} "${f.name}" (${f.songCount} songs)`);
-    // });
-
-    return processed;
+    return folders
+      .map((folder) => ({
+        ...folder,
+        isSystemFolder: systemFolders.includes(folder.name),
+        children: folder.children ? this.filterSystemFolders(folder.children) : [],
+      }))
+      // Hide system folders outright, plus any folder with no music in it or in
+      // any subfolder. songCount is the total including children (set in
+      // buildFolderTree), so an artist folder that only holds album subfolders
+      // still shows; empty scaffolding like _Docs / _Inbox / Playlists does not.
+      .filter((folder) => !folder.isSystemFolder && folder.songCount > 0);
   }
 
   renderFolderTreeForLeftPane(folders, level = 0) {
