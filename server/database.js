@@ -513,13 +513,27 @@ class MusicDatabase {
     return s.toLowerCase();
   }
 
-  // One-shot lookup of every known track, keyed by normalized path.
-  _buildTrackPathIndex() {
-    const index = new Map();
-    for (const row of this.db.prepare('SELECT id, path FROM tracks').all()) {
-      index.set(this._normalizePathKey(row.path), row);
+  // One-shot lookup of every known track: by normalized path, and by filename
+  // as a fallback for entries whose files were moved within the library.
+  // A filename shared by more than one track is stored as null (ambiguous).
+  _buildTrackIndex() {
+    const byPath = new Map();
+    const byName = new Map();
+    for (const row of this.db.prepare('SELECT id, path, filename FROM tracks').all()) {
+      byPath.set(this._normalizePathKey(row.path), row);
+      const nameKey = String(row.filename || path.basename(row.path)).toLowerCase();
+      byName.set(nameKey, byName.has(nameKey) ? null : row);
     }
-    return index;
+    return { byPath, byName };
+  }
+
+  // Resolve one M3U entry to a track row, or null. Tries the exact (normalized)
+  // path first, then a unique-filename match.
+  _resolveTrackEntry(entry, baseDir, index) {
+    const abs = path.isAbsolute(entry) ? entry : path.resolve(baseDir, entry);
+    const exact = index.byPath.get(this._normalizePathKey(abs));
+    if (exact) return exact;
+    return index.byName.get(path.basename(abs).toLowerCase()) || null;
   }
 
   async importExistingM3UFiles(options = {}) {
@@ -532,7 +546,7 @@ class MusicDatabase {
       if (m3uFiles.length === 0) return { processed: 0, playlists: [] };
 
       // Build the track index once and reuse it for every file.
-      const trackIndex = this._buildTrackPathIndex();
+      const trackIndex = this._buildTrackIndex();
       const results = [];
       for (const m3uFile of m3uFiles) {
         results.push(
@@ -570,7 +584,7 @@ class MusicDatabase {
       }
 
       const raw = await fs.readFile(m3uFilePath, 'utf8');
-      const index = trackIndex || this._buildTrackPathIndex();
+      const index = trackIndex || this._buildTrackIndex();
       const m3uDir = path.dirname(m3uFilePath);
 
       // Resolve every entry to a known track, preserving order and dropping dupes.
@@ -578,8 +592,7 @@ class MusicDatabase {
       const missingPaths = [];
       const seen = new Set();
       for (const entry of this.parseM3UContent(raw)) {
-        const abs = path.isAbsolute(entry) ? entry : path.resolve(m3uDir, entry);
-        const hit = index.get(this._normalizePathKey(abs));
+        const hit = this._resolveTrackEntry(entry, m3uDir, index);
         if (!hit) {
           missingPaths.push(entry);
           continue;

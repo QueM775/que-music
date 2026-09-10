@@ -21,8 +21,15 @@
   - `importM3UFile(path, { replace })`: `replace=false` (default, used on startup) skips playlists that already exist — non-destructive; `replace=true` rebuilds from disk.
   - `importExistingM3UFiles(options)` builds the track index once and reuses it for all files; returns a `{ processed, playlists:[{name, matched, missing, missingPaths}] }` summary.
   - Gutted the broken `playlist:force-reimport-m3u` handler down to a thin delegate calling `importExistingM3UFiles({ replace: true })`.
-- **Files Modified**: `server/database.js` (`importExistingM3UFiles`, `importM3UFile`, new `_normalizePathKey` / `_buildTrackPathIndex`), `main.js` (`playlist:force-reimport-m3u` handler, ~line 880)
-- **Verified**: Clean app launch imported all 19 of Erich's playlists — 348/352 tracks matched (the 4 misses are genuinely broken paths inside the `.m3u` files, e.g. a `…Copperhead Road Steve Earle.Mp3\` directory component). Idempotent on re-run; non-destructive default confirmed; `getPlaylistById` JOIN returns tracks.
+- **Files Modified**: `server/database.js` (`importExistingM3UFiles`, `importM3UFile`, new `_normalizePathKey` / `_buildTrackIndex` / `_resolveTrackEntry`), `main.js` (`playlist:force-reimport-m3u` handler, ~line 880)
+- **Verified**: Clean app launch imported all 19 of Erich's playlists.
+
+**Issue #18: Playlist entries broken by an earlier library reorganize**
+- **Description**: Some `.m3u` entries pointed at old locations — files that a Picard/organize pass (Aug 2026) had since moved into each artist's `Singles & Rarities/` folder, leaving behind empty `<Song>.Mp3/` folders (cover.jpg only). Those entries failed to import.
+- **Solution**: `_resolveTrackEntry()` now falls back to a **unique-filename match** when the exact path misses — heals tracks moved anywhere within the library, present and future. Ambiguous filenames (shared by >1 track) are not auto-matched.
+- **Files Modified**: `server/database.js` (`_buildTrackIndex` now also indexes by filename; new `_resolveTrackEntry`)
+- **Verified**: import went from 348/352 → **350/352** matched. Remaining 2 are the same dead entry (`…\Compilations\Grunge Mixes\free bird lynyrd skynyrd.mp3`) referenced by the "Grunge" and "Grunge Mixes" playlists — that file exists nowhere in the library; needs a manual decision (drop the entry or point it at another recording).
+- **Not fixed here (library hygiene, separate task)**: the empty `<Song>.Mp3/` folders still on disk with an orphan `cover.jpg`. Harmless to playback; now hidden from the folder tree by Issue #16.
 
 ### Version 3.2.4 - 2025-10-07
 

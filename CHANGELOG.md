@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Root Cause**: `MusicDatabase.importM3UFile()` was a stub (parsed and inserted nothing). The `playlist:force-reimport-m3u` handler used the old `sqlite3` callback API against a `better-sqlite3` connection.
   - **Solution**: rewrote `importM3UFile()` / `importExistingM3UFiles()` to parse each M3U, resolve entries against `tracks.path` through a normalized-path index (separators, BOM, `file://`, case, relative paths), and create-or-rebuild the playlist + `playlist_tracks` in one transaction. Startup import is non-destructive (`replace: false`); the force handler passes `replace: true` and is now a thin delegate.
   - **Files Modified**: `server/database.js`, `main.js`
-  - **Result**: all 19 existing playlists import on launch (348/352 tracks matched; the rest are dead paths inside the M3U files).
+  - **Result**: all 19 existing playlists import on launch. Track resolution also falls back to a unique-filename match, so entries left stale by an earlier library reorganize still resolve (350/352 matched; the last 2 are the same entry pointing at a file that no longer exists anywhere).
 
 ## [3.2.3] - 2025-10-06
 
