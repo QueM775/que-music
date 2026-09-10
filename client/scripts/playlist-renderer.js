@@ -7,7 +7,6 @@ class PlaylistRenderer {
     this.currentContextPlaylist = null;
     this.currentPlaylistData = null;
     this._modalListenersSetup = false;
-
   }
 
   // ============================================================================
@@ -15,7 +14,6 @@ class PlaylistRenderer {
   // ============================================================================
 
   async initializePlaylists() {
-
     await this.initializePlaylistFolder();
 
     // Only load playlists if we're using the old sidebar layout
@@ -25,7 +23,6 @@ class PlaylistRenderer {
       this.setupPlaylistEventListeners();
     } else {
     }
-
   }
 
   async initializePlaylistFolder() {
@@ -84,7 +81,6 @@ class PlaylistRenderer {
           playlistList.appendChild(playlistElement);
         });
       }
-
     } catch (error) {
       console.error('❌ Error loading playlists:', error);
       this.showErrorState('Failed to load playlists');
@@ -117,7 +113,6 @@ class PlaylistRenderer {
   // ============================================================================
 
   async selectPlaylist(playlistId) {
-
     try {
       const playlist = await this.loadPlaylistTracks(playlistId);
       if (playlist) {
@@ -131,7 +126,6 @@ class PlaylistRenderer {
   }
 
   async loadPlaylistTracks(playlistId) {
-
     try {
       this.showLoadingState('Loading playlist...');
 
@@ -155,7 +149,6 @@ class PlaylistRenderer {
   }
 
   displayPlaylistTracks(playlist) {
-
     const rightPaneTitle = document.getElementById('rightPaneTitle');
     const rightPaneContent = document.getElementById('rightPaneContent');
     const rightPaneActions = document.getElementById('rightPaneActions');
@@ -239,7 +232,6 @@ class PlaylistRenderer {
   }
 
   async playPlaylist(startIndex = 0) {
-
     if (!this.currentPlaylistData || !this.currentPlaylistData.tracks) {
       console.warn('⚠️ No playlist data available');
       return;
@@ -251,7 +243,6 @@ class PlaylistRenderer {
       this.app.showNotification('No tracks in playlist', 'warning');
       return;
     }
-
 
     // Clear existing playlist and set up new one from playlist
     this.app.coreAudio.clearPlaylist();
@@ -509,7 +500,9 @@ class PlaylistRenderer {
           // If we have multiple tracks to add after creation
           if (this.tracksToAddAfterCreation && newPlaylist && newPlaylist.id) {
             try {
-              console.log(`📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created emergency playlist`);
+              console.log(
+                `📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created emergency playlist`
+              );
 
               let successCount = 0;
               for (const track of this.tracksToAddAfterCreation) {
@@ -525,7 +518,10 @@ class PlaylistRenderer {
               }
 
               if (successCount > 0) {
-                this.app.showNotification(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`, 'success');
+                this.app.showNotification(
+                  `Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`,
+                  'success'
+                );
               }
             } catch (error) {
               console.error('❌ Error adding tracks to new emergency playlist:', error);
@@ -537,15 +533,26 @@ class PlaylistRenderer {
           // If we have a single track to add after creation (from right-click context menu)
           else if (this.trackToAddAfterCreation && newPlaylist && newPlaylist.id) {
             try {
-              console.log('📋 Adding track to newly created emergency playlist:', this.trackToAddAfterCreation);
+              console.log(
+                '📋 Adding track to newly created emergency playlist:',
+                this.trackToAddAfterCreation
+              );
 
               // Get track ID from the database using the path
-              const dbTrack = await window.queMusicAPI.database.getTrackByPath(this.trackToAddAfterCreation.path);
+              const dbTrack = await window.queMusicAPI.database.getTrackByPath(
+                this.trackToAddAfterCreation.path
+              );
               if (dbTrack && dbTrack.id) {
                 await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
-                this.app.showNotification(`Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`, 'success');
+                this.app.showNotification(
+                  `Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`,
+                  'success'
+                );
               } else {
-                console.warn('⚠️ Could not find track in database:', this.trackToAddAfterCreation.path);
+                console.warn(
+                  '⚠️ Could not find track in database:',
+                  this.trackToAddAfterCreation.path
+                );
               }
             } catch (error) {
               console.error('❌ Error adding track to new emergency playlist:', error);
@@ -674,7 +681,9 @@ class PlaylistRenderer {
         // If we have multiple tracks to add after creation
         if (this.tracksToAddAfterCreation && newPlaylist && newPlaylist.id) {
           try {
-            console.log(`📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created playlist`);
+            console.log(
+              `📋 Adding ${this.tracksToAddAfterCreation.length} tracks to newly created playlist`
+            );
 
             let successCount = 0;
             let failCount = 0;
@@ -697,10 +706,16 @@ class PlaylistRenderer {
             }
 
             if (successCount > 0) {
-              this.app.showNotification(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`, 'success');
+              this.app.showNotification(
+                `Added ${successCount} track${successCount !== 1 ? 's' : ''} to playlist`,
+                'success'
+              );
             }
             if (failCount > 0) {
-              this.app.showNotification(`Failed to add ${failCount} track${failCount !== 1 ? 's' : ''}`, 'warning');
+              this.app.showNotification(
+                `Failed to add ${failCount} track${failCount !== 1 ? 's' : ''}`,
+                'warning'
+              );
             }
           } catch (error) {
             console.error('❌ Error adding tracks to new playlist:', error);
@@ -716,17 +731,31 @@ class PlaylistRenderer {
             console.log('📋 Adding track to newly created playlist:', this.trackToAddAfterCreation);
 
             // Get track ID from the database using the path
-            const dbTrack = await window.queMusicAPI.database.getTrackByPath(this.trackToAddAfterCreation.path);
+            const dbTrack = await window.queMusicAPI.database.getTrackByPath(
+              this.trackToAddAfterCreation.path
+            );
             if (dbTrack && dbTrack.id) {
               await window.queMusicAPI.playlists.addTrack(newPlaylist.id, dbTrack.id);
-              this.app.showNotification(`Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`, 'success');
+              this.app.showNotification(
+                `Added "${this.trackToAddAfterCreation.title || this.trackToAddAfterCreation.name}" to playlist`,
+                'success'
+              );
             } else {
-              console.warn('⚠️ Could not find track in database:', this.trackToAddAfterCreation.path);
-              this.app.showNotification('Playlist created but could not add the selected track', 'warning');
+              console.warn(
+                '⚠️ Could not find track in database:',
+                this.trackToAddAfterCreation.path
+              );
+              this.app.showNotification(
+                'Playlist created but could not add the selected track',
+                'warning'
+              );
             }
           } catch (error) {
             console.error('❌ Error adding track to new playlist:', error);
-            this.app.showNotification('Playlist created but could not add the selected track', 'warning');
+            this.app.showNotification(
+              'Playlist created but could not add the selected track',
+              'warning'
+            );
           }
 
           // Clear the track to add
@@ -839,8 +868,10 @@ class PlaylistRenderer {
             await this.duplicateCurrentPlaylist();
             break;
           case 'export':
-            await this.exportPlaylistToM3U(playlist.id);
+            console.log('EXPORTING Playlist ID:', this.currentContextPlaylist.id);
+            await this.exportPlaylistToM3U(this.currentContextPlaylist.id);
             break;
+
           case 'clear':
             await this.clearCurrentPlaylist();
             break;
@@ -1033,12 +1064,12 @@ class PlaylistRenderer {
     const titleElement = item.querySelector('.track-title');
     const artistElement = item.querySelector('.track-artist');
     const albumElement = item.querySelector('.track-album');
-    
+
     return {
       id: trackId,
       title: titleElement ? titleElement.textContent : '',
       artist: artistElement ? artistElement.textContent : '',
-      album: albumElement ? albumElement.textContent : ''
+      album: albumElement ? albumElement.textContent : '',
     };
   }
 
@@ -1114,7 +1145,7 @@ class PlaylistRenderer {
     // Find the index of this track in the current playlist
     const trackItems = Array.from(trackElement.parentElement.children);
     const trackIndex = trackItems.indexOf(trackElement);
-    
+
     if (trackIndex !== -1) {
       await this.playPlaylist(trackIndex);
     }
@@ -1124,7 +1155,7 @@ class PlaylistRenderer {
     console.log('🗑️ removeTrackFromCurrentPlaylist called with:', trackData);
     console.log('🗑️ currentPlaylistData exists:', !!this.currentPlaylistData);
     console.log('🗑️ trackData.id:', trackData.id);
-    
+
     if (!this.currentPlaylistData || !trackData.id) {
       console.error('❌ Cannot remove track: missing playlist data or track ID');
       return;
@@ -1133,17 +1164,18 @@ class PlaylistRenderer {
     try {
       // Remove from database
       await window.queMusicAPI.playlists.removeTrack(this.currentPlaylistData.id, trackData.id);
-      
+
       // Remove from UI
       trackElement.remove();
-      
+
       // Update track count in the header
       await this.updatePlaylistTrackCount();
-      
+
       this.app.showNotification(`Removed "${trackData.title}" from playlist`, 'success');
-      
-      console.log(`🗑️ Removed track "${trackData.title}" from playlist "${this.currentPlaylistData.name}"`);
-      
+
+      console.log(
+        `🗑️ Removed track "${trackData.title}" from playlist "${this.currentPlaylistData.name}"`
+      );
     } catch (error) {
       console.error('❌ Error removing track from playlist:', error);
       this.app.showNotification('Failed to remove track from playlist', 'error');
@@ -1152,13 +1184,15 @@ class PlaylistRenderer {
 
   async updatePlaylistTrackCount() {
     if (!this.currentPlaylistData) return;
-    
+
     try {
       // Get updated playlist data
-      const updatedPlaylist = await window.queMusicAPI.playlists.getById(this.currentPlaylistData.id);
+      const updatedPlaylist = await window.queMusicAPI.playlists.getById(
+        this.currentPlaylistData.id
+      );
       if (updatedPlaylist) {
         this.currentPlaylistData = updatedPlaylist;
-        
+
         // Update the track count display in the right pane
         const trackCountElement = document.querySelector('.playlist-info .track-count');
         if (trackCountElement) {

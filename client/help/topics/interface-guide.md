@@ -31,12 +31,12 @@ Navigation organized into sections:
 
 - **Change Music Folder** - Switch to a different music directory
 - **Database Manager** - Advanced library management tools
+- **Album Cover Fetcher** - Download missing album artwork automatically
 
 ### 3. **Content Area** (Center/Right)
 
 - **Dual-Pane Layout**: Folder browser (left) and track list (right)
 - **Single-Pane Layout**: Full-width content for search results and settings
-- **View Controls**: Toggle between grid and list views
 - **Sort Options**: Sort tracks by title, artist, album, year, or duration
 
 ### 4. **Audio Player** (Bottom)
@@ -47,21 +47,14 @@ Navigation organized into sections:
 - **Volume Controls**: Volume slider and mute button
 - **Visualizer Toggle**: Enable/disable audio visualization
 
-## View Modes
+## Track Display
 
-### List View
+Tracks are displayed in a list view with detailed metadata:
 
-- Compact track listing with detailed metadata
-- Shows title, artist, album, duration
+- Compact track listing with title, artist, album, and duration
 - Optimal for browsing large collections
 - Quick scanning of track information
-
-### Grid View
-
-- Album-style grid layout with artwork
-- Visual browsing experience
-- Great for discovering music by cover art
-- More immersive interface
+- Context menu on right-click for track actions
 
 ## Navigation Tips
 

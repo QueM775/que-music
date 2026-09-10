@@ -74,6 +74,9 @@ class QueMusicApp {
     // Initialize help system
     this.helpManager.init();
 
+    // Initialize album art
+    await this.initAlbumArtIntegration();
+
     await this.libraryManager.checkSavedMusicFolder();
 
     if (this.uiController.initializeContextMenus) {
@@ -92,6 +95,9 @@ class QueMusicApp {
     // Set active nav item
     this.updateActiveNavItem('library');
 
+    // Load header logo based on theme
+    await this.loadHeaderLogo();
+
     // Load and display app version dynamically
     await this.loadAppVersion();
 
@@ -101,6 +107,25 @@ class QueMusicApp {
       appVersion.addEventListener('click', () => {
         window.queMusicAPI?.app?.showAbout?.();
       });
+    }
+  }
+
+  async loadHeaderLogo() {
+    try {
+      const logoImg = document.querySelector('.app-logo');
+      if (logoImg && window.queMusicAPI?.assets?.getImage) {
+        // Determine which logo to load based on current theme
+        const theme = this.uiController.currentTheme;
+        const logoName = theme === 'light' ? 'QueMusicLight.png' : 'QueMusicDark.png';
+
+        const logoDataUrl = await window.queMusicAPI.assets.getImage(logoName);
+        if (logoDataUrl) {
+          logoImg.src = logoDataUrl;
+          this.logger.debug('Header logo loaded', { theme, logoName });
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to load header logo', { error: error.message });
     }
   }
 

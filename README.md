@@ -1,10 +1,10 @@
 # 🎵 Que-Music
 
 **A Modern Desktop Music Player & Library Manager**
-**Version**: 3.1.6
+**Version**: 3.2.4
 **Author**: Erich Quade
 **License**: MIT
-**Last Updated**: January 2025
+**Last Updated**: October 2025
 
 Que-Music is an Electron-based desktop application that provides advanced music library management, intelligent search capabilities, playlist functionality, and a beautiful audio visualization experience.
 
@@ -55,21 +55,48 @@ Que-Music is an Electron-based desktop application that provides advanced music 
 - **Folder Watching**: Real-time updates when files change
 - **Export/Import**: M3U playlist compatibility
 
-### New in Version 3.1.6
+### New in Version 3.2.4
 
-- **Fixed Default Album Art**: Default album artwork now displays correctly on startup and when tracks have no embedded art
+- **Fixed Asset Loading**: Resolved issue where logo and default album art weren't displaying in compiled builds
+- **Grid/List View Toggle**: Functional view mode switcher - display tracks as cards in grid layout or traditional list view
+- **Enhanced Header**: Improved logo and version display with proper alignment and sizing
+- **Search Results Navigation**: Added "Clear Results" button to easily return to library from search view
+- **Sort Dropdown**: Fully functional sorting by Title, Artist, Album, Year, or Duration for current view
+
+### Previous Updates (3.2.3)
+
+- **Fixed Album Playback**: Albums now play through all tracks sequentially instead of looping on the first song
+- **Fixed Progress Bar**: Progress bar now responds to clicks and drags for seeking through tracks
+- **Fixed Database Statistics**: Resolved SQLite errors when retrieving library statistics
+- **Cover Fetcher Tool**: Comprehensive album art management with batch scanning and online downloads
 - **Multi-Track Selection**: Select multiple tracks with Ctrl+Click or Shift+Click for batch operations
-- **Batch Playlist Creation**: Create playlists with multiple tracks in one operation
-- **Enhanced Context Menus**: Dynamic menu text showing selection count ("Add 5 Tracks to Playlist")
 - **Advanced Logging**: Integrated logger with 5 configurable levels (NONE, LOW, MED, HIGH, DEV)
 - **File Logging**: Automatic daily log files in `logs/` directory with structured data
-- **Clean Console**: Music scanner logs now go to files instead of flooding the console
-- **Improved Initial View**: Clean folder structure view after library scan (no overwhelming track lists)
-- **Version Display**: Application version shown in sidebar and About dialog
 
 ---
 
 ## 🏁 Getting Started
+
+### For Developers: Running from Source
+
+**Prerequisites:**
+- Node.js >= 16.0.0
+- npm or yarn package manager
+
+**Installation:**
+```bash
+# Install dependencies
+npm install
+
+# Rebuild native modules for Electron
+npm run rebuild
+
+# Start the application
+npm start
+```
+
+**⚠️ Troubleshooting Startup Issues:**
+If the app fails to start or shows errors about `app` being undefined, see [ELECTRON-TROUBLESHOOTING.md](ELECTRON-TROUBLESHOOTING.md) for detailed resolution steps.
 
 ### Installation & First Run
 
@@ -340,15 +367,20 @@ Music/
 
 **View Modes:**
 
-- **List View** - Compact track listing with details
-- **Grid View** - Album-style grid layout
-- Toggle between views using buttons in content header
+- **List View** (Default) - Vertical track listing with full details
+- **Grid View** - Responsive card-based grid layout showing tracks as cards
+- Toggle between views using the grid/list buttons in the content header
+- View mode applies to: Library view, Search results, Playlists
 
 **Sorting Options:**
 
-- Sort by: Title, Artist, Album, Year, Duration
-- Ascending or descending order
-- Sorting preferences are saved
+- **Available Sort Options**: Title, Artist, Album, Year, Duration
+- **Sorts Current View**: Works on whatever tracks are currently displayed
+  - Library view: Sorts tracks in the selected folder
+  - Search results: Sorts your search results
+  - Playlists: Sorts playlist tracks
+- Sort order is ascending (A-Z for text, oldest-newest for year, shortest-longest for duration)
+- Select from dropdown in content header
 
 ---
 
@@ -688,7 +720,7 @@ que-music/
 
 ### Que-Music
 
-- **Version**: 3.1.6
+- **Version**: 3.2.4
 - **License**: MIT License
 - **Developer**: Erich Quade
 - **GitHub**: [ErichQuade/que-music](https://github.com/ErichQuade/que-music)
@@ -735,5 +767,5 @@ We welcome suggestions for new features! Please check existing requests before s
 
 **🎵 Enjoy your music with Que-Music! 🎵**
 
-_Last Updated: January 2025_
-_Documentation Version: 3.1.6_
+_Last Updated: October 2025_
+_Documentation Version: 3.2.4_

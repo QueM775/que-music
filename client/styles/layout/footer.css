@@ -286,6 +286,7 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
+  pointer-events: none; /* Allow clicks to pass through to the slider */
 }
 
 .progress-fill {
@@ -294,6 +295,7 @@
   border-radius: var(--radius-sm);
   transition: width var(--transition-fast);
   position: relative;
+  pointer-events: none; /* Allow clicks to pass through to the slider */
 }
 
 .progress-slider {

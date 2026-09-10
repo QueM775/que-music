@@ -6,12 +6,16 @@ class LibraryManager {
     this.currentSort = 'title'; // Default sort
     this.currentSearchResults = null; // Store current results for sorting
     this.currentFolderSongs = []; // Store songs for Play All button
+    this.defaultAlbumArt = null; // Cache for default album art data URL
 
     // Initialize search functionality
     this.initializeSearch();
 
     // Setup event delegation for Play All button
     this.setupPlayAllEventDelegation();
+
+    // Load default album art
+    this.loadDefaultAlbumArt();
 
     // DEBUG: Make duplicate check available globally for testing
     window.checkDuplicates = async () => {
@@ -24,6 +28,17 @@ class LibraryManager {
         return [];
       }
     };
+  }
+
+  async loadDefaultAlbumArt() {
+    try {
+      this.defaultAlbumArt = await window.queMusicAPI.albumArt.getSampleCover();
+      this.app.logger.debug('✅ Default album art loaded');
+    } catch (error) {
+      this.app.logger.error('❌ Failed to load default album art:', error);
+      // Fallback to a data URI placeholder
+      this.defaultAlbumArt = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23333"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="40"%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E';
+    }
   }
 
   debugDOMElements() {
@@ -367,6 +382,12 @@ class LibraryManager {
           .map(
             (song, index) => `
           <div class="song-card" data-path="${song.path}" data-index="${index}">
+            <div class="song-card-artwork">
+              <img src="${song.albumArt || this.defaultAlbumArt || ''}"
+                   alt="Album art"
+                   loading="lazy"
+                   onerror="this.src = this.src === '${this.defaultAlbumArt}' ? '' : '${this.defaultAlbumArt}';">
+            </div>
             <div class="song-info">
               <div class="song-title">${song.title || (song.name ? song.name.replace(/\.[^/.]+$/, '') : 'Unknown Title')}</div>
               <div class="song-artist">${song.artist || 'Unknown Artist'}</div>
@@ -560,7 +581,7 @@ class LibraryManager {
     this.app.logger.debug(' Setup library song events (context menus via delegation)');
   }
 
-  handlePlayAllClick(songs) {
+  async handlePlayAllClick(songs) {
     this.app.logger.debug(' Play All clicked with', songs.length, 'songs');
 
     if (songs.length === 0) {
@@ -595,9 +616,26 @@ class LibraryManager {
 
     this.app.coreAudio.currentTrackIndex = 0;
 
-    // this.app.logger.debug(' DEBUG: About to call playSong with path:', firstSong.path);
-    this.app.coreAudio.playSong(firstSong.path, false);
-    this.app.showNotification(`Playing ${songs.length} tracks`, 'success');
+    // CRITICAL FIX: Call coreAudio methods directly (not this.app.playPlaylist which is playlist-renderer)
+    this.app.logger.debug(' Starting playback of playlist with', songs.length, 'tracks');
+    this.app.logger.debug(' First 3 playlist items:', this.app.coreAudio.playlist.slice(0, 3).map(t => ({ path: t.path, title: t.title })));
+
+    // Start playing from the first track using core audio methods
+    const firstTrack = this.app.coreAudio.playlist[0];
+    this.app.logger.debug(' Starting playback with first track:', firstTrack.path);
+
+    try {
+      await this.app.coreAudio.loadTrack(firstTrack.path);
+      this.app.coreAudio.currentTrack = firstTrack.path;
+      await this.app.coreAudio.updateNowPlayingInfo(firstTrack);
+      await this.app.coreAudio.audioPlayer.play();
+      this.app.coreAudio.isPlaying = true;
+      this.app.coreAudio.updatePlayPauseButton();
+      this.app.showNotification(`Playing ${songs.length} tracks`, 'success');
+    } catch (error) {
+      this.app.logger.error('❌ Failed to start playback:', error);
+      this.app.showNotification('Failed to start playback', 'error');
+    }
 
     // Highlight the first track in the library view
     this.updateLibraryTrackHighlight();
@@ -2687,12 +2725,18 @@ class LibraryManager {
         ${tracks
           .map(
             (track, index) => `
-          <div class="search-result-card" 
-               data-path="${track.path}" 
+          <div class="search-result-card"
+               data-path="${track.path}"
                data-index="${index}"
                data-title="${this.escapeHtml(track.title || 'Unknown Title')}"
                data-artist="${this.escapeHtml(track.artist || 'Unknown Artist')}"
                data-album="${this.escapeHtml(track.album || 'Unknown Album')}">
+            <div class="song-card-artwork">
+              <img src="${track.albumArt || this.defaultAlbumArt || ''}"
+                   alt="Album art"
+                   loading="lazy"
+                   onerror="this.src = this.src === '${this.defaultAlbumArt}' ? '' : '${this.defaultAlbumArt}';">
+            </div>
             <div class="track-info">
               <div class="track-title">${track.title || 'Unknown Title'}</div>
               <div class="track-details">
@@ -2827,6 +2871,17 @@ class LibraryManager {
       // Return to library view
       this.app.uiController.switchView('library');
     }
+  }
+
+  clearSearchResultsAndReturnToLibrary() {
+    // Clear search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+
+    // Return to library view
+    this.app.uiController.switchView('library');
   }
 
   // ========================================
@@ -3429,6 +3484,7 @@ class LibraryManager {
 
     // Calculate additional stats
     const totalSizeGB = (stats.totalSize / (1024 * 1024 * 1024)).toFixed(2);
+    const dbFileSizeMB = ((stats.dbFileSize || 0) / (1024 * 1024)).toFixed(1);
     const avgDuration = stats.tracks > 0 ? (stats.totalDuration / stats.tracks / 60).toFixed(1) : 0;
     const topGenres = genres.slice(0, 5);
     const recentYears = years.filter((y) => y.year >= 2000).reduce((sum, y) => sum + y.count, 0);
@@ -3468,8 +3524,12 @@ class LibraryManager {
                 <div class="stat-label">Playlists</div>
               </div>
               <div class="stat-card">
+                <div class="stat-number">${dbFileSizeMB} MB</div>
+                <div class="stat-label">Database Size</div>
+              </div>
+              <div class="stat-card">
                 <div class="stat-number">${totalSizeGB} GB</div>
-                <div class="stat-label">Total Size</div>
+                <div class="stat-label">Music Size</div>
               </div>
               <div class="stat-card">
                 <div class="stat-number">${Math.round(stats.totalDuration / 3600)} hrs</div>

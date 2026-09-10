@@ -456,6 +456,40 @@
 }
 
 /* ========================================
+   SEARCH RESULT CARDS (with album art)
+   ======================================== */
+
+.search-result-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: var(--surface);
+}
+
+.search-result-card:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-result-card.playing {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.search-result-card.selected {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+/* ========================================
    SEARCH SUGGESTIONS
    ======================================== */
 

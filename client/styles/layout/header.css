@@ -32,50 +32,38 @@
   -webkit-app-region: no-drag;
 }
 
-/* App version display in app-title area */
-.app-title .app-version {
-  position: static !important;
-  font-size: 10px;
-  color: var(--text-tertiary);
-  opacity: 0.6;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  user-select: none;
-  padding: 0 !important;
-  margin: 0 !important;
-  margin-right: 10px !important;
-  border: none !important;
-  background: transparent !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  -webkit-app-region: no-drag;
-}
-
-.app-title .app-version:hover {
-  opacity: 1;
-}
-
 .app-title {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   flex: 1;
   -webkit-app-region: no-drag;
 }
 
-.app-title h1 {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  margin: 0;
-  white-space: nowrap;
-}
-
 .app-logo {
   height: 50px;
-  width: 120px;
-  object-fit: contain;
+  width: 200px;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  image-rendering: high-quality;
+}
+
+.app-version {
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.app-version:hover {
+  opacity: 1;
 }
 
 .header-actions {

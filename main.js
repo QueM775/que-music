@@ -8,9 +8,10 @@ const mm = require('music-metadata'); // Works with both v7 and v8
 
 const MusicDatabase = require('./server/database');
 const MusicScanner = require('./server/music-scanner');
+const PathManager = require('./server/path-manager');
 
 // Initialize logger
-const SimpleLogger = require('./simple-logger');
+const SimpleLogger = require('./simple-logger.js');
 const logger = new SimpleLogger({
   appName: 'QueMusicMain',
   level: 'NONE', // Default to NONE - will be set from user settings
@@ -22,6 +23,7 @@ const logger = new SimpleLogger({
 logger.enableConsoleReplacement();
 
 // These will be initialized after app is ready
+let pathManager = null;
 let settingsPath;
 let dbPath;
 let musicDB = null;
@@ -34,22 +36,23 @@ const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 // Keep a global reference of the window object
 let mainWindow;
 
-// Single instance lock
-const gotTheLock = app.requestSingleInstanceLock();
+// Single instance lock - TEMPORARILY DISABLED DUE TO MODULE RESOLUTION ISSUE
+// TODO: Re-enable once electron module issue is resolved
+// const gotTheLock = app.requestSingleInstanceLock();
 
-if (!gotTheLock) {
-  logger.warn('Another instance of Que-Music is already running. Exiting...');
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    logger.info('Second instance attempted to start - focusing existing window');
-    // Someone tried to run a second instance, we should focus our window instead
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  });
-}
+// if (!gotTheLock) {
+//   logger.warn('Another instance of Que-Music is already running. Exiting...');
+//   app.quit();
+// } else {
+//   app.on('second-instance', (event, commandLine, workingDirectory) => {
+//     logger.info('Second instance attempted to start - focusing existing window');
+//     // Someone tried to run a second instance, we should focus our window instead
+//     if (mainWindow) {
+//       if (mainWindow.isMinimized()) mainWindow.restore();
+//       mainWindow.focus();
+//     }
+//   });
+// }
 
 function createMenu() {
   const isDevelopment = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
@@ -90,6 +93,20 @@ function createMenu() {
     {
       label: 'View',
       submenu: viewSubmenu,
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Fetch Missing Album Covers',
+          accelerator: 'CmdOrCtrl+Shift+C',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('show-cover-fetcher-modal');
+            }
+          }
+        }
+      ]
     },
     {
       label: 'Window',
@@ -169,7 +186,7 @@ async function createWindow() {
       nodeIntegration: true,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'client', 'scripts', 'main-preload.js'),
+      preload: pathManager.getPreloadPath(),
     },
   });
   
@@ -189,19 +206,24 @@ async function createWindow() {
   }
 }
 
-// Disable hardware acceleration to prevent GPU crashes
-app.disableHardwareAcceleration();
-
 // App event handlers
 app.whenReady().then(async () => {
-  // Initialize paths now that app is ready
-  settingsPath = path.join(app.getPath('userData'), 'settings.json');
-  dbPath = path.join(app.getPath('userData'), 'music-library.db');
+  // Initialize Path Manager
+  pathManager = new PathManager(app, logger);
+
+  // Initialize paths using Path Manager
+  settingsPath = pathManager.getSettingsPath();
+  dbPath = pathManager.getDatabasePath();
 
   // Load logging level from settings and apply to logger
   const logLevel = await getSetting('logLevel', 'NONE');
   logger.setLevel(logLevel);
   logger.info('App paths initialized', { settingsPath, dbPath, logLevel });
+
+  // Log path diagnostics in DEV mode
+  if (logLevel === 'DEV') {
+    pathManager.logDiagnostics();
+  }
 
   // Initialize database
   try {
@@ -388,7 +410,19 @@ ipcMain.handle('settings:set-music-folder', async (event, folderPath) => {
 // ============================================================================
 ipcMain.handle('database:get-stats', async () => {
   if (!musicDB) return { tracks: 0, artists: 0, albums: 0 };
-  return musicDB.getStats();
+  const stats = await musicDB.getStats();
+
+  // Add actual database file size
+  try {
+    const dbPath = path.join(app.getPath('userData'), 'music-library.db');
+    const dbStats = fs.statSync(dbPath);
+    stats.dbFileSize = dbStats.size;
+  } catch (error) {
+    logger.warn('Could not get database file size', { error: error.message });
+    stats.dbFileSize = 0;
+  }
+
+  return stats;
 });
 
 ipcMain.handle('database:search-tracks', async (event, query) => {
@@ -403,6 +437,7 @@ ipcMain.handle('database:get-all-tracks', async () => {
 
 ipcMain.handle('database:getTrackByPath', async (event, trackPath) => {
   try {
+    if (!musicDB) return null;
     return await musicDB.getTrackByPath(trackPath);
   } catch (error) {
     logger.error('Error getting track by path', { error: error.message });
@@ -663,10 +698,11 @@ ipcMain.handle('playlist:create', async (event, playlistData) => {
 // GET ALL PLAYLISTS
 ipcMain.handle('playlist:get-all', async () => {
   try {
+    if (!musicDB) return [];
     const playlists = await musicDB.getAllPlaylists();
     return playlists;
   } catch (error) {
-    console.error('❌ Error getting playlists:', error);
+    logger.error('Error getting playlists', { error: error.message });
     throw error;
   }
 });
@@ -1239,14 +1275,74 @@ ipcMain.handle('albumArt:find-local-cover', async (event, album, artist) => {
 // Get sample cover fallback
 ipcMain.handle('albumArt:get-sample-cover', async () => {
   try {
-    const artPath = await getSampleCover();
+    const artPath = await pathManager.getCover('sample-cover.jpg');
     if (artPath && (await fs.pathExists(artPath))) {
       const dataUrl = await imageToDataUrl(artPath);
       return dataUrl;
     }
     return null;
   } catch (error) {
-    console.error('❌ Error getting sample cover:', error);
+    logger.error('❌ Error getting sample cover:', error);
+    return null;
+  }
+});
+
+// Get asset image (for logos, icons, etc.)
+ipcMain.handle('assets:get-image', async (event, imageName) => {
+  try {
+    const imagePath = await pathManager.getImage(imageName);
+    if (imagePath) {
+      const dataUrl = await imageToDataUrl(imagePath);
+      if (dataUrl) {
+        logger.debug(`🎨 Loaded asset image: ${imageName}`);
+        return dataUrl;
+      }
+    }
+
+    logger.warn(`⚠️ Asset image not found: ${imageName}`);
+    return null;
+  } catch (error) {
+    logger.error(`❌ Error getting asset image ${imageName}:`, error.message);
+    return null;
+  }
+});
+
+// Get asset icon (for window icons, file type icons, etc.)
+ipcMain.handle('assets:get-icon', async (event, iconName) => {
+  try {
+    const iconPath = await pathManager.getIcon(iconName);
+    if (iconPath) {
+      const dataUrl = await imageToDataUrl(iconPath);
+      if (dataUrl) {
+        logger.debug(`🎨 Loaded asset icon: ${iconName}`);
+        return dataUrl;
+      }
+    }
+
+    logger.warn(`⚠️ Asset icon not found: ${iconName}`);
+    return null;
+  } catch (error) {
+    logger.error(`❌ Error getting asset icon ${iconName}:`, error.message);
+    return null;
+  }
+});
+
+// Get asset cover (for default album covers, placeholders, etc.)
+ipcMain.handle('assets:get-cover', async (event, coverName) => {
+  try {
+    const coverPath = await pathManager.getCover(coverName);
+    if (coverPath) {
+      const dataUrl = await imageToDataUrl(coverPath);
+      if (dataUrl) {
+        logger.debug(`🎨 Loaded asset cover: ${coverName}`);
+        return dataUrl;
+      }
+    }
+
+    logger.warn(`⚠️ Asset cover not found: ${coverName}`);
+    return null;
+  } catch (error) {
+    logger.error(`❌ Error getting asset cover ${coverName}:`, error.message);
     return null;
   }
 });
@@ -1257,15 +1353,15 @@ ipcMain.handle('albumArt:clear-cache', async () => {
     albumArtCache.clear();
 
     // Also clean up cached files
-    const cacheDir = path.join(app.getPath('userData'), 'album-art-cache');
+    const cacheDir = pathManager.getAlbumArtCachePath();
     if (await fs.pathExists(cacheDir)) {
       await fs.emptyDir(cacheDir);
     }
 
-    console.log('🧹 Album art cache cleared');
+    logger.info('🧹 Album art cache cleared');
     return { success: true };
   } catch (error) {
-    console.error('❌ Error clearing album art cache:', error);
+    logger.error('❌ Error clearing album art cache:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1273,7 +1369,7 @@ ipcMain.handle('albumArt:clear-cache', async () => {
 // Get album art cache statistics
 ipcMain.handle('albumArt:get-cache-stats', async () => {
   try {
-    const cacheDir = path.join(app.getPath('userData'), 'album-art-cache');
+    const cacheDir = pathManager.getAlbumArtCachePath();
     let cacheSize = 0;
     let fileCount = 0;
 
@@ -1674,6 +1770,56 @@ ipcMain.handle('api:cleanup:orphaned-playlist-tracks', async (event) => {
 });
 
 // ============================================================================
+// COVER FETCHER IPC HANDLERS
+// ============================================================================
+
+const coverFetcher = require('./server/cover-fetcher');
+
+// Start cover fetching scan
+ipcMain.handle('cover-fetcher:start-scan', async (event, options) => {
+  try {
+    logger.info('Cover fetcher scan started', options);
+
+    // Get music folder from settings
+    const musicFolder = await getSetting('musicFolder');
+    if (!musicFolder) {
+      logger.error('No music folder configured');
+      return { success: false, error: 'No music folder configured. Please select a music folder in settings.' };
+    }
+
+    // Prepare covers path
+    const coversPath = path.join(musicFolder, 'assets', 'covers');
+    await fs.ensureDir(coversPath);
+
+    // Progress callback to send updates to renderer
+    const progressCallback = (data) => {
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('cover-fetcher:progress', data);
+      }
+    };
+
+    // Run the scan with options
+    const scanOptions = {
+      musicDB,
+      musicFolder,
+      coversPath,
+      downloadMissing: options.downloadMissing !== false,
+      validateExisting: options.validateExisting !== false,
+      batchSize: 5,
+      requestDelay: 1000
+    };
+
+    const summary = await coverFetcher.scanAndFetchCovers(scanOptions, logger, progressCallback);
+
+    logger.info('Cover fetcher scan completed', summary);
+    return { success: true, summary };
+  } catch (error) {
+    logger.error('Cover fetcher scan error', { error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================================================
 // UTILITY FUNCTIONS - DATABASE HELPERS
 // ============================================================================
 
@@ -1934,38 +2080,7 @@ async function findLocalCoverArt(musicFolder, album, artist) {
   }
 }
 
-// Get fallback sample cover
-async function getSampleCover() {
-  try {
-    const possiblePaths = [
-      path.join(__dirname, 'assets', 'covers', 'sample-cover.jpg'),
-      path.join(__dirname, '..', 'assets', 'covers', 'sample-cover.jpg'),
-      path.join(process.resourcesPath, 'assets', 'covers', 'sample-cover.jpg'),
-      path.join(app.getAppPath(), 'assets', 'covers', 'sample-cover.jpg'),
-    ];
-
-    for (const sampleCoverPath of possiblePaths) {
-      try {
-        // FIXED: Use proper fs-extra method
-        if (await fs.pathExists(sampleCoverPath)) {
-          const stats = await fs.stat(sampleCoverPath);
-          if (stats.isFile()) {
-            console.log(`🎨 Using sample cover: ${sampleCoverPath}`);
-            return sampleCoverPath;
-          }
-        }
-      } catch (error) {
-        continue;
-      }
-    }
-
-    console.warn(`⚠️ Sample cover not found - will show placeholder instead`);
-    return null;
-  } catch (error) {
-    console.error(`❌ Error getting sample cover:`, error.message);
-    return null;
-  }
-}
+// Note: getSampleCover() function removed - now using pathManager.getCover()
 
 // Main function to resolve album art for a track
 async function resolveAlbumArt(trackPath, album, artist, musicFolder) {
@@ -2103,8 +2218,7 @@ async function extractEmbeddedArt(filePath) {
         return null;
       }
 
-      const cacheDir = path.join(app.getPath('userData'), 'album-art-cache');
-      await fs.ensureDir(cacheDir);
+      const cacheDir = await pathManager.ensureUserDataDir('album-art-cache');
 
       const fileHash = crypto.createHash('md5').update(filePath).digest('hex');
 

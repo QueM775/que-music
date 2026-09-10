@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     onShowHelp: (callback) => {
       ipcRenderer.on('show-help', () => callback());
     },
+    onShowCoverFetcher: (callback) => {
+      ipcRenderer.on('show-cover-fetcher-modal', () => callback());
+    },
   },
 
   // ============================================================================
@@ -259,6 +262,44 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
      * Get album art cache statistics
      */
     getCacheStats: () => ipcRenderer.invoke('albumArt:get-cache-stats'),
+  },
+
+  // ============================================================================
+  // COVER FETCHER
+  // ============================================================================
+  coverFetcher: {
+    startScan: (options) => ipcRenderer.invoke('cover-fetcher:start-scan', options),
+  },
+
+  // Listen for cover fetcher progress events
+  onCoverFetchProgress: (callback) => {
+    ipcRenderer.on('cover-fetcher:progress', (event, data) => callback(data));
+  },
+
+  // ============================================================================
+  // ASSETS SYSTEM - Centralized asset loading via Path Manager
+  // ============================================================================
+  assets: {
+    /**
+     * Get an asset image (logo, header images, etc.) as data URL
+     * @param {string} imageName - Name of image file in assets/images/
+     * @returns {Promise<string|null>} Data URL or null if not found
+     */
+    getImage: (imageName) => ipcRenderer.invoke('assets:get-image', imageName),
+
+    /**
+     * Get an asset icon (app icons, file type icons, etc.) as data URL
+     * @param {string} iconName - Name of icon file in assets/icons/
+     * @returns {Promise<string|null>} Data URL or null if not found
+     */
+    getIcon: (iconName) => ipcRenderer.invoke('assets:get-icon', iconName),
+
+    /**
+     * Get an asset cover (default album covers, placeholders) as data URL
+     * @param {string} coverName - Name of cover file in assets/covers/
+     * @returns {Promise<string|null>} Data URL or null if not found
+     */
+    getCover: (coverName) => ipcRenderer.invoke('assets:get-cover', coverName),
   },
 
   // ============================================================================

@@ -1,23 +1,23 @@
 {
   "name": "que-music",
-  "version": "3.1.6",
-  "description": "Music player and a Music library manager ",
+  "version": "3.2.4",
+  "description": "Music player and library manager",
   "main": "main.js",
   "author": "Que",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
+    "start": "node start-electron.js",
+    "dev": "node start-electron.js --dev",
     "build": "electron-builder",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
+    "make": "npm run build-win",
     "dist": "npm run build-css && electron-builder",
     "dist-win": "npm run build-css && electron-builder --win",
     "format": "prettier --write .",
-    "rebuild": "electron-rebuild",
-    "build-css": "node build-css.js",
-    "postinstall": "electron-rebuild"
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "build-css": "node build-css.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
@@ -29,9 +29,10 @@
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
+    "@electron/rebuild": "^3.2.9",
+    "cross-env": "^10.1.0",
+    "electron": "^27.3.11",
     "electron-builder": "^24.13.3",
-    "electron-rebuild": "^3.2.9",
     "prettier": "^3.6.2"
   },
   "engines": {
@@ -41,16 +42,23 @@
     "appId": "com.erichquade.quemusic",
     "productName": "Que-Music",
     "copyright": "Created by Que 2025",
+    "electronDist": "node_modules/electron/dist",
+    "electronVersion": "27.3.11",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
     },
     "files": [
       "main.js",
+      "simple-logger.js",
       "client/**/*",
       "server/**/*",
       "assets/icons/**/*",
       "package.json",
+      "node_modules/better-sqlite3/build/Release/*.node",
+      "node_modules/sqlite3/build/Release/*.node",
+      "node_modules/sqlite3/lib/**/*",
+      "node_modules/sharp/build/Release/*.node",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/*.d.ts",
@@ -70,6 +78,13 @@
       {
         "from": "assets/covers",
         "to": "covers",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "assets/images",
+        "to": "images",
         "filter": [
           "**/*"
         ]

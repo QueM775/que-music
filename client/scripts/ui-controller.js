@@ -161,7 +161,7 @@ class UIController {
   // THEME SYSTEM
   // ========================================
 
-  toggleTheme() {
+  async toggleTheme() {
     this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', this.currentTheme);
 
@@ -173,6 +173,11 @@ class UIController {
 
     console.log(`🎨 Theme: ${this.currentTheme}`);
     this.app.showNotification(`Theme: ${this.currentTheme}`);
+
+    // Reload header logo for new theme
+    if (this.app.loadHeaderLogo) {
+      await this.app.loadHeaderLogo();
+    }
   }
 
   showThemeDropdown(event) {
@@ -432,6 +437,9 @@ class UIController {
 
     console.log(`📝 Header updated: ${info.title}`);
   }
+
+  // REMOVED: Grid/List view toggle functionality
+  // The app now uses list view by default (no toggle needed)
 
   showDualPaneView() {
     const welcomeScreen = document.getElementById('welcomeScreen');
@@ -3807,6 +3815,11 @@ Path: ${track.path}`;
       console.log('📷 Created missing placeholder element');
     }
 
+    // CRITICAL FIX: Clear the src first to prevent browser caching issues
+    // This forces the browser to reload the image even if it looks similar
+    albumArtImg.src = '';
+    albumArtImg.removeAttribute('src');
+
     // Clear existing handlers
     albumArtImg.onload = null;
     albumArtImg.onerror = null;
@@ -3827,6 +3840,7 @@ Path: ${track.path}`;
         albumArtImg.style.opacity = '1';
         albumArtImg.classList.add('album-art-loaded');
         placeholder.style.display = 'none';
+        console.log('✅ Album art loaded successfully');
       };
 
       // Set up error handler with detailed logging
@@ -3846,7 +3860,10 @@ Path: ${track.path}`;
       };
 
       // Set the source - this will trigger onload or onerror
-      albumArtImg.src = artDataUrl;
+      // Use a small delay to ensure the clear took effect
+      setTimeout(() => {
+        albumArtImg.src = artDataUrl;
+      }, 10);
     } else {
       console.log('📷 No album art provided, showing placeholder');
       this.showAlbumArtPlaceholder();
@@ -3884,19 +3901,46 @@ Path: ${track.path}`;
   /**
    * Show placeholder when image fails or is missing
    */
-  showAlbumArtPlaceholder() {
+  async showAlbumArtPlaceholder() {
     const albumArtImg = document.getElementById('currentAlbumArt');
     const albumPlaceholder = document.querySelector('.album-placeholder');
 
     if (albumArtImg) {
-      // Use sample cover image as fallback
-      albumArtImg.src = '../../assets/covers/sample-cover.jpg';
-      albumArtImg.style.display = 'block';
-      albumArtImg.style.opacity = '1';
-      albumArtImg.classList.add('album-art-loaded');
+      try {
+        // Request sample cover from main process (works in both dev and production)
+        const sampleCoverDataUrl = await window.queMusicAPI.albumArt.getSampleCover();
+
+        if (sampleCoverDataUrl) {
+          // CRITICAL FIX: Clear src first to prevent caching issues
+          albumArtImg.src = '';
+          albumArtImg.removeAttribute('src');
+
+          // Set default cover after a small delay
+          setTimeout(() => {
+            albumArtImg.src = sampleCoverDataUrl;
+            albumArtImg.style.display = 'block';
+            albumArtImg.style.opacity = '1';
+            albumArtImg.classList.add('album-art-loaded');
+            console.log('🎨 Default album cover displayed');
+          }, 10);
+        } else {
+          // If sample cover not available, show the SVG placeholder
+          albumArtImg.style.display = 'none';
+          if (albumPlaceholder) {
+            albumPlaceholder.style.display = 'flex';
+          }
+        }
+      } catch (error) {
+        this.app.logger.error('❌ Error loading sample cover:', error);
+        // Fall back to showing the SVG placeholder
+        albumArtImg.style.display = 'none';
+        if (albumPlaceholder) {
+          albumPlaceholder.style.display = 'flex';
+        }
+      }
     }
 
-    if (albumPlaceholder) {
+    if (albumPlaceholder && albumArtImg && albumArtImg.style.display === 'block') {
       albumPlaceholder.style.display = 'none';
     }
   }

@@ -59,25 +59,121 @@
 
 ### Advanced Settings
 
-- **Logging Level**: Choose logging verbosity level
-  - **None**: No logging output
-  - **Low**: Errors only
-  - **Medium**: Errors and warnings
-  - **High**: All information, debug, errors (recommended)
-  - **Development**: Everything including development logs
-- **Debug Logging (deprecated)**: Legacy logging toggle
+- **Logging Level**: Choose logging verbosity level (see detailed explanation below)
+- **Debug Logging (deprecated)**: Legacy logging toggle - use Logging Level instead
 - **Buffer Size**: Audio processing buffer size
 - **Performance Mode**: Optimize for speed vs features
 
 ### Logging System
 
-The integrated logging system provides detailed application insights:
+The integrated logging system provides detailed application insights with 5 configurable levels:
 
-- **Log Files**: Automatically created in `logs/` directory
-- **File Naming**: `QueMusicMain-YYYY-MM-DD.log` format
-- **Real-time Console**: Colored output during development
-- **Structured Data**: JSON formatting for complex information
-- **Persistent Storage**: Daily log rotation with automatic cleanup
+#### Logging Levels Explained
+
+**NONE** (Default - Clean Console)
+- **Console**: No output (clean development console)
+- **Log File**: No logging to file
+- **Use Case**: Normal usage, production mode
+- **Best For**: Users who don't need debugging information
+
+**LOW** (Errors Only)
+- **Console**: Critical errors only (❌ red)
+- **Log File**: Error messages with stack traces
+- **Use Case**: Minimal logging for troubleshooting crashes
+- **Best For**: Identifying application-breaking issues
+- **Example Messages**:
+  - Database connection failures
+  - File system errors
+  - Audio playback crashes
+
+**MED** (Errors + Warnings)
+- **Console**: Errors (❌ red) + Warnings (⚠️ yellow)
+- **Log File**: Errors and warnings with context
+- **Use Case**: Standard troubleshooting
+- **Best For**: Investigating unexpected behavior
+- **Example Messages**:
+  - Missing metadata in files
+  - Invalid cover art
+  - API request failures
+  - Deprecated feature usage
+
+**HIGH** (Info + Debug - Recommended for Troubleshooting)
+- **Console**: Errors, warnings, info (ℹ️ blue), debug (🔍 gray)
+- **Log File**: Comprehensive logging with structured data
+- **Use Case**: Detailed troubleshooting and feature investigation
+- **Best For**: Understanding application flow and debugging issues
+- **Example Messages**:
+  - Music library scan progress
+  - Playlist creation/modification
+  - Cover fetcher operations
+  - Database queries and results
+  - Settings changes
+
+**DEV** (Everything - Maximum Verbosity)
+- **Console**: All messages including development debug output
+- **Log File**: Every operation logged with full context
+- **Use Case**: Development and deep debugging
+- **Best For**: Developers and advanced troubleshooting
+- **Example Messages**:
+  - Function entry/exit points
+  - Variable state changes
+  - Event listener registrations
+  - Memory cleanup operations
+  - Performance measurements
+
+#### Logging Features
+
+**Dual Output:**
+- **Console**: Colored, real-time output with timestamps
+- **File**: Clean text format for analysis and sharing
+
+**File Management:**
+- **Location**: `logs/` directory in application folder
+- **Naming**: `QueMusicMain-YYYY-MM-DD.log` (main process)
+- **Rotation**: New file created daily automatically
+- **Format**: Plain text with timestamps and structured JSON data
+
+**Structured Data:**
+- Complex objects formatted as JSON for readability
+- Error messages include full stack traces
+- Contextual information (file paths, counts, states)
+- Easy to search and filter
+
+**Real-time Updates:**
+- Logging level changes apply immediately
+- No restart required
+- Affects both console and file output instantly
+
+#### When to Use Each Level
+
+| Situation | Recommended Level |
+|-----------|------------------|
+| Normal daily use | **NONE** |
+| App crashes or errors | **LOW** |
+| Features not working | **MED** |
+| Cover Fetcher troubleshooting | **HIGH** |
+| Library scan investigation | **HIGH** |
+| Performance issues | **HIGH** |
+| Development work | **DEV** |
+| Bug reports to developer | **HIGH** or **DEV** |
+
+#### Accessing Log Files
+
+1. **Set Logging Level**: Settings → Advanced → Logging Level → HIGH
+2. **Reproduce Issue**: Perform the action that needs logging
+3. **Find Log File**:
+   - Windows: `C:\Users\[YourName]\AppData\Roaming\que-music\logs\`
+   - macOS: `~/Library/Application Support/que-music/logs/`
+   - Linux: `~/.config/que-music/logs/`
+4. **Open File**: Use any text editor to view `QueMusicMain-YYYY-MM-DD.log`
+
+#### Logging Best Practices
+
+✅ **Use NONE for daily use** - Keeps console clean and improves performance
+✅ **Switch to HIGH when troubleshooting** - Provides detailed information without overwhelming output
+✅ **Use DEV only when needed** - Very verbose, can slow down application slightly
+✅ **Share log files when reporting bugs** - Helps developers diagnose issues quickly
+✅ **Check logs after crashes** - Error messages often explain what went wrong
 
 ## Settings Management
 

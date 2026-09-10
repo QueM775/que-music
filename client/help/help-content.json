@@ -51,12 +51,20 @@
       "order": 6
     },
     {
+      "id": "cover-fetcher",
+      "title": "🖼️ Album Cover Fetcher",
+      "icon": "🖼️",
+      "description": "Managing album artwork and fetching missing covers",
+      "file": "topics/cover-fetcher.md",
+      "order": 7
+    },
+    {
       "id": "settings-themes",
       "title": "🎨 Settings & Themes",
       "icon": "🎨",
       "description": "Customizing appearance, logging settings, and configuration",
       "file": "topics/settings-themes.md",
-      "order": 7
+      "order": 8
     },
     {
       "id": "keyboard-shortcuts",
@@ -64,7 +72,7 @@
       "icon": "⌨️",
       "description": "Complete list of keyboard shortcuts",
       "file": "topics/keyboard-shortcuts.md",
-      "order": 8
+      "order": 9
     },
     {
       "id": "database-management",
@@ -72,7 +80,7 @@
       "icon": "🗄️",
       "description": "Library maintenance and troubleshooting tools",
       "file": "topics/database-management.md",
-      "order": 9
+      "order": 10
     },
     {
       "id": "troubleshooting",
@@ -80,15 +88,16 @@
       "icon": "🔧",
       "description": "Common issues, debugging with logger, and solutions",
       "file": "topics/troubleshooting.md",
-      "order": 10
+      "order": 11
     }
   ],
   "searchable": true,
   "contextualHelp": {
-    "library": ["getting-started", "music-management", "search-discovery"],
+    "library": ["getting-started", "music-management", "search-discovery", "cover-fetcher"],
     "playlists": ["playlists", "music-management"],
     "player": ["player-controls", "keyboard-shortcuts"],
     "settings": ["settings-themes", "database-management"],
-    "search": ["search-discovery", "keyboard-shortcuts"]
+    "search": ["search-discovery", "keyboard-shortcuts"],
+    "covers": ["cover-fetcher", "music-management"]
   }
 }

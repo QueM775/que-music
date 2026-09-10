@@ -276,6 +276,93 @@ The app automatically:
           order: 6,
         },
         {
+          id: 'cover-fetcher',
+          title: '🖼️ Album Cover Fetcher',
+          icon: '🖼️',
+          description: 'Managing album artwork and fetching missing covers',
+          content: `# 🖼️ Album Cover Fetcher
+
+## Overview
+The Album Cover Fetcher automatically scans your music library to find, validate, and download missing album artwork from online sources.
+
+## Accessing the Cover Fetcher
+**Method:** Tools Menu
+- Click **Tools → Album Cover Fetcher** in the sidebar
+
+## Features
+### 🔍 Comprehensive Scanning
+- Scans your entire music library
+- Processes tracks efficiently in batches
+- Real-time progress tracking
+
+### 🎨 Multiple Cover Sources
+1. **Embedded Art Extraction**
+   - Extracts album art from MP3/FLAC metadata
+   - No internet required
+
+2. **Online Downloads**
+   - Searches MusicBrainz database
+   - Downloads from Cover Art Archive
+   - Professional metadata matching
+
+3. **Cover Validation**
+   - Verifies existing covers
+   - Checks JPEG and PNG formats
+   - Removes corrupted files
+
+### 📊 Progress Tracking
+- Real-time progress bar
+- Live statistics:
+  - **Scanned**: Total tracks processed
+  - **Embedded**: Covers extracted from files
+  - **Downloaded**: Covers fetched online
+  - **Validated**: Existing covers verified
+  - **Cleaned**: Corrupted files removed
+  - **Failed**: Tracks that couldn't be processed
+
+## How to Use
+1. Open **Tools → Album Cover Fetcher**
+2. Configure options:
+   - ✅ Download missing covers from online
+   - ✅ Validate existing covers
+3. Click **Start Scan**
+4. Monitor progress and statistics
+5. Review results when complete
+
+## Understanding Results
+- **Scanned**: Total tracks processed
+- **Embedded**: Art extracted from files
+- **Downloaded**: Covers fetched online
+- **Validated**: Existing covers verified as valid
+- **Cleaned**: Corrupted files removed
+- **Failed**: Tracks that couldn't be processed
+
+## Troubleshooting
+### No Covers Downloaded
+- Check internet connection
+- Verify artist/album metadata exists
+- Enable logging (Settings → Advanced → HIGH)
+- Check albums are in MusicBrainz database
+
+### High Failed Count
+- Missing metadata (artist/album)
+- Rare albums not in database
+- Network connectivity issues
+
+### Covers Not Appearing
+- Restart the application
+- Check covers directory: assets/covers/
+- Verify file naming: artist-album.jpg
+
+## Best Practices
+✅ Ensure internet connection for downloads
+✅ Enable logging for troubleshooting
+✅ Let scan complete without interruption
+✅ Run after adding new music
+✅ Restart app to reload covers`,
+          order: 7,
+        },
+        {
           id: 'settings-themes',
           title: '🎨 Settings & Themes',
           icon: '🎨',

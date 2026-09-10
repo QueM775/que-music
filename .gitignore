@@ -35,6 +35,9 @@ docs/
 # Project specific files
 BAT-Files/
 CLAUDE.md
+issue_track.md
+RESOLUTION-SUMMARY.md
+CHANGELOG.md
 nul
 nulnpm
 

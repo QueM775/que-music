@@ -717,3 +717,73 @@
     gap: var(--space-lg);
   }
 }
+
+/* ========================================
+   GRID VIEW MODE FOR SONG CARDS
+   ======================================== */
+
+/* Grid view layout - displays song cards in a grid */
+#rightPaneContent.grid-view .songs-container,
+#rightPaneContent.grid-view .song-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+#rightPaneContent.grid-view .song-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+#rightPaneContent.grid-view .song-card:hover {
+  background: var(--surface-elevated);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#rightPaneContent.grid-view .song-card .song-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#rightPaneContent.grid-view .song-card .song-artist {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#rightPaneContent.grid-view .song-card .song-album {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* List view (default) - keep existing list layout */
+#rightPaneContent.list-view .songs-container,
+#rightPaneContent.list-view .song-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}

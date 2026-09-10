@@ -99,10 +99,8 @@
           </div>
         </div>
         <div class="app-title">
-          <h1>
-            <img src="../../assets/images/QueMusicDark.png" alt="🎵 Que-Music" class="app-logo" />
-          </h1>
-          <div class="app-version" id="appVersion"></div>
+          <img src="" alt="🎵 Que-Music" class="app-logo" />
+          <span class="app-version" id="appVersion"></span>
         </div>
         <div class="header-actions">
           <button class="icon-btn" id="searchBtn" title="Search Library">
@@ -341,40 +339,6 @@
               <p id="currentViewSubtitle">Select a music folder to get started</p>
             </div>
             <div class="view-controls">
-              <div class="view-toggles">
-                <button class="view-toggle" data-view="grid" title="Grid View">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                  </svg>
-                </button>
-                <button class="view-toggle active" data-view="list" title="List View">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
               <div class="sort-controls">
                 <select id="sortBy" class="sort-select">
                   <option value="title">Title</option>
@@ -435,7 +399,7 @@
                     <!-- Play controls, sort options, etc. -->
                   </div>
                 </div>
-                <div class="pane-content" id="rightPaneContent">
+                <div class="pane-content list-view" id="rightPaneContent">
                   <!-- Song list from selected folder/playlist -->
                   <div class="empty-pane">
                     <div class="empty-pane-icon">🎵</div>
@@ -462,8 +426,14 @@
           <div class="player-bar">
             <div class="now-playing-info">
               <div class="album-art">
-                <img id="currentAlbumArt" src="../../assets/covers/sample-cover.jpg" alt="Album Art" class="album-image" />
-                <div class="album-placeholder" style="display: none;">
+                <img
+                  id="currentAlbumArt"
+                  src=""
+                  alt="Album Art"
+                  class="album-image"
+                  style="display: none"
+                />
+                <div class="album-placeholder" style="display: flex">
                   <svg
                     width="24"
                     height="24"
@@ -727,7 +697,7 @@
         <span class="context-icon">▶️</span>
         <span>Play Playlist</span>
       </div>
-      <div class="context-item" id="exportM3U">
+      <div class="context-item" id="exportM3U" data-action="export">
         <span class="context-icon">💾</span>
         <span>Re-export M3U</span>
       </div>
@@ -897,6 +867,93 @@
       </div>
     </div>
 
+    <!-- Cover Fetcher Modal -->
+    <div class="modal-overlay" id="coverFetcherModal" style="display: none">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h2>🎨 Fetch Missing Album Covers</h2>
+          <button class="modal-close" id="closeCoverFetcherModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Options Section -->
+          <div class="cover-fetcher-options">
+            <h3>⚙️ Options</h3>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="cfDownloadMissing" checked />
+                <span>Download missing covers from online sources</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="cfValidateExisting" checked />
+                <span>Validate existing covers (remove corrupted files)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Progress Section -->
+          <div class="cover-fetcher-progress" id="cfProgressSection" style="display: none">
+            <h3>📊 Progress</h3>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+              <div class="progress-bar">
+                <div class="progress-fill" id="cfProgressFill"></div>
+              </div>
+              <div class="progress-text" id="cfProgressText">0%</div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">Scanned:</span>
+                <span class="stat-value" id="cfStatScanned">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Embedded:</span>
+                <span class="stat-value" id="cfStatEmbedded">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Downloaded:</span>
+                <span class="stat-value" id="cfStatDownloaded">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Validated:</span>
+                <span class="stat-value" id="cfStatValidated">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Cleaned:</span>
+                <span class="stat-value" id="cfStatCleaned">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Failed:</span>
+                <span class="stat-value" id="cfStatFailed">0</span>
+              </div>
+            </div>
+
+            <!-- Current File -->
+            <div class="current-file">
+              <span class="current-file-label">Currently processing:</span>
+              <span class="current-file-name" id="cfCurrentFile">-</span>
+            </div>
+          </div>
+
+          <!-- Status Log -->
+          <div class="cover-fetcher-log">
+            <h3>📝 Status Log</h3>
+            <div class="log-container" id="cfLogContainer">
+              <div class="log-entry">Ready to scan. Click "Start Scan" to begin.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="cfStartScan">Start Scan</button>
+          <button class="btn btn-secondary" id="cfCancelScan" style="display: none">Cancel</button>
+          <button class="btn btn-secondary" id="cfClose">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Load modules in the correct order (deferred to prevent flashing) -->
     <script src="../../simple-logger.js" defer></script>
     <script src="../scripts/window-controls.js" defer></script>
@@ -905,6 +962,7 @@
     <script src="../scripts/ui-controller.js" defer></script>
     <script src="../scripts/playlist-renderer.js" defer></script>
     <script src="../scripts/help-manager.js" defer></script>
+    <script src="../scripts/cover-fetcher-ui.js" defer></script>
     <script src="../scripts/main-app.js" defer></script>
     <script src="../scripts/main-window.js" defer></script>
 

@@ -85,3 +85,30 @@ Access via **Tools** → **Database Manager** to perform maintenance tasks:
 - **Playlist Export**: Batch export all playlists
 - **Metadata Export**: Export track information to CSV
 - **Settings Export**: Backup all application settings
+
+## Album Cover Fetcher
+
+Access via **Tools** → **Album Cover Fetcher** to automatically download missing album artwork.
+
+### Features
+
+- **Automatic Search**: Searches for album covers using album and artist metadata
+- **Batch Processing**: Download covers for multiple albums at once
+- **Preview**: Review cover art before saving to files
+- **Smart Matching**: Matches albums intelligently using metadata
+- **Progress Tracking**: Real-time progress updates during batch operations
+
+### How to Use
+
+1. Open Album Cover Fetcher from the Tools menu
+2. View list of albums with missing covers
+3. Click "Fetch All" to download all missing covers automatically
+4. Or select individual albums to fetch covers one at a time
+5. Cover art is saved directly to your music files
+
+### Best Practices
+
+- Ensure your music files have accurate album and artist metadata
+- Run Cover Fetcher after scanning new music to your library
+- Check that music files are not read-only before fetching covers
+- Use "Refresh Library" after fetching covers to update the database

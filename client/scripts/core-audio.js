@@ -160,8 +160,17 @@ class CoreAudio {
       }
 
       // Find the current track index
-      this.currentTrackIndex = this.playlist.findIndex((track) => track.path === songPath);
-      this.app.logger.debug(' Current track index:', this.currentTrackIndex);
+      const foundIndex = this.playlist.findIndex((track) => track.path === songPath);
+      this.app.logger.debug(' Looking for path in playlist:', songPath);
+      this.app.logger.debug(' Found index:', foundIndex, 'Current index before update:', this.currentTrackIndex);
+
+      // CRITICAL: Only update the index if we found the track, otherwise keep the current index
+      if (foundIndex !== -1) {
+        this.currentTrackIndex = foundIndex;
+      } else {
+        this.app.logger.warn('⚠️ Track not found in playlist, keeping current index:', this.currentTrackIndex);
+      }
+      this.app.logger.debug(' Current track index after update:', this.currentTrackIndex);
 
       // Stop current playback
       if (!this.audioPlayer.paused) {
@@ -634,6 +643,7 @@ class CoreAudio {
     } else {
       // Sequential next track
       nextIndex = this.currentTrackIndex + 1;
+      this.app.logger.debug(' Current index:', this.currentTrackIndex, 'Next index:', nextIndex, 'Playlist length:', this.playlist.length);
       if (nextIndex >= this.playlist.length) {
         if (this.repeat === 'all') {
           nextIndex = 0; // Go to beginning
@@ -651,6 +661,7 @@ class CoreAudio {
       this.performPeriodicCleanup();
     }
 
+    this.app.logger.debug(' Playing next track at index:', nextIndex, 'Path:', this.playlist[nextIndex].path);
     this.playSong(this.playlist[nextIndex].path, false);
 
     // Update library track highlighting if we're in library view
@@ -717,18 +728,25 @@ class CoreAudio {
   }
 
   handleTrackEnd() {
-    // this.app.logger.debug(' Track finished');
+    console.log('🎵 ========== TRACK ENDED ==========');
+    console.log('🎵 Current track index:', this.currentTrackIndex);
+    console.log('🎵 Playlist length:', this.playlist.length);
+    console.log('🎵 Repeat mode:', this.repeat);
+    console.log('🎵 Current track path:', this.currentTrack);
 
     if (this.repeat === 'one') {
       // Repeat current track
       this.audioPlayer.currentTime = 0;
       this.audioPlayer.play();
       this.app.showNotification('Repeating track', 'info');
+      console.log('🎵 Repeating single track');
     } else if (this.playlist.length > 1) {
       // Auto-play next track
+      console.log('🎵 Calling nextTrack()...');
       this.nextTrack();
     } else {
       this.app.showNotification('Playlist finished', 'info');
+      console.log('🎵 Playlist finished (only 1 track)');
     }
   }
 
@@ -1033,20 +1051,22 @@ class CoreAudio {
       return;
     }
 
-    // console.log(`🎵 Starting playback from track ${startIndex + 1}`);
+    this.app.logger.debug(' playPlaylist called - startIndex:', startIndex, 'playlist length:', this.playlist.length);
 
     // Set current track index
     this.currentTrackIndex = startIndex;
 
     // Get the track object
     const track = this.playlist[startIndex];
+    this.app.logger.debug(' Playing track:', track.title || track.name, 'at index:', startIndex);
 
     try {
       // Load the track and wait for it to be ready
       await this.loadTrack(track.path);
 
-      // Set currentTrack to the track object after loading
-      this.currentTrack = track;
+      // CRITICAL FIX: Set currentTrack to the path (string), not the track object
+      // This matches the pattern used in playSong and is what other methods expect
+      this.currentTrack = track.path;
 
       // Update UI with track info and album art
       await this.updateNowPlayingInfo(track);
