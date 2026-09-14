@@ -1574,6 +1574,11 @@ class MusicDatabase {
       console.log(`📋 Updated playlist: ${name}`);
       return playlist;
     } catch (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        const error = new Error(`Playlist "${playlistData.name}" already exists`);
+        console.error('❌ Error updating playlist:', error.message);
+        throw error;
+      }
       console.error('❌ Error updating playlist:', err);
       throw err;
     }

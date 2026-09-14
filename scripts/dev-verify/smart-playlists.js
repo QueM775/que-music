@@ -133,6 +133,19 @@ async function run() {
 
   console.log('✅ custom snapshot name check passed');
 
+  // --- updatePlaylist() must wrap UNIQUE constraint errors the same way
+  // createPlaylist() does, instead of leaking the raw SQLite error message ---
+  let updateError = null;
+  try {
+    await db.updatePlaylist({ id: customNamed.id, name: 'Rock AND Popular', description: '' });
+  } catch (err) {
+    updateError = err;
+  }
+  assert(updateError, 'expected updatePlaylist to throw on a duplicate name');
+  assert.strictEqual(updateError.message, 'Playlist "Rock AND Popular" already exists');
+
+  console.log('✅ updatePlaylist duplicate-name error message check passed');
+
   db.db.close();
 }
 
