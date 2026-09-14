@@ -1526,13 +1526,21 @@ class MusicDatabase {
 
   async updatePlaylist(playlistData) {
     try {
-      const { id, name, description = '' } = playlistData;
+      const { id, name, description = '', match_mode } = playlistData;
 
-      this.db
-        .prepare(
-          'UPDATE playlists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-        )
-        .run(name, description, id);
+      if (match_mode !== undefined) {
+        this.db
+          .prepare(
+            'UPDATE playlists SET name = ?, description = ?, match_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          )
+          .run(name, description, match_mode, id);
+      } else {
+        this.db
+          .prepare(
+            'UPDATE playlists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          )
+          .run(name, description, id);
+      }
 
       const playlist = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(id);
       console.log(`📋 Updated playlist: ${name}`);

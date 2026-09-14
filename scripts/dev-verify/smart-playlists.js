@@ -90,6 +90,13 @@ async function run() {
 
   console.log('✅ Task 4: save-as-static checks passed');
 
+  // --- updatePlaylist() must persist match_mode changes on edit ---
+  await db.updatePlaylist({ id: smartAny.id, name: 'Rock OR Favorite', description: '', match_mode: 'all' });
+  const updated = db.db.prepare('SELECT match_mode FROM playlists WHERE id = ?').get(smartAny.id);
+  assert.strictEqual(updated.match_mode, 'all', 'updatePlaylist did not persist match_mode change');
+
+  console.log('✅ updatePlaylist match_mode persistence check passed');
+
   db.db.close();
 }
 

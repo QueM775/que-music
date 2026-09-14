@@ -7,6 +7,73 @@ class PlaylistRenderer {
     this.currentContextPlaylist = null;
     this.currentPlaylistData = null;
     this._modalListenersSetup = false;
+    this._saveAsStaticListenerSetup = false;
+  }
+
+  // ============================================================================
+  // SMART PLAYLIST RULE BUILDER
+  // ============================================================================
+
+  // Field -> allowed operators, mirrors server/database.js's _smartRuleToFragment().
+  static SMART_FIELD_OPERATORS = {
+    artist: ['is', 'is not', 'contains'],
+    album: ['is', 'is not', 'contains'],
+    genre: ['is', 'is not', 'contains'],
+    year: ['is', 'greater than', 'less than'],
+    play_count: ['is', 'greater than', 'less than'],
+    date_added: ['before', 'after', 'in the last N days'],
+    favorite: ['is', 'is not'],
+  };
+
+  static SMART_NUMERIC_FIELDS = new Set(['year', 'play_count']);
+
+  addSmartRuleRow(rule = { field: 'genre', operator: 'is', value: '' }) {
+    const template = document.getElementById('smartRuleRowTemplate');
+    const row = template.content.firstElementChild.cloneNode(true);
+
+    const fieldSelect = row.querySelector('.smart-rule-field');
+    const operatorSelect = row.querySelector('.smart-rule-operator');
+    const valueInput = row.querySelector('.smart-rule-value');
+    const removeBtn = row.querySelector('.smart-rule-remove');
+
+    const populateOperators = () => {
+      const ops = PlaylistRenderer.SMART_FIELD_OPERATORS[fieldSelect.value] || [];
+      operatorSelect.innerHTML = ops.map((op) => `<option value="${op}">${op}</option>`).join('');
+    };
+
+    fieldSelect.value = rule.field;
+    populateOperators();
+    operatorSelect.value = rule.operator;
+    valueInput.value = rule.value;
+
+    fieldSelect.addEventListener('change', populateOperators);
+    removeBtn.addEventListener('click', () => row.remove());
+
+    document.getElementById('smartRuleRows').appendChild(row);
+  }
+
+  // Returns { rules, error }. `error` is a user-facing string set the moment a
+  // numeric field's value doesn't parse — invalid input is rejected here, not
+  // silently coerced into a broken NaN comparison downstream.
+  gatherSmartRules() {
+    const rows = Array.from(document.querySelectorAll('#smartRuleRows .smart-rule-row'));
+    const rules = [];
+
+    for (const row of rows) {
+      const field = row.querySelector('.smart-rule-field').value;
+      const operator = row.querySelector('.smart-rule-operator').value;
+      const value = row.querySelector('.smart-rule-value').value.trim();
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator !== 'between') {
+        if (value === '' || Number.isNaN(Number(value))) {
+          return { rules: null, error: `"${value}" isn't a valid number for that rule` };
+        }
+      }
+
+      rules.push({ field, operator, value });
+    }
+
+    return { rules, error: null };
   }
 
   // ============================================================================
@@ -478,7 +545,7 @@ class PlaylistRenderer {
   // PLAYLIST MODAL MANAGEMENT
   // ============================================================================
 
-  showPlaylistModal(playlist = null) {
+  async showPlaylistModal(playlist = null) {
     console.log('📋 Opening playlist modal...');
 
     const modal = document.getElementById('playlistModal');
@@ -505,6 +572,32 @@ class PlaylistRenderer {
       nameInput.value = '';
       descInput.value = '';
     }
+
+    // Smart playlist type toggle + rule builder
+    const typeToggle = document.getElementById('playlistTypeToggle');
+    const ruleBuilder = document.getElementById('smartRuleBuilder');
+    const matchModeSelect = document.getElementById('smartMatchMode');
+    document.getElementById('smartRuleRows').innerHTML = '';
+
+    const setType = (type) => {
+      typeToggle.querySelectorAll('.segmented-option').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+      });
+      ruleBuilder.style.display = type === 'smart' ? 'block' : 'none';
+    };
+
+    if (playlist && playlist.type === 'smart') {
+      setType('smart');
+      matchModeSelect.value = playlist.match_mode || 'all';
+      const rules = await window.queMusicAPI.playlists.getSmartRules(playlist.id);
+      rules.forEach((rule) => this.addSmartRuleRow(rule));
+    } else {
+      setType('static');
+    }
+
+    typeToggle.querySelectorAll('.segmented-option').forEach((btn) => {
+      btn.onclick = () => setType(btn.dataset.type);
+    });
 
     // Set up event listeners
     this.setupModalEventListeners();
@@ -747,6 +840,12 @@ class PlaylistRenderer {
       savePlaylist.addEventListener('click', () => this.savePlaylistFromModal());
     }
 
+    // Smart playlist rule builder — "+ Add Rule"
+    const addRuleBtn = document.getElementById('addSmartRuleBtn');
+    if (addRuleBtn) {
+      addRuleBtn.addEventListener('click', () => this.addSmartRuleRow());
+    }
+
     // Click outside to close
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
@@ -798,10 +897,35 @@ class PlaylistRenderer {
         description: descInput.value.trim(),
       };
 
+      const activeType =
+        document.querySelector('#playlistTypeToggle .segmented-option.active')?.dataset.type || 'static';
+
+      if (activeType === 'smart') {
+        const { rules, error } = this.gatherSmartRules();
+        if (error) {
+          this.app.showNotification(error, 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
+        if (rules.length === 0) {
+          this.app.showNotification('Add at least one rule for a smart playlist', 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
+        playlistData.type = 'smart';
+        playlistData.match_mode = document.getElementById('smartMatchMode').value;
+        playlistData.rules = rules;
+      }
+
       let newPlaylist = null;
       if (this.currentEditingPlaylist) {
         playlistData.id = this.currentEditingPlaylist.id;
         newPlaylist = await window.queMusicAPI.playlists.update(playlistData);
+        if (activeType === 'smart') {
+          await window.queMusicAPI.playlists.setSmartRules(this.currentEditingPlaylist.id, playlistData.rules);
+        }
         this.app.showNotification('Playlist updated', 'success');
       } else {
         newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
