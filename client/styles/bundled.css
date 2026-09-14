@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-14T18:16:42.289Z
+ * Generated: 2026-09-14T18:47:54.122Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -7040,7 +7040,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/components/forms.css (14667 bytes)
+ * styles/components/forms.css (15558 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -7750,6 +7750,51 @@ Only favorites/recent-specific functionality remains
 .setting-checkbox,
 .setting-range {
   /* Copy styles from form-input, form-select, etc. */
+}
+
+/* Smart playlist rule builder — added 2026-09-14 */
+.segmented-control {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: 2px;
+}
+
+.segmented-option {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.segmented-option.active {
+  background: var(--primary);
+  color: white;
+}
+
+.smart-rule-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.smart-rule-row .smart-rule-field,
+.smart-rule-row .smart-rule-operator {
+  flex: 1;
+}
+
+.smart-rule-row .smart-rule-value {
+  flex: 2;
+}
+
+.playlist-type-badge.smart {
+  color: #a855f7; /* matches the sidebar Discover accent from the 2026-09-14 icon pass */
+  margin-right: var(--space-xs);
 }
 
 
