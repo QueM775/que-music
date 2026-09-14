@@ -4,6 +4,9 @@
 // Uses an in-memory better-sqlite3 DB via MusicDatabase so it never touches
 // Erich's real library.
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const MusicDatabase = require('../../server/database.js');
 
 async function run() {
@@ -106,6 +109,22 @@ async function run() {
   assert.deepStrictEqual(caseResult, ['/d.mp3'], `case-insensitive "is" returned ${JSON.stringify(caseResult)}`);
 
   console.log('✅ case-insensitive text match check passed');
+
+  // --- auto-export to M3U: exportPlaylistToM3U() itself, plus the auto-call
+  // wired into addTrackToPlaylist/removeTrackFromPlaylist/reorderTracksInPlaylist ---
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'que-music-verify-'));
+  db.playlistFolder = tmpDir;
+
+  const manual = db.createPlaylist({ name: 'Manual Export Test' });
+  const trackRow = db.db.prepare('SELECT id FROM tracks WHERE path = ?').get('/a.mp3');
+  await db.addTrackToPlaylist(manual.id, trackRow.id); // should auto-export
+
+  const m3uPath = path.join(tmpDir, 'Manual Export Test.m3u');
+  assert(fs.existsSync(m3uPath), `expected auto-exported M3U file at ${m3uPath}`);
+  const m3uContent = fs.readFileSync(m3uPath, 'utf8');
+  assert(m3uContent.includes('/a.mp3'), `M3U content missing track path: ${m3uContent}`);
+
+  console.log('✅ auto-export to M3U check passed');
 
   db.db.close();
 }

@@ -1085,10 +1085,6 @@ class PlaylistRenderer {
         <span class="context-icon">📋</span>
         Duplicate
       </div>
-      <div class="context-item" data-action="export">
-        <span class="context-icon">💾</span>
-        Export to M3U
-      </div>
       ${
         playlist.type === 'smart'
           ? `<div class="context-item" data-action="save-as-static">
@@ -1133,10 +1129,6 @@ class PlaylistRenderer {
             break;
           case 'duplicate':
             await this.duplicateCurrentPlaylist();
-            break;
-          case 'export':
-            console.log('EXPORTING Playlist ID:', this.currentContextPlaylist.id);
-            await this.exportPlaylistToM3U(this.currentContextPlaylist.id);
             break;
           case 'save-as-static':
             try {
@@ -1668,20 +1660,6 @@ class PlaylistRenderer {
     } catch (error) {
       console.error('❌ Error reordering playlist track:', error);
       this.app.showNotification('Failed to reorder track', 'error');
-    }
-  }
-
-  // ============================================================================
-  // M3U EXPORT
-  // ============================================================================
-
-  async exportPlaylistToM3U(playlistId) {
-    try {
-      await window.queMusicAPI.playlists.exportM3U(playlistId);
-      this.updatePlaylistStatus('Playlist exported to M3U file', 'success');
-    } catch (error) {
-      console.error('❌ Error exporting playlist:', error);
-      this.updatePlaylistStatus('Failed to export playlist', 'error');
     }
   }
 

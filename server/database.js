@@ -814,7 +814,7 @@ class MusicDatabase {
       console.log('📁 Playlist folder:', this.playlistFolder);
 
       // 1. Load playlist metadata
-      const playlist = this.getPlaylistById(playlistId);
+      const playlist = await this.getPlaylistById(playlistId);
       console.log('📋 PLAYLIST OBJECT:', playlist);
 
       if (!playlist) {
@@ -830,7 +830,7 @@ class MusicDatabase {
           `
       SELECT t.path
       FROM playlist_tracks pt
-      JOIN tracks t ON t.id = pt.track_id
+      JOIN tracks t ON t.path = pt.track_path
       WHERE pt.playlist_id = ?
       ORDER BY pt.position ASC
     `
@@ -1408,6 +1408,22 @@ class MusicDatabase {
     }
   }
 
+  // Best-effort M3U export called after every playlist mutation (add/remove/
+  // reorder track) so a playlist's .m3u file never needs a manual "Export"
+  // click — it's always current. Swallows the expected non-error cases
+  // (no playlist folder configured yet, or the playlist is now empty) rather
+  // than letting them interrupt the mutation that triggered it.
+  async _autoExportM3U(playlistId) {
+    try {
+      await this.exportPlaylistToM3U(playlistId);
+    } catch (err) {
+      if (/Playlist folder not set|has no tracks/i.test(err.message)) {
+        return; // expected — nothing to export yet, or folder isn't configured
+      }
+      console.warn(`⚠️ Auto-export to M3U failed for playlist ${playlistId}:`, err.message);
+    }
+  }
+
   async addTrackToPlaylist(playlistId, trackId) {
     try {
       // Get track path first
@@ -1433,6 +1449,7 @@ class MusicDatabase {
           )
           .run(playlistId, track.path, position);
         console.log(`📋 Added track ${trackId} to playlist ${playlistId} at position ${position}`);
+        await this._autoExportM3U(playlistId);
         return { success: true, position };
       } catch (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
@@ -1460,6 +1477,7 @@ class MusicDatabase {
         .prepare('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_path = ?')
         .run(playlistId, track.path);
       console.log(`📋 Removed track ${trackId} from playlist ${playlistId}`);
+      await this._autoExportM3U(playlistId);
       return { success: true, removed: result.changes > 0 };
     } catch (err) {
       console.error('❌ Error removing track from playlist:', err);
@@ -1502,6 +1520,7 @@ class MusicDatabase {
 
       const result = doReorder();
       console.log(`📋 Reordered track ${trackId} to position ${newPosition} in playlist ${playlistId}`);
+      await this._autoExportM3U(playlistId);
       return result;
     } catch (err) {
       console.error('❌ Error reordering playlist tracks:', err);
