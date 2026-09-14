@@ -1031,7 +1031,9 @@ class PlaylistRenderer {
       }
     } catch (error) {
       console.error('❌ Error saving playlist:', error);
-      this.app.showNotification('Failed to save playlist', 'error');
+      // Surface the real reason (e.g. "already exists") instead of a generic
+      // failure message — this is what an IPC-thrown Error's .message carries.
+      this.app.showNotification(error.message || 'Failed to save playlist', 'error');
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
