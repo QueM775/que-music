@@ -126,6 +126,13 @@ async function run() {
 
   console.log('✅ auto-export to M3U check passed');
 
+  // --- saveSmartPlaylistAsStatic() accepts a custom name (rule builder now
+  // prompts the user instead of always appending "(Snapshot)") ---
+  const customNamed = await db.saveSmartPlaylistAsStatic(smartContains.id, 'My Custom Name');
+  assert.strictEqual(customNamed.name, 'My Custom Name');
+
+  console.log('✅ custom snapshot name check passed');
+
   db.db.close();
 }
 

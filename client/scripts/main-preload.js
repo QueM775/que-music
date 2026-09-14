@@ -102,8 +102,8 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
       ipcRenderer.invoke('playlist:reorder-tracks', { playlistId, trackId, newPosition }),
     update: (playlistData) => ipcRenderer.invoke('playlist:update', playlistData),
     delete: (playlistId) => ipcRenderer.invoke('playlist:delete', playlistId),
-    saveSmartAsStatic: (playlistId) =>
-      ipcRenderer.invoke('playlist:save-smart-as-static', playlistId),
+    saveSmartAsStatic: (playlistId, name) =>
+      ipcRenderer.invoke('playlist:save-smart-as-static', { playlistId, name }),
     setSmartRules: (playlistId, rules) =>
       ipcRenderer.invoke('playlist:set-smart-rules', { playlistId, rules }),
     getSmartRules: (playlistId) => ipcRenderer.invoke('playlist:get-smart-rules', playlistId),

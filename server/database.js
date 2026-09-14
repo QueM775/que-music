@@ -1245,7 +1245,7 @@ class MusicDatabase {
     return this.db.prepare(query).all(...params);
   }
 
-  async saveSmartPlaylistAsStatic(playlistId) {
+  async saveSmartPlaylistAsStatic(playlistId, name = null) {
     const source = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
     if (!source || source.type !== 'smart') {
       throw new Error(`Playlist ${playlistId} is not a smart playlist`);
@@ -1253,7 +1253,7 @@ class MusicDatabase {
 
     const tracks = await this.getSmartPlaylistTracks(playlistId);
     const snapshot = this.createPlaylist({
-      name: `${source.name} (Snapshot)`,
+      name: name || `${source.name} (Snapshot)`,
       description: `Snapshot of "${source.name}" — ${tracks.length} track(s), saved ${new Date().toISOString()}`,
       type: 'static',
     });

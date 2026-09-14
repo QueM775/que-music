@@ -6,8 +6,8 @@ class PlaylistRenderer {
     this.currentEditingPlaylist = null;
     this.currentContextPlaylist = null;
     this.currentPlaylistData = null;
+    this.snapshotSourcePlaylistId = null;
     this._modalListenersSetup = false;
-    this._saveAsStaticListenerSetup = false;
   }
 
   // ============================================================================
@@ -561,6 +561,7 @@ class PlaylistRenderer {
     }
 
     this.currentEditingPlaylist = playlist;
+    this.snapshotSourcePlaylistId = null;
 
     // Update modal title and fields
     const modalTitle = document.getElementById('modalTitle');
@@ -579,6 +580,7 @@ class PlaylistRenderer {
 
     // Smart playlist type toggle + rule builder
     const typeToggle = document.getElementById('playlistTypeToggle');
+    typeToggle.style.display = ''; // in case showSaveAsStaticModal() hid it last time
     const ruleBuilder = document.getElementById('smartRuleBuilder');
     const matchModeSelect = document.getElementById('smartMatchMode');
     document.getElementById('smartRuleRows').innerHTML = '';
@@ -620,6 +622,44 @@ class PlaylistRenderer {
         console.error('❌ Error focusing input:', error);
       }
     }, 350); // Wait for CSS transition
+  }
+
+  // Opens the same modal used for create/edit, but in "name the snapshot"
+  // mode: pre-filled with the source smart playlist's name (selected, so
+  // typing over it or just hitting the save button both work), type toggle
+  // and rule builder hidden since a snapshot is always a plain static playlist.
+  showSaveAsStaticModal(sourcePlaylist) {
+    const modal = document.getElementById('playlistModal');
+    if (!modal) return;
+
+    this.currentEditingPlaylist = null;
+    this.snapshotSourcePlaylistId = sourcePlaylist.id;
+
+    const modalTitle = document.getElementById('modalTitle');
+    const nameInput = document.getElementById('playlistName');
+    const descInput = document.getElementById('playlistDescription');
+    const typeToggle = document.getElementById('playlistTypeToggle');
+    const ruleBuilder = document.getElementById('smartRuleBuilder');
+
+    modalTitle.textContent = 'Save as Static Playlist';
+    nameInput.value = sourcePlaylist.name;
+    descInput.value = '';
+    typeToggle.style.display = 'none';
+    ruleBuilder.style.display = 'none';
+
+    this.setupModalEventListeners();
+
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+
+    setTimeout(() => {
+      try {
+        nameInput.focus();
+        nameInput.select();
+      } catch (error) {
+        console.error('❌ Error focusing input:', error);
+      }
+    }, 350);
   }
 
   // Show playlist modal with a specific track to be added
@@ -875,6 +915,7 @@ class PlaylistRenderer {
     }
 
     this.currentEditingPlaylist = null;
+    this.snapshotSourcePlaylistId = null;
   }
 
   validatePlaylistForm() {
@@ -891,6 +932,31 @@ class PlaylistRenderer {
     const nameInput = document.getElementById('playlistName');
     const descInput = document.getElementById('playlistDescription');
     const saveBtn = document.getElementById('savePlaylist');
+
+    if (this.snapshotSourcePlaylistId) {
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        await window.queMusicAPI.playlists.saveSmartAsStatic(
+          this.snapshotSourcePlaylistId,
+          nameInput.value.trim()
+        );
+        this.app.showNotification('Saved as a new static playlist', 'success');
+        this.snapshotSourcePlaylistId = null;
+        this.hidePlaylistModal();
+        await this.refreshPlaylistsView();
+        if (this.app.uiController && this.app.uiController.switchView) {
+          await this.app.uiController.switchView('playlists');
+        }
+      } catch (error) {
+        console.error('❌ Error saving snapshot:', error);
+        this.app.showNotification(error.message || 'Failed to save playlist', 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Create Playlist';
+      }
+      return;
+    }
 
     try {
       saveBtn.disabled = true;
@@ -1131,14 +1197,7 @@ class PlaylistRenderer {
             await this.duplicateCurrentPlaylist();
             break;
           case 'save-as-static':
-            try {
-              await window.queMusicAPI.playlists.saveSmartAsStatic(this.currentContextPlaylist.id);
-              this.app.showNotification('Saved as a new static playlist', 'success');
-              await this.refreshPlaylistsView();
-            } catch (error) {
-              console.error('❌ Error saving smart playlist as static:', error);
-              this.app.showNotification('Failed to save as static playlist', 'error');
-            }
+            this.showSaveAsStaticModal(this.currentContextPlaylist);
             break;
 
           case 'clear':

@@ -780,9 +780,9 @@ ipcMain.handle('playlist:delete', async (event, playlistId) => {
 });
 
 // SAVE A SMART PLAYLIST'S CURRENT MATCHES AS A NEW STATIC PLAYLIST
-ipcMain.handle('playlist:save-smart-as-static', async (event, playlistId) => {
+ipcMain.handle('playlist:save-smart-as-static', async (event, { playlistId, name }) => {
   try {
-    const snapshot = await musicDB.saveSmartPlaylistAsStatic(playlistId);
+    const snapshot = await musicDB.saveSmartPlaylistAsStatic(playlistId, name);
     return snapshot;
   } catch (error) {
     console.error('❌ Error saving smart playlist as static:', error);
