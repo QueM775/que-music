@@ -597,7 +597,7 @@ class UIController {
             (playlist) => `
           <div class="playlist-item-card" data-playlist-id="${playlist.id}">
             <div class="playlist-item-header">
-              <div class="playlist-item-name">${this.escapeHtml(playlist.name)}</div>
+              <div class="playlist-item-name">${playlist.type === 'smart' ? '<span class="playlist-type-badge smart" title="Smart Playlist">✦</span>' : ''}${this.escapeHtml(playlist.name)}</div>
               <button class="playlist-item-menu btn-icon" title="Playlist options" data-playlist-id="${playlist.id}">⋮</button>
             </div>
             <div class="playlist-item-stats">

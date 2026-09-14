@@ -811,16 +811,16 @@
         <span class="context-icon">💾</span>
         <span>Re-export M3U</span>
       </div>
-      <div class="context-item" id="saveSmartAsStatic" style="display: none">
-        <span class="context-icon">📸</span>
-        <span>Save as Static Playlist</span>
-      </div>
       <div class="context-separator"></div>
       <div class="context-item" id="showPlaylistFolder">
         <span class="context-icon">📁</span>
         <span>Show Playlist Folder</span>
       </div>
     </div>
+    <!-- Note: this #playlistContextMenu block is dead markup — playlist-renderer.js's
+         createPlaylistContextMenu() builds and appends its own element with the same
+         id at click time instead of using this one. Pre-existing before the smart
+         playlists feature (2026-09-14); not cleaned up here to stay in scope. -->
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal" style="display: none">

@@ -247,9 +247,13 @@ class PlaylistRenderer {
     const element = document.createElement('div');
     element.className = 'playlist-item';
     element.dataset.playlistId = playlist.id;
+    const badge =
+      playlist.type === 'smart'
+        ? '<span class="playlist-type-badge smart" title="Smart Playlist">✦</span>'
+        : '';
     element.innerHTML = `
       <div class="playlist-info">
-        <h4>${this.escapeHtml(playlist.name)}</h4>
+        <h4>${badge}${this.escapeHtml(playlist.name)}</h4>
         <span class="track-count">${playlist.track_count || 0} tracks</span>
       </div>
       <div class="playlist-actions">
@@ -1083,6 +1087,14 @@ class PlaylistRenderer {
         <span class="context-icon">💾</span>
         Export to M3U
       </div>
+      ${
+        playlist.type === 'smart'
+          ? `<div class="context-item" data-action="save-as-static">
+        <span class="context-icon">📸</span>
+        Save as Static Playlist
+      </div>`
+          : ''
+      }
       <div class="context-separator"></div>
       <div class="context-item" data-action="clear">
         <span class="context-icon">🗑️</span>
@@ -1123,6 +1135,16 @@ class PlaylistRenderer {
           case 'export':
             console.log('EXPORTING Playlist ID:', this.currentContextPlaylist.id);
             await this.exportPlaylistToM3U(this.currentContextPlaylist.id);
+            break;
+          case 'save-as-static':
+            try {
+              await window.queMusicAPI.playlists.saveSmartAsStatic(this.currentContextPlaylist.id);
+              this.app.showNotification('Saved as a new static playlist', 'success');
+              await this.refreshPlaylistsView();
+            } catch (error) {
+              console.error('❌ Error saving smart playlist as static:', error);
+              this.app.showNotification('Failed to save as static playlist', 'error');
+            }
             break;
 
           case 'clear':
