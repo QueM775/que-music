@@ -865,3 +865,49 @@
     will-change: auto;
   }
 }
+
+/* ========================================
+   QUEUE PANE (4th column, persistent) — the live playback queue
+   (CoreAudio.queue), NOT a saved playlist. See docs/application/roadmap.md
+   priority #1 and layout-redesign.md.
+   ======================================== */
+
+.queue-track-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: grab;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+
+.queue-track-item:hover {
+  background: var(--surface-elevated);
+}
+
+.queue-track-item.drag-source {
+  opacity: 0.5;
+}
+
+.queue-track-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.queue-track-artist {
+  color: var(--text-secondary);
+}
+
+.remove-from-queue-btn {
+  flex-shrink: 0;
+}

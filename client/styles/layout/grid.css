@@ -22,9 +22,51 @@
 
 .app-main {
   display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-columns: var(--sidebar-width) 6px 1fr;
   overflow: hidden;
   min-height: 0;
+}
+
+/* Collapsed sidebar: icon-only rail, resizer removed entirely — nothing to
+   drag when there's no expanded width to change (see layout-redesign.md). */
+.app-main.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
+}
+
+/* NOT display:none — that removes the resizer from grid auto-placement
+   entirely, shifting .content-area into its now-vacant 0px track instead of
+   the 1fr track (a real bug hit and fixed 2026-09-13, see issues_track.md).
+   visibility:hidden keeps its grid slot reserved while making it invisible
+   and non-interactive at 0px width anyway. */
+.app-main.sidebar-collapsed #sidebarResizer {
+  visibility: hidden;
+}
+
+/* ========================================
+   RESIZABLE PANE SPLITTERS
+   ======================================== */
+
+.pane-resizer {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.pane-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+  transition: background var(--transition-fast);
+}
+
+.pane-resizer:hover::after,
+.pane-resizer.resizing::after {
+  background: var(--primary);
 }
 
 /* ========================================
@@ -192,9 +234,17 @@
    DUAL PANE LAYOUT - MATCHING YOUR HTML
    ======================================== */
 
+/* Four columns: folder tree | file list | up-next queue, each split by a
+   drag handle. (Nav rail is the 4th column, but it lives in .app-main —
+   see the sidebar rules below.) The queue pane is the live playback queue
+   (CoreAudio.queue), NOT a saved playlist — see docs/application/roadmap.md
+   priority #1 and layout-redesign.md. */
 .dual-pane-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) 1fr;
+  grid-template-columns:
+    var(--dual-pane-left-width, minmax(280px, 340px)) 6px
+    minmax(300px, 1fr) 6px
+    var(--queue-pane-width, minmax(260px, 320px));
   gap: var(--space-md);
   height: 100%;
   overflow: hidden;
@@ -202,7 +252,8 @@
 }
 
 .left-pane,
-.right-pane {
+.right-pane,
+.queue-pane {
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -211,6 +262,11 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   min-height: 0;
+}
+
+.queue-pane.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
 }
 
 .pane-header {
@@ -306,7 +362,10 @@
 /* Large Desktop (1400px+) */
 @media (min-width: 1400px) {
   .dual-pane-layout {
-    grid-template-columns: minmax(360px, 420px) 1fr;
+    grid-template-columns:
+      var(--dual-pane-left-width, minmax(360px, 420px)) 6px
+      minmax(320px, 1fr) 6px
+      var(--queue-pane-width, minmax(280px, 340px));
   }
 
   .content-header {
@@ -317,23 +376,43 @@
 /* Medium Desktop (1200px - 1400px) */
 @media (max-width: 1400px) {
   .app-main {
-    grid-template-columns: minmax(260px, 300px) 1fr;
+    grid-template-columns: var(--sidebar-width, minmax(260px, 300px)) 6px 1fr;
+  }
+
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
   }
 
   .dual-pane-layout {
-    grid-template-columns: minmax(300px, 350px) 1fr;
+    grid-template-columns:
+      var(--dual-pane-left-width, minmax(300px, 350px)) 6px
+      minmax(280px, 1fr) 6px
+      var(--queue-pane-width, minmax(240px, 300px));
   }
 }
 
-/* Small Desktop/Large Tablet (1024px - 1200px) */
+/* Small Desktop/Large Tablet (1024px - 1200px) — queue pane drops off here;
+   not enough room for four honest columns. Reappears above 1200px. Both
+   .queue-pane and #queueResizer are hidden together, and .dual-pane-layout's
+   3-column definition below matches the 3 items that remain (left-pane,
+   dualPaneResizer, right-pane) — no CSS Grid auto-placement mismatch. */
 @media (max-width: 1200px) {
   .app-main {
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: var(--sidebar-width, 280px) 6px 1fr;
+  }
+
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
   }
 
   .dual-pane-layout {
-    grid-template-columns: minmax(280px, 320px) 1fr;
+    grid-template-columns: var(--dual-pane-left-width, minmax(280px, 320px)) 6px 1fr;
     gap: var(--space-sm);
+  }
+
+  .queue-pane,
+  #queueResizer {
+    display: none;
   }
 
   .content-header {
@@ -344,13 +423,28 @@
 /* Tablet (768px - 1024px) */
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: var(--sidebar-width, 260px) 6px 1fr;
   }
 
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
+  }
+
+  /* Panes stack vertically here — nothing horizontal left to drag. Queue pane
+     already dropped off at the 1200px breakpoint above; the 2 remaining items
+     (left-pane, right-pane) match the 2 row-tracks defined below. */
   .dual-pane-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(200px, 50vh) 1fr;
     gap: var(--space-sm);
+  }
+
+  .dual-pane-layout .pane-resizer {
+    display: none;
+  }
+
+  .queue-pane {
+    display: none;
   }
 
   .pane-header {
@@ -369,6 +463,11 @@
 @media (max-width: 768px) {
   .app-main {
     grid-template-columns: 1fr;
+  }
+
+  /* Sidebar collapses to an overlay below this width — no column to drag */
+  .app-main .pane-resizer#sidebarResizer {
+    display: none;
   }
 
   /* Content header becomes more compact */
@@ -392,6 +491,10 @@
     flex-direction: column;
     gap: var(--space-sm);
     padding: var(--space-sm);
+  }
+
+  .dual-pane-layout .pane-resizer {
+    display: none;
   }
 
   .left-pane {

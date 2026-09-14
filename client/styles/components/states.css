@@ -632,6 +632,13 @@
   color: var(--text-secondary);
 }
 
+.empty-pane.drag-target-active {
+  background: var(--primary-light);
+  outline: 2px dashed var(--primary);
+  outline-offset: -8px;
+  border-radius: var(--radius-lg);
+}
+
 /* Legacy loading classes */
 .loading-state {
   /* Already defined above */

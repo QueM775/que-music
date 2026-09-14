@@ -729,8 +729,9 @@ que-music/
 
 - **Electron** - MIT License
 - **better-sqlite3** - Apache 2.0 License
-- **sharp** - Apache 2.0 License (image processing)
 - **music-metadata** - MIT License (metadata extraction)
+- **node-id3** - MIT License (ID3 tag reading)
+- **fs-extra** - MIT License
 
 ### Acknowledgments
 

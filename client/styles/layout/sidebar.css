@@ -18,6 +18,57 @@
 }
 
 /* ========================================
+   SIDEBAR TOGGLE (collapse to icon-only rail)
+   See docs/application/layout-redesign.md, piece 1.
+   ======================================== */
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 var(--space-md) var(--space-lg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+/* Collapsed state: icon-only rail. Same click targets, labels hidden. */
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding: 0 var(--space-sm);
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: var(--space-sm);
+}
+
+.sidebar.collapsed .nav-section h3 {
+  height: 1px;
+  margin: 0 0 var(--space-md) 0;
+  overflow: hidden;
+}
+
+/* ========================================
    SIDEBAR NAVIGATION
    ======================================== */
 
@@ -69,6 +120,17 @@
   cursor: pointer;
   margin-bottom: 2px;
   min-height: 40px;
+}
+
+/* Truncate with an ellipsis instead of wrapping to a second line — matters
+   whenever the sidebar is narrower than a label's natural width, whether
+   that's mid-drag on the resizer or (previously) a collapse-state bug. */
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .nav-item:hover {

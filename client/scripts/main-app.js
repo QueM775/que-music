@@ -27,6 +27,12 @@ class QueMusicApp {
     // Initialize context menus
     this.uiController.initializeContextMenus();
 
+    // Persistent queue pane (4th column) — wire its drop target and paint its
+    // initial (empty) state. This is the live playback queue, not a saved
+    // playlist, so it's owned here/by uiController+coreAudio, not playlist-renderer.
+    this.uiController.setupQueuePaneDropTarget();
+    this.uiController.renderQueuePane();
+
     // Development debugging functions
     if (window.queMusicAPI?.system?.isDev) {
       window.manualSearchToggle = () => this.manualSearchToggle();
@@ -1177,34 +1183,6 @@ window.ensureCorrectDOMStructure = function () {
   return false;
 };
 
-// Protect against methods that might destroy the DOM
-window.protectDOMFromDestruction = function () {
-  if (!window.app || !window.app.libraryManager) return;
-
-  // Override any methods that try to replace mainContent.innerHTML completely
-  const originalCreateFolderBrowser = window.app.libraryManager.createFolderBrowser;
-  if (originalCreateFolderBrowser) {
-    window.app.libraryManager.createFolderBrowser = function (folderTree, songs, currentPath) {
-
-      // Ensure structure exists
-      window.ensureCorrectDOMStructure();
-
-      // Show dual pane and populate it safely
-      const dualPaneLayout = document.getElementById('dualPaneLayout');
-      const welcomeScreen = document.getElementById('welcomeScreen');
-
-      if (welcomeScreen) welcomeScreen.classList.add('hidden');
-      if (dualPaneLayout) dualPaneLayout.classList.remove('hidden');
-
-      // Use the safe showLibraryView method instead
-      this.showLibraryView();
-
-      return; // Don't execute original method that destroys DOM
-    };
-  }
-
-};
-
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -1271,8 +1249,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 });
-
-window.protectDOMFromDestruction();
 
 // Export for potential use in other modules
 if (typeof module !== 'undefined' && module.exports) {

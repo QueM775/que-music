@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2025-10-06T16:18:16.230Z
+ * Generated: 2026-09-14T12:07:41.283Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -1334,7 +1334,7 @@ File reduced from 400+ lines to 150 lines (62% reduction)
 
 
 /* ============================================================================
- * styles/legacy/components.css (15473 bytes)
+ * styles/legacy/components.css (17393 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -1464,6 +1464,96 @@ File reduced from 400+ lines to 150 lines (62% reduction)
   border-radius: var(--radius-full);
   min-width: 20px;
   text-align: center;
+}
+
+/* ========================================
+   PLAYLIST TRACK LIST (drag-and-drop reorder)
+   ======================================== */
+
+.playlist-tracks {
+  display: flex;
+  flex-direction: column;
+}
+
+.playlist-tracks .track-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.playlist-tracks .track-item:hover {
+  background: var(--surface-elevated);
+}
+
+.playlist-tracks .track-item.selected {
+  background: var(--surface-elevated);
+}
+
+.playlist-tracks .track-item.playing {
+  background: var(--primary);
+  color: #fff;
+}
+
+.playlist-tracks .track-item.playing .track-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.track-drag-handle {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  cursor: grab;
+  user-select: none;
+  padding: 0 var(--space-xs);
+}
+
+.playlist-tracks .track-item:active .track-drag-handle {
+  cursor: grabbing;
+}
+
+.playlist-tracks .track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-tracks .track-title {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-tracks .track-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-tracks .track-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Dragging state: dim the item being dragged */
+.playlist-tracks .track-item.dragging {
+  opacity: 0.4;
+}
+
+/* Drop-position indicator: a line above/below the hovered item showing where the
+   dragged track will land */
+.playlist-tracks .track-item.drag-over-top {
+  border-top: 2px solid var(--primary);
+}
+
+.playlist-tracks .track-item.drag-over-bottom {
+  border-bottom: 2px solid var(--primary);
 }
 
 /* ========================================
@@ -2936,7 +3026,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/grid.css (13956 bytes)
+ * styles/layout/grid.css (19109 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -2963,9 +3053,51 @@ Only favorites/recent-specific functionality remains
 
 .app-main {
   display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-columns: var(--sidebar-width) 6px 1fr;
   overflow: hidden;
   min-height: 0;
+}
+
+/* Collapsed sidebar: icon-only rail, resizer removed entirely — nothing to
+   drag when there's no expanded width to change (see layout-redesign.md). */
+.app-main.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
+}
+
+/* NOT display:none — that removes the resizer from grid auto-placement
+   entirely, shifting .content-area into its now-vacant 0px track instead of
+   the 1fr track (a real bug hit and fixed 2026-09-13, see issues_track.md).
+   visibility:hidden keeps its grid slot reserved while making it invisible
+   and non-interactive at 0px width anyway. */
+.app-main.sidebar-collapsed #sidebarResizer {
+  visibility: hidden;
+}
+
+/* ========================================
+   RESIZABLE PANE SPLITTERS
+   ======================================== */
+
+.pane-resizer {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.pane-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+  transition: background var(--transition-fast);
+}
+
+.pane-resizer:hover::after,
+.pane-resizer.resizing::after {
+  background: var(--primary);
 }
 
 /* ========================================
@@ -3133,9 +3265,17 @@ Only favorites/recent-specific functionality remains
    DUAL PANE LAYOUT - MATCHING YOUR HTML
    ======================================== */
 
+/* Four columns: folder tree | file list | up-next queue, each split by a
+   drag handle. (Nav rail is the 4th column, but it lives in .app-main —
+   see the sidebar rules below.) The queue pane is the live playback queue
+   (CoreAudio.queue), NOT a saved playlist — see docs/application/roadmap.md
+   priority #1 and layout-redesign.md. */
 .dual-pane-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) 1fr;
+  grid-template-columns:
+    var(--dual-pane-left-width, minmax(280px, 340px)) 6px
+    minmax(300px, 1fr) 6px
+    var(--queue-pane-width, minmax(260px, 320px));
   gap: var(--space-md);
   height: 100%;
   overflow: hidden;
@@ -3143,7 +3283,8 @@ Only favorites/recent-specific functionality remains
 }
 
 .left-pane,
-.right-pane {
+.right-pane,
+.queue-pane {
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -3152,6 +3293,11 @@ Only favorites/recent-specific functionality remains
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   min-height: 0;
+}
+
+.queue-pane.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
 }
 
 .pane-header {
@@ -3247,7 +3393,10 @@ Only favorites/recent-specific functionality remains
 /* Large Desktop (1400px+) */
 @media (min-width: 1400px) {
   .dual-pane-layout {
-    grid-template-columns: minmax(360px, 420px) 1fr;
+    grid-template-columns:
+      var(--dual-pane-left-width, minmax(360px, 420px)) 6px
+      minmax(320px, 1fr) 6px
+      var(--queue-pane-width, minmax(280px, 340px));
   }
 
   .content-header {
@@ -3258,23 +3407,43 @@ Only favorites/recent-specific functionality remains
 /* Medium Desktop (1200px - 1400px) */
 @media (max-width: 1400px) {
   .app-main {
-    grid-template-columns: minmax(260px, 300px) 1fr;
+    grid-template-columns: var(--sidebar-width, minmax(260px, 300px)) 6px 1fr;
+  }
+
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
   }
 
   .dual-pane-layout {
-    grid-template-columns: minmax(300px, 350px) 1fr;
+    grid-template-columns:
+      var(--dual-pane-left-width, minmax(300px, 350px)) 6px
+      minmax(280px, 1fr) 6px
+      var(--queue-pane-width, minmax(240px, 300px));
   }
 }
 
-/* Small Desktop/Large Tablet (1024px - 1200px) */
+/* Small Desktop/Large Tablet (1024px - 1200px) — queue pane drops off here;
+   not enough room for four honest columns. Reappears above 1200px. Both
+   .queue-pane and #queueResizer are hidden together, and .dual-pane-layout's
+   3-column definition below matches the 3 items that remain (left-pane,
+   dualPaneResizer, right-pane) — no CSS Grid auto-placement mismatch. */
 @media (max-width: 1200px) {
   .app-main {
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: var(--sidebar-width, 280px) 6px 1fr;
+  }
+
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
   }
 
   .dual-pane-layout {
-    grid-template-columns: minmax(280px, 320px) 1fr;
+    grid-template-columns: var(--dual-pane-left-width, minmax(280px, 320px)) 6px 1fr;
     gap: var(--space-sm);
+  }
+
+  .queue-pane,
+  #queueResizer {
+    display: none;
   }
 
   .content-header {
@@ -3285,13 +3454,28 @@ Only favorites/recent-specific functionality remains
 /* Tablet (768px - 1024px) */
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: var(--sidebar-width, 260px) 6px 1fr;
   }
 
+  .app-main.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 0 1fr;
+  }
+
+  /* Panes stack vertically here — nothing horizontal left to drag. Queue pane
+     already dropped off at the 1200px breakpoint above; the 2 remaining items
+     (left-pane, right-pane) match the 2 row-tracks defined below. */
   .dual-pane-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(200px, 50vh) 1fr;
     gap: var(--space-sm);
+  }
+
+  .dual-pane-layout .pane-resizer {
+    display: none;
+  }
+
+  .queue-pane {
+    display: none;
   }
 
   .pane-header {
@@ -3310,6 +3494,11 @@ Only favorites/recent-specific functionality remains
 @media (max-width: 768px) {
   .app-main {
     grid-template-columns: 1fr;
+  }
+
+  /* Sidebar collapses to an overlay below this width — no column to drag */
+  .app-main .pane-resizer#sidebarResizer {
+    display: none;
   }
 
   /* Content header becomes more compact */
@@ -3333,6 +3522,10 @@ Only favorites/recent-specific functionality remains
     flex-direction: column;
     gap: var(--space-sm);
     padding: var(--space-sm);
+  }
+
+  .dual-pane-layout .pane-resizer {
+    display: none;
   }
 
   .left-pane {
@@ -3659,9 +3852,79 @@ Only favorites/recent-specific functionality remains
   }
 }
 
+/* ========================================
+   GRID VIEW MODE FOR SONG CARDS
+   ======================================== */
+
+/* Grid view layout - displays song cards in a grid */
+#rightPaneContent.grid-view .songs-container,
+#rightPaneContent.grid-view .song-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+#rightPaneContent.grid-view .song-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+#rightPaneContent.grid-view .song-card:hover {
+  background: var(--surface-elevated);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#rightPaneContent.grid-view .song-card .song-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#rightPaneContent.grid-view .song-card .song-artist {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#rightPaneContent.grid-view .song-card .song-album {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* List view (default) - keep existing list layout */
+#rightPaneContent.list-view .songs-container,
+#rightPaneContent.list-view .song-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
 
 /* ============================================================================
- * styles/layout/header.css (6168 bytes)
+ * styles/layout/header.css (5832 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -3698,50 +3961,38 @@ Only favorites/recent-specific functionality remains
   -webkit-app-region: no-drag;
 }
 
-/* App version display in app-title area */
-.app-title .app-version {
-  position: static !important;
-  font-size: 16px;
-  color: var(--text-tertiary);
-  opacity: 0.6;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  user-select: none;
-  padding: 0 !important;
-  margin: 0 !important;
-  margin-right: 10px !important;
-  border: none !important;
-  background: transparent !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  -webkit-app-region: no-drag;
-}
-
-.app-title .app-version:hover {
-  opacity: 1;
-}
-
 .app-title {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   flex: 1;
   -webkit-app-region: no-drag;
 }
 
-.app-title h1 {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  margin: 0;
-  white-space: nowrap;
-}
-
 .app-logo {
   height: 50px;
-  width: 120px;
-  object-fit: contain;
+  width: 200px;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  image-rendering: high-quality;
+}
+
+.app-version {
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.app-version:hover {
+  opacity: 1;
 }
 
 .header-actions {
@@ -3969,7 +4220,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/sidebar.css (5413 bytes)
+ * styles/layout/sidebar.css (6948 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -3989,6 +4240,57 @@ Only favorites/recent-specific functionality remains
   padding-bottom: 80px; /* Space for version display */
   height: 100%;
   position: relative;
+}
+
+/* ========================================
+   SIDEBAR TOGGLE (collapse to icon-only rail)
+   See docs/application/layout-redesign.md, piece 1.
+   ======================================== */
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 var(--space-md) var(--space-lg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+/* Collapsed state: icon-only rail. Same click targets, labels hidden. */
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding: 0 var(--space-sm);
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: var(--space-sm);
+}
+
+.sidebar.collapsed .nav-section h3 {
+  height: 1px;
+  margin: 0 0 var(--space-md) 0;
+  overflow: hidden;
 }
 
 /* ========================================
@@ -4043,6 +4345,17 @@ Only favorites/recent-specific functionality remains
   cursor: pointer;
   margin-bottom: 2px;
   min-height: 40px;
+}
+
+/* Truncate with an ellipsis instead of wrapping to a second line — matters
+   whenever the sidebar is narrower than a label's natural width, whether
+   that's mid-drag on the resizer or (previously) a collapse-state bug. */
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .nav-item:hover {
@@ -5542,7 +5855,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/components/cards.css (21497 bytes)
+ * styles/components/cards.css (21785 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -5811,6 +6124,18 @@ Only favorites/recent-specific functionality remains
 .song-card.selected {
   background: var(--primary-light);
   border-color: var(--primary);
+}
+
+.song-card.dragging {
+  opacity: 0.4;
+}
+
+/* Drop target: a playlist card while a song is being dragged over it */
+.playlist-item-card.drag-target-active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
 }
 
 .song-card-artwork {
@@ -7357,7 +7682,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/components/states.css (12950 bytes)
+ * styles/components/states.css (13119 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -7994,6 +8319,13 @@ Only favorites/recent-specific functionality remains
   color: var(--text-secondary);
 }
 
+.empty-pane.drag-target-active {
+  background: var(--primary-light);
+  outline: 2px dashed var(--primary);
+  outline-offset: -8px;
+  border-radius: var(--radius-lg);
+}
+
 /* Legacy loading classes */
 .loading-state {
   /* Already defined above */
@@ -8010,7 +8342,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/features/player.css (17202 bytes)
+ * styles/features/player.css (18191 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -8881,9 +9213,55 @@ Only favorites/recent-specific functionality remains
   }
 }
 
+/* ========================================
+   QUEUE PANE (4th column, persistent) — the live playback queue
+   (CoreAudio.queue), NOT a saved playlist. See docs/application/roadmap.md
+   priority #1 and layout-redesign.md.
+   ======================================== */
+
+.queue-track-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: grab;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+
+.queue-track-item:hover {
+  background: var(--surface-elevated);
+}
+
+.queue-track-item.drag-source {
+  opacity: 0.5;
+}
+
+.queue-track-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.queue-track-artist {
+  color: var(--text-secondary);
+}
+
+.remove-from-queue-btn {
+  flex-shrink: 0;
+}
+
 
 /* ============================================================================
- * styles/features/modals.css (34733 bytes)
+ * styles/features/modals.css (36007 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -10596,6 +10974,68 @@ Only favorites/recent-specific functionality remains
   }
 }
 
+/* ========================================
+   LYRICS MODAL — positioned toward the left, faded album art behind the text
+   (see docs/application/lyrics-feature.md, "Decided — source and display")
+   ======================================== */
+
+.lyrics-modal {
+  justify-content: flex-start;
+  padding-left: 60px;
+}
+
+.lyrics-modal-content {
+  width: 420px;
+  max-width: 90vw;
+}
+
+.lyrics-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(14px) brightness(0.5);
+  opacity: 0.6;
+  z-index: 0;
+}
+
+.lyrics-modal-content .modal-header,
+.lyrics-modal-content .modal-body,
+.lyrics-modal-content .modal-footer {
+  position: relative;
+  z-index: 1;
+}
+
+.lyrics-track-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-lg);
+}
+
+.lyrics-track-info span:first-child {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+}
+
+.lyrics-track-info span:last-child {
+  color: var(--text-secondary);
+}
+
+.lyrics-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-height: 50vh;
+  overflow-y: auto;
+  color: var(--text-primary);
+}
+
+.lyrics-state {
+  text-align: center;
+  padding: var(--space-xl) 0;
+  color: var(--text-secondary);
+}
+
 
 /* ============================================================================
  * styles/features/notifications.css (15746 bytes)
@@ -11347,7 +11787,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/features/search.css (18268 bytes)
+ * styles/features/search.css (18322 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -11839,6 +12279,10 @@ Only favorites/recent-specific functionality remains
 .search-result-card.selected {
   background: var(--primary-light);
   border-color: var(--primary);
+}
+
+.search-result-card.dragging {
+  opacity: 0.4;
 }
 
 /* ========================================

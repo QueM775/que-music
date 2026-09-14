@@ -630,6 +630,37 @@ class UIController {
           e.preventDefault();
           this.app.playlistRenderer.showPlaylistContextMenu(e, playlist);
         });
+
+        // Drop target for dragging songs out of the library/search results onto
+        // this playlist to add them (see LibraryManager.setupLibrarySelectionEvents
+        // and setupSearchResultEvents for the drag side).
+        card.addEventListener('dragover', (e) => {
+          if (!e.dataTransfer.types.includes('application/x-que-track-paths')) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          card.classList.add('drag-target-active');
+        });
+
+        card.addEventListener('dragleave', () => {
+          card.classList.remove('drag-target-active');
+        });
+
+        card.addEventListener('drop', async (e) => {
+          card.classList.remove('drag-target-active');
+          const raw = e.dataTransfer.getData('application/x-que-track-paths');
+          if (!raw) return;
+          e.preventDefault();
+
+          let trackPaths;
+          try {
+            trackPaths = JSON.parse(raw);
+          } catch {
+            return;
+          }
+          if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
+
+          await this.app.playlistRenderer.addTrackPathsToPlaylist(playlistId, trackPaths);
+        });
       });
 
       // FIXED: Add click handlers for 3-dot menu buttons
@@ -873,13 +904,12 @@ class UIController {
 
         if (action === 'play') {
           // Play the track
-          await this.app.coreAudio.loadTrack(trackData);
-          this.app.coreAudio.playTrack();
+          await this.app.coreAudio.playSong(trackData.path, false);
         } else if (action === 'remove') {
           console.log('🗑️ Attempting to remove track:', trackData);
           console.log('🗑️ Track element:', trackElement);
           // Remove from playlist
-          await this.app.playlistRenderer.removeTrackFromCurrentPlaylist(trackData, trackElement);
+          await this.app.playlistRenderer.removeTrackFromCurrentPlaylistByData(trackData, trackElement);
         }
       });
     });
@@ -1906,7 +1936,7 @@ class UIController {
           ${artists
             .map(
               (artist) => `
-            <div class="artist-item-card" data-artist="${artist.artist}">
+            <div class="artist-item-card" data-artist="${this.escapeHtml(artist.artist)}">
               <div class="artist-item-name">${this.escapeHtml(artist.artist || 'Unknown Artist')}</div>
               <div class="artist-item-stats">${artist.track_count} tracks</div>
             </div>
@@ -1969,7 +1999,7 @@ class UIController {
           ${albums
             .map(
               (album) => `
-            <div class="album-item-card" data-album="${album.album}" data-artist="${album.artist}">
+            <div class="album-item-card" data-album="${this.escapeHtml(album.album)}" data-artist="${this.escapeHtml(album.artist)}">
               <div class="album-item-name">${this.escapeHtml(album.album || 'Unknown Album')}</div>
               <div class="album-item-artist">${this.escapeHtml(album.artist || 'Unknown Artist')}</div>
               <div class="album-item-stats">${album.track_count} tracks</div>
@@ -2199,22 +2229,6 @@ class UIController {
       name: titleElement?.textContent || 'Unknown',
       title: titleElement?.textContent || 'Unknown',
       artist: artistElement?.textContent || 'Unknown Artist',
-      filename: this.app.getBasename(songPath),
-    };
-  }
-
-  extractSongDataFromRightPaneCard(card) {
-    const songPath = card.dataset.path;
-    const titleElement = card.querySelector('.track-title-right');
-    const artistElement = card.querySelector('.track-artist-right');
-    const albumElement = card.querySelector('.track-album-right');
-
-    return {
-      path: songPath,
-      name: titleElement?.textContent || 'Unknown',
-      title: titleElement?.textContent || 'Unknown',
-      artist: artistElement?.textContent || 'Unknown Artist',
-      album: albumElement?.textContent || 'Unknown Album',
       filename: this.app.getBasename(songPath),
     };
   }
@@ -2531,8 +2545,9 @@ class UIController {
             // Get track path
             const trackPath = this.currentContextTrack.path || this.currentContextTrack.dataset.path;
             if (trackPath) {
-              // Use the audio engine's addToQueue method
-              this.app.coreAudio.addToQueue(trackPath);
+              // Pass the full track object (title/artist/album/duration) so the
+              // queue entry has real metadata, not just a bare filename.
+              this.app.coreAudio.addToQueue(this.currentContextTrack);
               this.app.logger.debug(' Added track to queue via context menu:', trackPath);
             } else {
               this.app.logger.error('❌ No track path found for context menu item');
@@ -2776,7 +2791,7 @@ class UIController {
       }
 
       if (trackElement) {
-        await this.app.playlistRenderer.removeTrackFromCurrentPlaylist(this.currentContextTrack, trackElement);
+        await this.app.playlistRenderer.removeTrackFromCurrentPlaylistByData(this.currentContextTrack, trackElement);
       } else {
         this.app.logger.error('❌ Could not find track element in DOM');
         this.app.showNotification('Failed to remove track from playlist', 'error');
@@ -3411,7 +3426,167 @@ Path: ${track.path}`;
     this.app.logger.info('Settings saved', settings);
   }
 
-  // When user switches different view windows
+  // ============================================================================
+  // QUEUE PANE (4th column, persistent) — the real playback queue
+  // (this.app.coreAudio.queue), NOT a saved playlist. See docs/application/
+  // roadmap.md priority #1 and layout-redesign.md. This is the single place
+  // the queue gets rendered — there is no separate copy in the Now Playing view.
+  // ============================================================================
+
+  renderQueuePane() {
+    const titleEl = document.getElementById('queuePaneTitle');
+    const contentEl = document.getElementById('queuePaneContent');
+    if (!titleEl || !contentEl) return;
+
+    const queue = this.app.coreAudio?.getQueue ? this.app.coreAudio.getQueue() : [];
+
+    if (queue.length === 0) {
+      titleEl.textContent = 'Up Next';
+      contentEl.innerHTML = `
+        <div class="empty-pane">
+          <div class="empty-pane-icon">🎧</div>
+          <p>Nothing queued. Drag a track here to add it to what's playing next.</p>
+        </div>
+      `;
+      return;
+    }
+
+    titleEl.textContent = `Up Next (${queue.length})`;
+    contentEl.innerHTML = `
+      <div class="queue-track-list">
+        ${queue
+          .map(
+            (track, index) => `
+          <div class="queue-track-item" draggable="true" data-queue-index="${index}" data-path="${this.escapeHtml(track.path || '')}">
+            <span class="queue-track-text">
+              ${index + 1}. ${this.escapeHtml(track.title || track.name || '')}
+              ${track.artist ? ` — <span class="queue-track-artist">${this.escapeHtml(track.artist)}</span>` : ''}
+            </span>
+            <button class="icon-btn remove-from-queue-btn" data-queue-index="${index}" title="Remove from queue">&times;</button>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+
+    this.attachQueuePaneHandlers();
+  }
+
+  // Wires up the queue pane's remove buttons, drag-to-reorder, and double-click-
+  // to-play. Called every time renderQueuePane()'s HTML is (re)inserted. Scoped
+  // to #queuePaneContent so it never touches unrelated elements elsewhere.
+  attachQueuePaneHandlers() {
+    const container = document.getElementById('queuePaneContent');
+    if (!container) return;
+
+    container.querySelectorAll('.remove-from-queue-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.app.coreAudio.removeFromQueue(parseInt(btn.dataset.queueIndex, 10));
+      });
+    });
+
+    let dragSourceIndex = null;
+    container.querySelectorAll('.queue-track-item').forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        dragSourceIndex = parseInt(item.dataset.queueIndex, 10);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetIndex = parseInt(item.dataset.queueIndex, 10);
+        if (dragSourceIndex !== null && dragSourceIndex !== targetIndex) {
+          this.app.coreAudio.reorderQueue(dragSourceIndex, targetIndex);
+        }
+        dragSourceIndex = null;
+      });
+      item.addEventListener('dblclick', () => {
+        const path = item.dataset.path;
+        if (path) this.app.coreAudio.playSong(path);
+      });
+    });
+  }
+
+  // Makes the queue pane a live drop target, reusing the exact same
+  // application/x-que-track-paths payload as playlist cards and the folder
+  // view's drag source — no new drag-and-drop implementation. Looks up each
+  // dropped path's real metadata before queueing so the pane shows title/artist,
+  // not just a bare filename. Also wires the header's Clear button — it has
+  // no listener until this runs.
+  setupQueuePaneDropTarget() {
+    const pane = document.getElementById('queuePane');
+    if (!pane) return;
+
+    const clearBtn = document.getElementById('clearQueuePaneBtn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => this.app.coreAudio.clearQueue());
+    }
+
+    pane.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('application/x-que-track-paths')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      pane.classList.add('drag-over');
+    });
+
+    pane.addEventListener('dragleave', (e) => {
+      if (e.target === pane) pane.classList.remove('drag-over');
+    });
+
+    pane.addEventListener('drop', async (e) => {
+      pane.classList.remove('drag-over');
+      const raw = e.dataTransfer.getData('application/x-que-track-paths');
+      if (!raw) return;
+      e.preventDefault();
+
+      let trackPaths;
+      try {
+        trackPaths = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
+
+      let insertIndex = this.getQueueDropIndex(e.clientY);
+
+      for (const trackPath of trackPaths) {
+        let trackData = { path: trackPath };
+        try {
+          const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
+          if (dbTrack) trackData = dbTrack;
+        } catch (err) {
+          // Fall back to the bare path — addToQueue() handles missing metadata fine
+        }
+        this.app.coreAudio.addToQueue(trackData, insertIndex);
+        insertIndex++; // keep multi-track drops in dropped order, right after each other
+      }
+    });
+  }
+
+  // Figures out which queue slot a drop landed on/between, by comparing the
+  // pointer's Y position to each rendered queue row's vertical midpoint.
+  // Returns the index to insert at (queue.length if dropped below the last row
+  // or the pane is empty) — matches how data-queue-index numbers the rows.
+  getQueueDropIndex(clientY) {
+    const container = document.getElementById('queuePaneContent');
+    if (!container) return this.app.coreAudio.getQueue().length;
+
+    const items = [...container.querySelectorAll('.queue-track-item')];
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if (clientY < midpoint) {
+        return parseInt(item.dataset.queueIndex, 10);
+      }
+    }
+    return items.length;
+  }
+
   async switchToNowPlaying() {
     this.app.logger.debug(' Loading Now Playing view...');
 
@@ -3465,7 +3640,7 @@ Path: ${track.path}`;
     const title = document.getElementById('currentViewTitle');
     const subtitle = document.getElementById('currentViewSubtitle');
     if (title) title.textContent = 'Now Playing';
-    if (subtitle) subtitle.textContent = `Queue • ${playlist.length} tracks`;
+    if (subtitle) subtitle.textContent = `Playlist • ${playlist.length} tracks • Up Next: ${this.app.coreAudio?.queue?.length || 0}`;
 
     // LEFT PANE
     const leftPaneTitle = document.getElementById('leftPaneTitle');
@@ -3558,11 +3733,13 @@ Path: ${track.path}`;
     `;
     }
 
-    // RIGHT PANE - Song queue
+    // RIGHT PANE - the loaded playlist/folder context. The real "up next" queue
+    // lives in the persistent queue pane (4th column, always visible) — not
+    // duplicated here. See docs/application/roadmap.md, priority #1.
     const rightPaneTitle = document.getElementById('rightPaneTitle');
     const rightPaneContent = document.getElementById('rightPaneContent');
 
-    if (rightPaneTitle) rightPaneTitle.textContent = `Queue (${playlist.length} tracks)`;
+    if (rightPaneTitle) rightPaneTitle.textContent = `Playlist (${playlist.length} tracks)`;
 
     if (rightPaneContent) {
       if (playlist.length === 0) {
@@ -3728,7 +3905,7 @@ Path: ${track.path}`;
       this.switchView('library');
       setTimeout(() => {
         if (this.app.libraryManager && context.selectedFolder) {
-          this.app.libraryManager.loadFolder(context.selectedFolder);
+          this.app.libraryManager.loadSongsFromFolderForRightPane(context.selectedFolder);
         }
       }, 500);
     } else {

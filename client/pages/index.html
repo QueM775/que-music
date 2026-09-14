@@ -178,12 +178,19 @@
       <!-- Main Content -->
       <main class="app-main">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
+          <button class="sidebar-toggle" id="sidebarToggle" title="Collapse sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
           <nav class="sidebar-nav">
             <div class="nav-section">
-              <h3>Library</h3>
+              <h3><span class="nav-label">Library</span></h3>
               <ul class="nav-list">
-                <li class="nav-item active" data-view="library">
+                <li class="nav-item active" data-view="library" title="Music Library">
                   <svg
                     width="18"
                     height="18"
@@ -196,9 +203,9 @@
                     <circle cx="6" cy="18" r="3"></circle>
                     <circle cx="18" cy="16" r="3"></circle>
                   </svg>
-                  Music Library
+                  <span class="nav-label">Music Library</span>
                 </li>
-                <li class="nav-item" data-view="favorites">
+                <li class="nav-item" data-view="favorites" title="Favorites">
                   <svg
                     width="18"
                     height="18"
@@ -211,9 +218,9 @@
                       points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
                     ></polygon>
                   </svg>
-                  Favorites
+                  <span class="nav-label">Favorites</span>
                 </li>
-                <li class="nav-item" data-view="recently-played">
+                <li class="nav-item" data-view="recently-played" title="Recently Played">
                   <svg
                     width="18"
                     height="18"
@@ -225,9 +232,9 @@
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12,6 12,12 16,14"></polyline>
                   </svg>
-                  Recently Played
+                  <span class="nav-label">Recently Played</span>
                 </li>
-                <li class="nav-item" data-view="discover">
+                <li class="nav-item" data-view="discover" title="Discover">
                   <svg
                     width="18"
                     height="18"
@@ -239,9 +246,9 @@
                     <circle cx="12" cy="12" r="10"></circle>
                     <polygon points="10,8 16,12 10,16"></polygon>
                   </svg>
-                  Discover
+                  <span class="nav-label">Discover</span>
                 </li>
-                <li class="nav-item" data-view="now-playing">
+                <li class="nav-item" data-view="now-playing" title="Now Playing">
                   <svg
                     width="18"
                     height="18"
@@ -253,15 +260,15 @@
                     <circle cx="12" cy="12" r="10"></circle>
                     <polygon points="10,8 16,12 10,16"></polygon>
                   </svg>
-                  Now Playing
+                  <span class="nav-label">Now Playing</span>
                 </li>
               </ul>
             </div>
 
             <div class="nav-section">
-              <h3>Playlists</h3>
+              <h3><span class="nav-label">Playlists</span></h3>
               <ul class="nav-list">
-                <li class="nav-item" data-view="playlists">
+                <li class="nav-item" data-view="playlists" title="Playlists">
                   <svg
                     width="18"
                     height="18"
@@ -274,9 +281,9 @@
                     <circle cx="6" cy="18" r="3"></circle>
                     <circle cx="18" cy="16" r="3"></circle>
                   </svg>
-                  Playlists
+                  <span class="nav-label">Playlists</span>
                 </li>
-                <li class="nav-item" data-action="create-playlist">
+                <li class="nav-item" data-action="create-playlist" title="Create Playlist">
                   <svg
                     width="18"
                     height="18"
@@ -288,15 +295,15 @@
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                   </svg>
-                  Create Playlist
+                  <span class="nav-label">Create Playlist</span>
                 </li>
               </ul>
             </div>
 
             <div class="nav-section">
-              <h3>Tools</h3>
+              <h3><span class="nav-label">Tools</span></h3>
               <ul class="nav-list">
-                <li class="nav-item" data-action="select-folder">
+                <li class="nav-item" data-action="select-folder" title="Change Music Folder">
                   <svg
                     width="18"
                     height="18"
@@ -309,9 +316,9 @@
                       d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
                     ></path>
                   </svg>
-                  Change Music Folder
+                  <span class="nav-label">Change Music Folder</span>
                 </li>
-                <li class="nav-item" data-action="database">
+                <li class="nav-item" data-action="database" title="Database Manager">
                   <svg
                     width="18"
                     height="18"
@@ -324,12 +331,14 @@
                     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
                     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                   </svg>
-                  Database Manager
+                  <span class="nav-label">Database Manager</span>
                 </li>
               </ul>
             </div>
           </nav>
         </aside>
+
+        <div class="pane-resizer" id="sidebarResizer" role="separator" aria-orientation="vertical"></div>
 
         <!-- Content Area -->
         <section class="content-area">
@@ -391,6 +400,8 @@
                 </div>
               </div>
 
+              <div class="pane-resizer" id="dualPaneResizer" role="separator" aria-orientation="vertical"></div>
+
               <!-- Right Pane - Song List/Playing Queue -->
               <div class="right-pane" id="rightPane">
                 <div class="pane-header">
@@ -404,6 +415,27 @@
                   <div class="empty-pane">
                     <div class="empty-pane-icon">🎵</div>
                     <p>Select a folder or playlist to view songs</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pane-resizer" id="queueResizer" role="separator" aria-orientation="vertical"></div>
+
+              <!-- 4th Pane - Up Next / playback queue (always visible, live drop target).
+                   This is NOT a saved playlist — that's "Create Playlist" on the left nav.
+                   This is what plays next, independent of any playlist. See
+                   docs/application/roadmap.md priority #1 and layout-redesign.md. -->
+              <div class="queue-pane" id="queuePane">
+                <div class="pane-header">
+                  <h3 id="queuePaneTitle">Up Next</h3>
+                  <div class="pane-actions" id="queuePaneActions">
+                    <button class="btn-secondary btn-sm" id="clearQueuePaneBtn" title="Clear queue">Clear</button>
+                  </div>
+                </div>
+                <div class="pane-content" id="queuePaneContent">
+                  <div class="empty-pane">
+                    <div class="empty-pane-icon">🎧</div>
+                    <p>Nothing queued. Drag a track here to add it to what's playing next.</p>
                   </div>
                 </div>
               </div>
@@ -463,6 +495,20 @@
                   <polygon
                     points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
                   ></polygon>
+                </svg>
+              </button>
+              <button class="icon-btn" id="lyricsBtn" title="Show Lyrics">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M4 6h16"></path>
+                  <path d="M4 12h10"></path>
+                  <path d="M4 18h13"></path>
                 </svg>
               </button>
             </div>
@@ -954,6 +1000,36 @@
       </div>
     </div>
 
+    <!-- Lyrics Modal -->
+    <div class="modal-overlay lyrics-modal" id="lyricsModal" style="display: none">
+      <div class="modal-content modal-lg lyrics-modal-content">
+        <div class="lyrics-modal-backdrop" id="lyricsModalBackdrop"></div>
+        <div class="modal-header">
+          <h2>🎤 Lyrics</h2>
+          <button class="modal-close" id="closeLyricsModal">&times;</button>
+        </div>
+        <div class="modal-body lyrics-modal-body">
+          <div class="lyrics-track-info">
+            <span id="lyricsTrackTitle">—</span>
+            <span id="lyricsTrackArtist">—</span>
+          </div>
+          <div class="lyrics-state" id="lyricsLoadingState">
+            <p>Looking for lyrics…</p>
+          </div>
+          <div class="lyrics-text" id="lyricsText" style="display: none"></div>
+          <div class="lyrics-state" id="lyricsNotFoundState" style="display: none">
+            <p>No lyrics found for this track.</p>
+          </div>
+          <div class="lyrics-state" id="lyricsErrorState" style="display: none">
+            <p>Couldn't fetch lyrics — check your connection and try again.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="lyricsClose">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Load modules in the correct order (deferred to prevent flashing) -->
     <script src="../../simple-logger.js" defer></script>
     <script src="../scripts/window-controls.js" defer></script>
@@ -963,6 +1039,8 @@
     <script src="../scripts/playlist-renderer.js" defer></script>
     <script src="../scripts/help-manager.js" defer></script>
     <script src="../scripts/cover-fetcher-ui.js" defer></script>
+    <script src="../scripts/lyrics-ui.js" defer></script>
+    <script src="../scripts/layout-resizer.js" defer></script>
     <script src="../scripts/main-app.js" defer></script>
     <script src="../scripts/main-window.js" defer></script>
 

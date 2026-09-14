@@ -266,6 +266,18 @@
   border-color: var(--primary);
 }
 
+.song-card.dragging {
+  opacity: 0.4;
+}
+
+/* Drop target: a playlist card while a song is being dragged over it */
+.playlist-item-card.drag-target-active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+}
+
 .song-card-artwork {
   width: var(--album-art-sm);
   height: var(--album-art-sm);

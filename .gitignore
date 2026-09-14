@@ -28,18 +28,8 @@ covers/
 .vscode/
 .claude/
 
-# Documentation (except database folder)
-docs/
-!docs/database/
-
-# Project specific files
+# Local utility scripts (machine-specific, hardcoded local paths)
 BAT-Files/
-CLAUDE.md
-issue_track.md
-RESOLUTION-SUMMARY.md
-CHANGELOG.md
-nul
-nulnpm
 
 # Build and cache
 .cache/

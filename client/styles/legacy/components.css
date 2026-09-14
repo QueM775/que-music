@@ -128,6 +128,96 @@
 }
 
 /* ========================================
+   PLAYLIST TRACK LIST (drag-and-drop reorder)
+   ======================================== */
+
+.playlist-tracks {
+  display: flex;
+  flex-direction: column;
+}
+
+.playlist-tracks .track-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.playlist-tracks .track-item:hover {
+  background: var(--surface-elevated);
+}
+
+.playlist-tracks .track-item.selected {
+  background: var(--surface-elevated);
+}
+
+.playlist-tracks .track-item.playing {
+  background: var(--primary);
+  color: #fff;
+}
+
+.playlist-tracks .track-item.playing .track-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.track-drag-handle {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  cursor: grab;
+  user-select: none;
+  padding: 0 var(--space-xs);
+}
+
+.playlist-tracks .track-item:active .track-drag-handle {
+  cursor: grabbing;
+}
+
+.playlist-tracks .track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-tracks .track-title {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-tracks .track-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-tracks .track-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Dragging state: dim the item being dragged */
+.playlist-tracks .track-item.dragging {
+  opacity: 0.4;
+}
+
+/* Drop-position indicator: a line above/below the hovered item showing where the
+   dragged track will land */
+.playlist-tracks .track-item.drag-over-top {
+  border-top: 2px solid var(--primary);
+}
+
+.playlist-tracks .track-item.drag-over-bottom {
+  border-bottom: 2px solid var(--primary);
+}
+
+/* ========================================
    DATABASE MANAGER - UNIQUE (NOT IN OTHER FILES)
    ======================================== */
 

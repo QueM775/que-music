@@ -13,6 +13,95 @@ class PlaylistRenderer {
   // INITIALIZATION METHODS
   // ============================================================================
 
+  // Shared "add one or more tracks to a playlist" used by both the drag-and-drop-onto-a-
+  // playlist-card feature and the "Add All" folder button. Resolves each path to a DB
+  // track id and reports a summary, same shape as the context-menu add flow.
+  async addTrackPathsToPlaylist(playlistId, trackPaths) {
+    const playlist = await window.queMusicAPI.playlists.getById(playlistId);
+    if (!playlist) {
+      this.app.showNotification('Playlist not found', 'error');
+      return { successCount: 0, duplicateCount: 0, failCount: trackPaths.length };
+    }
+
+    let successCount = 0;
+    let duplicateCount = 0;
+    let failCount = 0;
+
+    for (const trackPath of trackPaths) {
+      try {
+        const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
+        if (!dbTrack || !dbTrack.id) {
+          console.warn('⚠️ Track not found in database:', trackPath);
+          failCount++;
+          continue;
+        }
+        await window.queMusicAPI.playlists.addTrack(playlistId, dbTrack.id);
+        successCount++;
+      } catch (error) {
+        if (error.message && error.message.includes('already in this playlist')) {
+          duplicateCount++;
+        } else {
+          console.error('❌ Error adding track to playlist:', error);
+          failCount++;
+        }
+      }
+    }
+
+    const messages = [];
+    if (successCount > 0) {
+      messages.push(`Added ${successCount} track${successCount !== 1 ? 's' : ''} to "${playlist.name}"`);
+    }
+    if (duplicateCount > 0) messages.push(`${duplicateCount} already in playlist`);
+    if (failCount > 0) messages.push(`${failCount} failed`);
+
+    this.app.showNotification(
+      messages.join(', ') || 'No tracks added',
+      successCount > 0 ? 'success' : 'warning'
+    );
+
+    // If this playlist happens to be the one currently open, refresh it so the
+    // newly added tracks show up without the user having to reselect it.
+    if (this.currentPlaylistData && String(this.currentPlaylistData.id) === String(playlistId)) {
+      await this.selectPlaylist(playlistId);
+    }
+    // Keep the playlist browser's track counts current if it's the visible view.
+    if (this.app.uiController.loadPlaylistBrowser) {
+      const container = document.getElementById('leftPaneContent');
+      if (container && container.querySelector('.playlist-browser')) {
+        await this.app.uiController.loadPlaylistBrowser(container);
+      }
+    }
+
+    return { successCount, duplicateCount, failCount };
+  }
+
+  // Like addTrackPathsToPlaylist, but for dropping songs onto a specific spot inside
+  // an already-open playlist's track list (rather than onto its card in the browser).
+  // Tracks land at `position` in the order they were dropped, everything after shifts
+  // down — same semantics as dragging an existing playlist track (reorderPlaylistTrack).
+  async addTrackPathsToPlaylistAtPosition(playlistId, trackPaths, position) {
+    const result = await this.addTrackPathsToPlaylist(playlistId, trackPaths);
+    if (result.successCount === 0) return result;
+
+    try {
+      let targetPosition = position;
+      for (const trackPath of trackPaths) {
+        const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
+        if (dbTrack && dbTrack.id) {
+          await window.queMusicAPI.playlists.reorderTracks(playlistId, dbTrack.id, targetPosition);
+          targetPosition += 1;
+        }
+      }
+      if (this.currentPlaylistData && String(this.currentPlaylistData.id) === String(playlistId)) {
+        await this.selectPlaylist(playlistId);
+      }
+    } catch (error) {
+      console.error('❌ Error positioning dropped tracks:', error);
+    }
+
+    return result;
+  }
+
   async initializePlaylists() {
     await this.initializePlaylistFolder();
 
@@ -173,13 +262,48 @@ class PlaylistRenderer {
       this.setupPlaylistTrackListeners();
     } else {
       rightPaneContent.innerHTML = `
-        <div class="empty-pane">
+        <div class="empty-pane" id="emptyPlaylistDropZone">
           <div class="empty-pane-icon">📋</div>
           <p>This playlist is empty</p>
+          <p class="empty-pane-hint">Drag songs here, or:</p>
           <button class="btn-primary add-tracks-btn">Add Tracks</button>
         </div>
       `;
+      this.setupEmptyPlaylistDropZone(playlist.id);
     }
+  }
+
+  // A playlist with zero tracks has no rows to drop onto — give it its own drop
+  // target so dragging a song in still works on the very first track.
+  setupEmptyPlaylistDropZone(playlistId) {
+    const zone = document.getElementById('emptyPlaylistDropZone');
+    if (!zone) return;
+
+    zone.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('application/x-que-track-paths')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      zone.classList.add('drag-target-active');
+    });
+
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-target-active'));
+
+    zone.addEventListener('drop', async (e) => {
+      zone.classList.remove('drag-target-active');
+      const raw = e.dataTransfer.getData('application/x-que-track-paths');
+      if (!raw) return;
+      e.preventDefault();
+
+      let trackPaths;
+      try {
+        trackPaths = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
+
+      await this.addTrackPathsToPlaylist(playlistId, trackPaths);
+    });
   }
 
   generatePlaylistActionsHTML(playlist) {
@@ -210,11 +334,16 @@ class PlaylistRenderer {
         ${tracks
           .map(
             (track, index) => `
-          <div class="track-item playlist-track" data-track-index="${index}" data-track-path="${this.escapeHtml(track.path)}">
+          <div class="track-item playlist-track"
+               draggable="true"
+               data-track-index="${index}"
+               data-track-id="${track.id}"
+               data-track-path="${this.escapeHtml(track.path)}">
+            <div class="track-drag-handle" title="Drag to reorder">⠿</div>
             <div class="track-info">
               <div class="track-title">${this.escapeHtml(track.title || track.filename)}</div>
               <div class="track-meta">
-                ${this.escapeHtml(track.artist || 'Unknown Artist')} • 
+                ${this.escapeHtml(track.artist || 'Unknown Artist')} •
                 ${this.escapeHtml(track.album || 'Unknown Album')}
                 ${track.duration ? ` • ${this.formatDuration(track.duration)}` : ''}
               </div>
@@ -1127,7 +1256,7 @@ class PlaylistRenderer {
             await this.playTrackFromPlaylist(trackData, trackElement);
             break;
           case 'remove':
-            await this.removeTrackFromCurrentPlaylist(trackData, trackElement);
+            await this.removeTrackFromCurrentPlaylistByData(trackData, trackElement);
             break;
         }
       });
@@ -1151,8 +1280,11 @@ class PlaylistRenderer {
     }
   }
 
-  async removeTrackFromCurrentPlaylist(trackData, trackElement) {
-    console.log('🗑️ removeTrackFromCurrentPlaylist called with:', trackData);
+  // Distinct from removeTrackFromCurrentPlaylist(trackIndex) above — this one is driven by
+  // the playlist-track right-click context menu, which already has the full track object
+  // and DOM element in hand (no need to re-look-up by index).
+  async removeTrackFromCurrentPlaylistByData(trackData, trackElement) {
+    console.log('🗑️ removeTrackFromCurrentPlaylistByData called with:', trackData);
     console.log('🗑️ currentPlaylistData exists:', !!this.currentPlaylistData);
     console.log('🗑️ trackData.id:', trackData.id);
 
@@ -1284,6 +1416,111 @@ class PlaylistRenderer {
         });
       }
     });
+
+    this.setupPlaylistDragAndDrop(trackItems);
+  }
+
+  // Drag-and-drop reordering (Issue #23), PLUS dropping songs dragged in from the
+  // library/search results at a specific spot in this list. Native HTML5 drag events:
+  // dragstart marks the source, dragover/drop on each row decides whether to insert
+  // above or below it (based on cursor position vs. the row's midpoint), then either
+  // reorders the existing track or adds-and-positions the newly dropped one(s).
+  setupPlaylistDragAndDrop(trackItems) {
+    let draggedIndex = null;
+
+    trackItems.forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        draggedIndex = parseInt(item.dataset.trackIndex, 10);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Required by Firefox for drag to initiate at all.
+        e.dataTransfer.setData('text/plain', String(draggedIndex));
+      });
+
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        trackItems.forEach((el) => el.classList.remove('drag-over-top', 'drag-over-bottom'));
+        draggedIndex = null;
+      });
+
+      item.addEventListener('dragover', (e) => {
+        const isExternalTrackDrag = e.dataTransfer.types.includes('application/x-que-track-paths');
+        if (draggedIndex === null && !isExternalTrackDrag) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = isExternalTrackDrag ? 'copy' : 'move';
+
+        const rect = item.getBoundingClientRect();
+        const isBelowMidpoint = e.clientY - rect.top > rect.height / 2;
+
+        item.classList.toggle('drag-over-top', !isBelowMidpoint);
+        item.classList.toggle('drag-over-bottom', isBelowMidpoint);
+      });
+
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+
+      item.addEventListener('drop', async (e) => {
+        const targetIndex = parseInt(item.dataset.trackIndex, 10);
+        const dropBelow = item.classList.contains('drag-over-bottom');
+        item.classList.remove('drag-over-top', 'drag-over-bottom');
+
+        // External drop: one or more songs dragged in from the library/search results.
+        const rawExternalPaths = e.dataTransfer.getData('application/x-que-track-paths');
+        if (rawExternalPaths) {
+          e.preventDefault();
+          let trackPaths;
+          try {
+            trackPaths = JSON.parse(rawExternalPaths);
+          } catch {
+            return;
+          }
+          if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
+
+          const position = dropBelow ? targetIndex + 1 : targetIndex;
+          await this.addTrackPathsToPlaylistAtPosition(this.currentPlaylistData.id, trackPaths, position);
+          return;
+        }
+
+        // Internal reorder of an existing playlist track.
+        e.preventDefault();
+        if (draggedIndex === null) return;
+
+        // Convert "drop above/below this row" into a final index in the list with
+        // the dragged item already removed (matches reorderTracksInPlaylist's
+        // splice-then-reinsert semantics on the backend).
+        let newPosition = dropBelow ? targetIndex + 1 : targetIndex;
+        if (draggedIndex < targetIndex) newPosition -= 1;
+
+        if (newPosition === draggedIndex) return; // dropped back where it started
+
+        await this.reorderPlaylistTrack(draggedIndex, newPosition);
+      });
+    });
+  }
+
+  async reorderPlaylistTrack(fromIndex, toIndex) {
+    if (!this.currentPlaylistData || !this.currentPlaylistData.tracks) {
+      console.warn('⚠️ No current playlist to reorder');
+      return;
+    }
+
+    const track = this.currentPlaylistData.tracks[fromIndex];
+    if (!track || !track.id) {
+      console.error('❌ Cannot reorder: track missing or has no ID', track);
+      this.app.showNotification('Failed to reorder track', 'error');
+      return;
+    }
+
+    try {
+      await window.queMusicAPI.playlists.reorderTracks(this.currentPlaylistData.id, track.id, toIndex);
+      // Re-fetch and re-render from the persisted order rather than reordering the
+      // DOM in place, so the UI can never drift from what's actually in the database.
+      await this.selectPlaylist(this.currentPlaylistData.id);
+    } catch (error) {
+      console.error('❌ Error reordering playlist track:', error);
+      this.app.showNotification('Failed to reorder track', 'error');
+    }
   }
 
   // ============================================================================

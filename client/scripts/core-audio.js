@@ -9,6 +9,12 @@ class CoreAudio {
     this.currentTrack = null;
     this.playlist = [];
     this.currentTrackIndex = -1;
+
+    // REAL PLAYBACK QUEUE — separate from `playlist` (the loaded folder/playlist
+    // context used for browsing/highlighting). Tracks explicitly queued by the
+    // user via "Add to Queue" play next, ahead of the playlist's own next track,
+    // then get consumed. See docs/application/roadmap.md, priority #1.
+    this.queue = [];
     this.isPlaying = false;
     this.volume = 1;
     this.duration = 0;
@@ -66,30 +72,32 @@ class CoreAudio {
   }
 
   setupAudioEvents() {
+    // Guard against double-registration: if this ever runs twice on the same
+    // <audio> element (it used to, via cleanupStaleEventListeners), tear down
+    // the previous set of listeners first so they never stack.
+    this.teardownAudioEvents();
+
     const audio = this.audioPlayer;
 
-    // When track loads and we get duration
-    audio.addEventListener('loadedmetadata', () => {
+    // Named, stored handlers so cleanup() can actually remove them later.
+    this.loadedMetadataHandler = () => {
       this.duration = audio.duration;
       this.updateTimeDisplay();
       console.log(`🎵 Track loaded: ${this.formatTime(this.duration)}`);
-    });
+    };
 
-    // Update progress as track plays
-    audio.addEventListener('timeupdate', () => {
+    this.timeUpdateHandler = () => {
       this.currentTime = audio.currentTime;
       this.updateTimeDisplay();
       this.updateProgressBar();
-    });
+    };
 
-    // When track ends
-    audio.addEventListener('ended', () => {
+    this.endedHandler = () => {
       this.app.logger.debug(' Track ended');
       this.handleTrackEnd();
-    });
+    };
 
-    // When play starts - ENHANCED with visualizer support
-    audio.addEventListener('play', async () => {
+    this.playHandler = async () => {
       this.isPlaying = true;
       this.updatePlayPauseButton();
 
@@ -104,28 +112,49 @@ class CoreAudio {
       }
 
       this.app.logger.debug(' Playback started');
-    });
+    };
 
-    // When pause happens
-    audio.addEventListener('pause', () => {
+    this.pauseHandler = () => {
       this.isPlaying = false;
       this.updatePlayPauseButton();
       this.app.logger.debug(' Playback paused');
-    });
+    };
 
-    // Handle errors
-    audio.addEventListener('error', (e) => {
+    this.errorHandler = (e) => {
       this.app.logger.error('🎵 Audio error:', e);
       this.app.showNotification('Error playing audio', 'error');
-    });
+    };
 
-    // VISUALIZER INTEGRATION: Listen for audio ready state changes
-    audio.addEventListener('canplay', () => {
+    this.canPlayHandler = () => {
       // If visualizer is enabled, ensure audio context is ready
       if (this.visualizerEnabled && this.audioContext) {
         this.ensureVisualizerConnection();
       }
-    });
+    };
+
+    audio.addEventListener('loadedmetadata', this.loadedMetadataHandler);
+    audio.addEventListener('timeupdate', this.timeUpdateHandler);
+    audio.addEventListener('ended', this.endedHandler);
+    audio.addEventListener('play', this.playHandler);
+    audio.addEventListener('pause', this.pauseHandler);
+    audio.addEventListener('error', this.errorHandler);
+    audio.addEventListener('canplay', this.canPlayHandler);
+  }
+
+  // Removes exactly the listener set setupAudioEvents() installs. Safe to call
+  // even if they were never installed (removeEventListener with an
+  // undefined handler is a no-op).
+  teardownAudioEvents() {
+    const audio = this.audioPlayer;
+    if (!audio) return;
+
+    audio.removeEventListener('loadedmetadata', this.loadedMetadataHandler);
+    audio.removeEventListener('timeupdate', this.timeUpdateHandler);
+    audio.removeEventListener('ended', this.endedHandler);
+    audio.removeEventListener('play', this.playHandler);
+    audio.removeEventListener('pause', this.pauseHandler);
+    audio.removeEventListener('error', this.errorHandler);
+    audio.removeEventListener('canplay', this.canPlayHandler);
   }
 
   // ========================================
@@ -624,6 +653,23 @@ class CoreAudio {
   }
 
   nextTrack() {
+    // Queued tracks take priority over the playlist's own next track, and are
+    // consumed one at a time — this is the actual "up next" list, independent
+    // of whatever folder/playlist is loaded.
+    if (this.queue.length > 0) {
+      const queuedTrack = this.queue.shift();
+      this.app.logger.debug(' Playing queued track:', queuedTrack.path);
+      this.playSong(queuedTrack.path, false);
+      this.notifyQueueChanged();
+
+      if (this.app.currentView === 'now-playing') {
+        setTimeout(() => {
+          this.app.uiController.switchToNowPlaying();
+        }, 100);
+      }
+      return;
+    }
+
     if (this.playlist.length === 0) {
       this.app.showNotification('No playlist available', 'warning');
       return;
@@ -740,8 +786,10 @@ class CoreAudio {
       this.audioPlayer.play();
       this.app.showNotification('Repeating track', 'info');
       console.log('🎵 Repeating single track');
-    } else if (this.playlist.length > 1) {
-      // Auto-play next track
+    } else if (this.queue.length > 0 || this.playlist.length > 1) {
+      // Auto-play next track — queued tracks take priority (see nextTrack()),
+      // so this also has to fire when the queue has something waiting even if
+      // the loaded playlist itself is empty or down to one track.
       console.log('🎵 Calling nextTrack()...');
       this.nextTrack();
     } else {
@@ -1626,6 +1674,78 @@ class CoreAudio {
     this.app.showNotification(`Visualizer: ${this.visualizerType}`, 'info');
   }
 
+  // Ctrl+V: tear the visualizer all the way down (animation, audio graph, context)
+  // and bring it back up from scratch. For when it's gotten into a stuck/silent state.
+  async restartVisualizer() {
+    console.log('🔄 Restarting visualizer...');
+    const wasEnabled = this.visualizerEnabled;
+
+    this.stopVisualizerAnimation();
+    this.cleanupVisualizer(); // closes audioContext, clears analyser/audioSource
+    this.visualizerEnabled = false;
+    if (this.visualizerContainer) this.visualizerContainer.classList.add('hidden');
+    if (this.visualizerBtn) this.visualizerBtn.classList.remove('active');
+
+    if (wasEnabled) {
+      await this.toggleVisualizer(); // re-runs setupAudioContext + starts animation
+      this.app.showNotification('Visualizer restarted', 'success');
+    } else {
+      this.app.showNotification('Visualizer was off — nothing to restart', 'info');
+    }
+  }
+
+  // Dev helper (window.debugVisualizer()) — snapshot of visualizer state for troubleshooting.
+  debugVisualizerStatus() {
+    const status = {
+      visualizerEnabled: this.visualizerEnabled,
+      visualizerType: this.visualizerType,
+      hasCanvas: !!this.canvas,
+      hasAudioContext: !!this.audioContext,
+      audioContextState: this.audioContext?.state || 'none',
+      hasAnalyser: !!this.analyser,
+      hasAudioSource: !!this.audioSource,
+      hasDataArray: !!this.dataArray,
+      animationRunning: !!this.visualizerAnimationId,
+      audioPlayerPaused: this.audioPlayer ? this.audioPlayer.paused : 'no audio element',
+    };
+    console.log('🎨 Visualizer status:', status);
+    return status;
+  }
+
+  // Dev helper (window.testVisualizer()) — forces the visualizer on against whatever
+  // is currently loaded and reports whether the analyser is actually seeing audio data.
+  async testVisualizerWithCurrentAudio() {
+    if (!this.audioPlayer || !this.currentTrack) {
+      const message = 'No track loaded — load a track before testing the visualizer';
+      console.warn('🎨', message);
+      return { success: false, message };
+    }
+
+    if (!this.visualizerEnabled) {
+      await this.toggleVisualizer();
+    }
+
+    if (!this.analyser || !this.dataArray) {
+      const message = 'Visualizer failed to initialize (no analyser/data array)';
+      console.error('🎨', message);
+      return { success: false, message };
+    }
+
+    this.analyser.getByteFrequencyData(this.dataArray);
+    const hasAudio = this.dataArray.some((value) => value > 0);
+    const result = {
+      success: true,
+      hasAudioData: hasAudio,
+      audioContextState: this.audioContext?.state,
+      isPlaying: !this.audioPlayer.paused,
+      message: hasAudio
+        ? 'Visualizer is receiving audio data'
+        : 'Visualizer enabled but not seeing audio data yet — is the track actually playing?',
+    };
+    console.log('🎨 Visualizer test result:', result);
+    return result;
+  }
+
   setupCanvasResize() {
     const resizeCanvas = () => {
       if (!this.canvas) return;
@@ -1747,13 +1867,7 @@ class CoreAudio {
       // Stop and cleanup audio player properly
       if (this.audioPlayer) {
         // Remove all event listeners to prevent memory leaks
-        this.audioPlayer.removeEventListener('loadedmetadata', this.loadedMetadataHandler);
-        this.audioPlayer.removeEventListener('timeupdate', this.timeUpdateHandler);
-        this.audioPlayer.removeEventListener('ended', this.endedHandler);
-        this.audioPlayer.removeEventListener('play', this.playHandler);
-        this.audioPlayer.removeEventListener('pause', this.pauseHandler);
-        this.audioPlayer.removeEventListener('error', this.errorHandler);
-        this.audioPlayer.removeEventListener('canplay', this.canPlayHandler);
+        this.teardownAudioEvents();
 
         // Stop playback and clear source
         this.audioPlayer.pause();
@@ -1830,9 +1944,6 @@ class CoreAudio {
         window.gc();
       }
 
-      // Clear any stale event listeners
-      this.cleanupStaleEventListeners();
-
       // Restart audio context if it's in a bad state
       if (this.audioContext && this.audioContext.state === 'suspended') {
         console.log('🔄 Restarting suspended audio context...');
@@ -1842,18 +1953,6 @@ class CoreAudio {
       this.app.logger.info(' Periodic cleanup complete');
     } catch (error) {
       this.app.logger.error('❌ Error during periodic cleanup:', error);
-    }
-  }
-
-  // Clean up stale event listeners
-  cleanupStaleEventListeners() {
-    try {
-      // Re-setup audio events to ensure they're fresh
-      if (this.audioPlayer) {
-        this.setupAudioEvents();
-      }
-    } catch (error) {
-      this.app.logger.error('❌ Error cleaning up event listeners:', error);
     }
   }
 
@@ -2251,39 +2350,93 @@ class CoreAudio {
   }
 
   /**
-   * Add a track to the current playback queue
-   * @param {string} trackPath - Path to the track file
+   * Add a track to the real playback queue (up next, ahead of the playlist's
+   * own next track). Distinct from `this.playlist`, which is the loaded
+   * folder/playlist context — see the constructor comment on `this.queue`.
+   * @param {string|Object} trackOrPath - Track path, or a track object (title/artist/album/duration/path)
+   * @param {number} [index] - Position to insert at; defaults to the end of the queue
    */
-  addToQueue(trackPath) {
+  addToQueue(trackOrPath, index = this.queue.length) {
     try {
-      // Create track object
-      const trackObject = {
-        path: trackPath,
-        name: this.app.getBasename(trackPath),
-      };
+      const trackObject =
+        typeof trackOrPath === 'string'
+          ? { path: trackOrPath, name: this.app.getBasename(trackOrPath) }
+          : {
+              ...trackOrPath,
+              name: trackOrPath.title || trackOrPath.name || this.app.getBasename(trackOrPath.path),
+            };
 
-      // Add to playlist
-      if (!this.playlist) {
-        this.playlist = [];
+      if (!trackObject.path) {
+        throw new Error('No track path provided');
       }
 
-      // Check if track is already in playlist
-      const existingIndex = this.playlist.findIndex((track) => track.path === trackPath);
+      const existingIndex = this.queue.findIndex((track) => track.path === trackObject.path);
       if (existingIndex !== -1) {
-        // this.app.logger.debug(' Track already in queue, skipping add');
         this.app.showNotification('Track already in queue', 'info');
         return;
       }
 
-      this.playlist.push(trackObject);
-      // console.log(`🎵 Added track to queue: ${trackObject.name}`);
-      // console.log(`🎵 Queue now has ${this.playlist.length} tracks`);
-
-      // Show success notification
+      const clampedIndex = Math.max(0, Math.min(index, this.queue.length));
+      this.queue.splice(clampedIndex, 0, trackObject);
       this.app.showNotification(`Added "${trackObject.name}" to queue`, 'success');
+      this.notifyQueueChanged();
     } catch (error) {
       this.app.logger.error('❌ Error adding track to queue:', error);
       this.app.showNotification('Failed to add track to queue', 'error');
+    }
+  }
+
+  /**
+   * Remove a track from the queue by its position.
+   * @param {number} index
+   */
+  removeFromQueue(index) {
+    if (index < 0 || index >= this.queue.length) return;
+    const [removed] = this.queue.splice(index, 1);
+    this.app.logger.debug(' Removed from queue:', removed?.path);
+    this.notifyQueueChanged();
+  }
+
+  /**
+   * Move a queued track from one position to another (drag-to-reorder).
+   * @param {number} fromIndex
+   * @param {number} toIndex
+   */
+  reorderQueue(fromIndex, toIndex) {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= this.queue.length ||
+      toIndex < 0 ||
+      toIndex >= this.queue.length
+    ) {
+      return;
+    }
+    const [moved] = this.queue.splice(fromIndex, 1);
+    this.queue.splice(toIndex, 0, moved);
+    this.notifyQueueChanged();
+  }
+
+  /**
+   * Empty the queue without touching the loaded playlist or current playback.
+   */
+  clearQueue() {
+    this.queue = [];
+    this.notifyQueueChanged();
+  }
+
+  /**
+   * @returns {Array} A shallow copy of the current queue, safe for a renderer to display.
+   */
+  getQueue() {
+    return [...this.queue];
+  }
+
+  // Refreshes the persistent queue pane (4th column, always in the DOM) so
+  // queue edits — add/remove/reorder/clear, or a queued track getting
+  // consumed by nextTrack() — show up immediately.
+  notifyQueueChanged() {
+    if (this.app.uiController?.renderQueuePane) {
+      this.app.uiController.renderQueuePane();
     }
   }
 }

@@ -21,12 +21,9 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
-    "electron-store": "^8.1.0",
     "fs-extra": "^11.3.0",
     "music-metadata": "^7.14.0",
-    "node-id3": "^0.2.9",
-    "sharp": "^0.32.6",
-    "sqlite3": "^5.1.7"
+    "node-id3": "^0.2.9"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.2.9",

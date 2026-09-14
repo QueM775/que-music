@@ -139,6 +139,15 @@ class MusicScanner {
       // Extract basic info from filename if no metadata
       const filenameInfo = this.parseFilename(path.basename(filePath));
 
+      // Embedded lyrics check (music-metadata's LYRICS/USLT common.lyrics for
+      // FLAC/OGG/MP4, node-id3's USLT frame as the MP3-specific fallback).
+      // Plain text only per docs/application/lyrics-feature.md — no LRC sync data.
+      // Only set when found; a miss here is left for the on-demand LRCLIB
+      // fetch (not yet built) to record, so we don't mark a track "checked"
+      // until it's actually gone through both sources.
+      const embeddedLyrics =
+        musicMetadata?.common?.lyrics?.[0] || metadata?.unsynchronisedLyrics?.text || null;
+
       const trackData = {
         path: filePath,
         filename: path.basename(filePath),
@@ -158,6 +167,9 @@ class MusicScanner {
         filesize: stats.size,
         format: musicMetadata?.format?.container || path.extname(filePath).slice(1).toUpperCase(),
         bitrate: musicMetadata?.format?.bitrate ? Math.round(musicMetadata.format.bitrate) : null,
+        lyrics: embeddedLyrics,
+        lyricsSource: embeddedLyrics ? 'embedded' : null,
+        lyricsFetchedAt: embeddedLyrics ? new Date().toISOString() : null,
       };
 
       return trackData;

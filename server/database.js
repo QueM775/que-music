@@ -18,6 +18,9 @@ class MusicDatabase {
 
     // Initialize all database tables and indexes
     this.initializeCompleteSchema();
+
+    // Heal any existing on-disk DB file that predates the lyrics columns
+    this.migrateAddLyricsColumns();
   }
 
   // ============================================================================
@@ -51,7 +54,10 @@ class MusicDatabase {
       play_count INTEGER DEFAULT 0,
       date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      lyrics TEXT,
+      lyrics_source TEXT,
+      lyrics_fetched_at DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS artists (
@@ -248,6 +254,31 @@ class MusicDatabase {
   // SCHEMA VALIDATION AND MIGRATION
   // ============================================================================
 
+  // Adds the plain-text lyrics columns to tracks for any DB file created before
+  // they shipped (see docs/application/lyrics-feature.md, 2026-09-13 decision).
+  // CREATE TABLE IF NOT EXISTS above already includes them for fresh installs;
+  // this is the ALTER path for Erich's existing on-disk library. Safe to run
+  // every launch — same guarded-ALTER pattern as main.js's performPlaylistMigration().
+  migrateAddLyricsColumns() {
+    const lyricsColumns = [
+      { name: 'lyrics', ddl: 'ALTER TABLE tracks ADD COLUMN lyrics TEXT' },
+      { name: 'lyrics_source', ddl: 'ALTER TABLE tracks ADD COLUMN lyrics_source TEXT' },
+      { name: 'lyrics_fetched_at', ddl: 'ALTER TABLE tracks ADD COLUMN lyrics_fetched_at DATETIME' },
+    ];
+
+    for (const column of lyricsColumns) {
+      try {
+        this.db.prepare(column.ddl).run();
+        console.log(`✅ Added tracks.${column.name} column`);
+      } catch (err) {
+        // Expected once the column already exists: "duplicate column name: <name>"
+        if (!/duplicate column/i.test(err.message)) {
+          throw err;
+        }
+      }
+    }
+  }
+
   async validateSchema() {
     try {
       const expectedTables = [
@@ -293,10 +324,32 @@ class MusicDatabase {
     console.log(`💾 Starting database transaction for ${tracksArray.length} tracks...`);
     console.log('📝 Sample track:', JSON.stringify(tracksArray[0], null, 2));
 
+    // Real upsert, not INSERT OR REPLACE: REPLACE deletes+reinserts on a path
+    // conflict, handing the row a new id and orphaning favorites/playlist_tracks/
+    // recently_played (all keyed on tracks.id) plus resetting play_count/last_played/
+    // date_added/created_at to defaults on every rescan. ON CONFLICT DO UPDATE keeps
+    // the existing id and those columns untouched. lyrics/lyrics_source/lyrics_fetched_at
+    // use COALESCE so a rescan that finds no embedded lyrics this time doesn't blow away
+    // lyrics already cached from a prior embedded read or LRCLIB fetch.
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO tracks
-      (path, filename, title, artist, album, year, genre, duration, filesize, format, bitrate, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO tracks
+      (path, filename, title, artist, album, year, genre, duration, filesize, format, bitrate, lyrics, lyrics_source, lyrics_fetched_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(path) DO UPDATE SET
+        filename = excluded.filename,
+        title = excluded.title,
+        artist = excluded.artist,
+        album = excluded.album,
+        year = excluded.year,
+        genre = excluded.genre,
+        duration = excluded.duration,
+        filesize = excluded.filesize,
+        format = excluded.format,
+        bitrate = excluded.bitrate,
+        lyrics = COALESCE(excluded.lyrics, tracks.lyrics),
+        lyrics_source = COALESCE(excluded.lyrics_source, tracks.lyrics_source),
+        lyrics_fetched_at = COALESCE(excluded.lyrics_fetched_at, tracks.lyrics_fetched_at),
+        updated_at = CURRENT_TIMESTAMP
     `);
 
     try {
@@ -316,7 +369,10 @@ class MusicDatabase {
           track.duration || null,
           track.filesize || 0,
           track.format || null,
-          track.bitrate || null
+          track.bitrate || null,
+          track.lyrics || null,
+          track.lyricsSource || null,
+          track.lyricsFetchedAt || null
         );
 
         if ((i + 1) % 100 === 0 || i + 1 === tracksArray.length) {
@@ -391,6 +447,25 @@ class MusicDatabase {
       return row || null;
     } catch (err) {
       console.error('❌ Error getting track by path:', err);
+      throw err;
+    }
+  }
+
+  // Records the result of an on-demand LRCLIB lookup (see server/lyrics-fetcher.js).
+  // Always stamps lyrics_fetched_at, even on a miss (lyrics/source left NULL) — that's
+  // what tells a future open of the lyrics modal not to hit LRCLIB again for this track.
+  updateTrackLyrics(trackPath, { lyrics, source }) {
+    try {
+      const result = this.db
+        .prepare(
+          `UPDATE tracks
+           SET lyrics = ?, lyrics_source = ?, lyrics_fetched_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE path = ?`
+        )
+        .run(lyrics || null, source || null, trackPath);
+      return { success: true, changes: result.changes };
+    } catch (err) {
+      console.error('❌ Error updating track lyrics:', err);
       throw err;
     }
   }
@@ -509,7 +584,11 @@ class MusicDatabase {
         /* leave as-is */
       }
     }
-    s = s.replace(/\//g, '\\').replace(/\\{2,}/g, '\\');
+    // Normalize to forward slashes so this matches regardless of which OS wrote the
+    // path (Windows `\`-separated paths from the DB, `/`-separated paths from an
+    // M3U written on/for mac or Linux). Windows accepts `/` in paths just fine, so
+    // there's no need to normalize the other direction.
+    s = s.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
     return s.toLowerCase();
   }
 
@@ -578,8 +657,16 @@ class MusicDatabase {
 
     try {
       const existing = this.db.prepare('SELECT * FROM playlists WHERE name = ?').get(name);
-      if (existing && !replace) {
-        console.log(`📋 Playlist "${name}" already in database — skipping (use force re-import to replace)`);
+      const existingTrackCount = existing
+        ? this.db.prepare('SELECT COUNT(*) as n FROM playlist_tracks WHERE playlist_id = ?').get(existing.id).n
+        : 0;
+
+      // Only skip if the existing playlist actually has tracks. A playlist row that
+      // exists but is empty (e.g. a prior import that silently failed, or one created
+      // and never populated) would otherwise be permanently stuck at 0 tracks forever
+      // — every future launch would see "already in database" and skip it again.
+      if (existing && existingTrackCount > 0 && !replace) {
+        console.log(`📋 Playlist "${name}" already in database with ${existingTrackCount} tracks — skipping (use force re-import to replace)`);
         return { name, playlistId: existing.id, matched: 0, missing: 0, skipped: true };
       }
 
@@ -1174,6 +1261,48 @@ class MusicDatabase {
     }
   }
 
+  // Move a track to a new 0-based position within its playlist, shifting every other
+  // track's position to keep them contiguous. This backs the drag-and-drop reorder
+  // feature — the IPC handler (playlist:reorder-tracks in main.js) was already wired
+  // up and calling this, but the method itself never existed (Issue #23).
+  async reorderTracksInPlaylist(playlistId, trackId, newPosition) {
+    try {
+      const track = this.db.prepare('SELECT path FROM tracks WHERE id = ?').get(trackId);
+      if (!track) {
+        throw new Error(`Track with ID ${trackId} not found`);
+      }
+
+      const doReorder = this.db.transaction(() => {
+        const rows = this.db
+          .prepare(
+            'SELECT id, track_path FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC'
+          )
+          .all(playlistId);
+
+        const fromIndex = rows.findIndex((r) => r.track_path === track.path);
+        if (fromIndex === -1) {
+          throw new Error('Track not found in this playlist');
+        }
+
+        const [moved] = rows.splice(fromIndex, 1);
+        const targetIndex = Math.max(0, Math.min(newPosition, rows.length));
+        rows.splice(targetIndex, 0, moved);
+
+        const updateStmt = this.db.prepare('UPDATE playlist_tracks SET position = ? WHERE id = ?');
+        rows.forEach((row, index) => updateStmt.run(index + 1, row.id));
+
+        return { success: true, order: rows.map((r) => r.track_path) };
+      });
+
+      const result = doReorder();
+      console.log(`📋 Reordered track ${trackId} to position ${newPosition} in playlist ${playlistId}`);
+      return result;
+    } catch (err) {
+      console.error('❌ Error reordering playlist tracks:', err);
+      throw err;
+    }
+  }
+
   async deletePlaylist(playlistId) {
     try {
       this.db.prepare('BEGIN').run();
@@ -1269,6 +1398,8 @@ class MusicDatabase {
   // UTILITY METHODS
   // ============================================================================
   async updateMissingDurations() {
+    const { parseFile } = require('music-metadata');
+
     try {
       console.log('🔄 Updating missing durations...');
 
@@ -1279,30 +1410,37 @@ class MusicDatabase {
 
       if (tracks.length === 0) {
         console.log('✅ No tracks with missing durations found');
-        return { updated: 0, total: 0 };
+        return { updated: 0, total: 0, failed: 0 };
       }
 
       console.log(`🔍 Found ${tracks.length} tracks with missing durations`);
 
-      // For now, we'll just update the database to mark that we checked
-      // In a real implementation, you'd use a media library like node-ffmpeg
-      // to extract actual duration from audio files
+      // Extract the real duration from each file's metadata (same approach the
+      // library scanner uses) and only write it if we actually got one.
       let updated = 0;
+      let failed = 0;
       const stmt = this.db.prepare('UPDATE tracks SET duration = ? WHERE id = ?');
 
       for (const track of tracks) {
         try {
-          // This is a placeholder - in reality you'd extract duration from the audio file
-          // For now, we'll set a default duration to prevent the error
-          stmt.run(0, track.id); // Setting to 0 as placeholder
-          updated++;
+          const metadata = await parseFile(track.path, { duration: true });
+          const duration = metadata?.format?.duration ? Math.round(metadata.format.duration) : null;
+
+          if (duration && duration > 0) {
+            stmt.run(duration, track.id);
+            updated++;
+          } else {
+            failed++;
+            console.warn(`⚠️ No duration found in metadata for track ${track.id}: ${track.path}`);
+          }
         } catch (updateErr) {
-          console.error(`❌ Error updating duration for track ${track.id}:`, updateErr);
+          failed++;
+          console.error(`❌ Error reading duration for track ${track.id} (${track.path}):`, updateErr.message);
         }
       }
 
-      console.log(`✅ Updated durations for ${updated}/${tracks.length} tracks`);
-      return { updated, total: tracks.length };
+      console.log(`✅ Updated durations for ${updated}/${tracks.length} tracks (${failed} failed/unreadable)`);
+      return { updated, total: tracks.length, failed };
     } catch (err) {
       console.error('❌ Error updating missing durations:', err);
       throw err;

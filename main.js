@@ -183,7 +183,10 @@ async function createWindow() {
     show: false, // Start hidden to prevent flash
     backgroundColor: '#1a1a1a', // Set background color to match our dark theme
     webPreferences: {
-      nodeIntegration: true,
+      // contextIsolation + a preload bridge (main-preload.js) means the renderer never
+      // needs direct Node/Electron access — nodeIntegration was dead weight and a live
+      // hole if contextIsolation is ever accidentally turned off later.
+      nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
       preload: pathManager.getPreloadPath(),
@@ -546,19 +549,11 @@ ipcMain.handle('database-cleanup-orphaned-playlists', async () => {
 
     console.log('🧹 Cleaning up orphaned playlist tracks...');
 
-    return new Promise((resolve, reject) => {
-      musicDB.db.run(
-        `DELETE FROM playlist_tracks WHERE track_id NOT IN (SELECT id FROM tracks)`,
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            console.log(`🧹 Cleaned up ${this.changes} orphaned playlist track references`);
-            resolve({ success: true, cleaned: this.changes });
-          }
-        }
-      );
-    });
+    const result = musicDB.db
+      .prepare(`DELETE FROM playlist_tracks WHERE track_id IS NOT NULL AND track_id NOT IN (SELECT id FROM tracks)`)
+      .run();
+    console.log(`🧹 Cleaned up ${result.changes} orphaned playlist track references`);
+    return { success: true, cleaned: result.changes };
   } catch (error) {
     console.error('❌ Error cleaning up orphaned playlists:', error);
     throw error;
@@ -597,6 +592,17 @@ ipcMain.handle('settings:get-player-state', async () => {
 
 ipcMain.handle('settings:set-player-state', async (event, state) => {
   return await saveSetting('playerState', state);
+});
+
+// Layout prefs (sidebar collapsed state, resizable pane widths) — see
+// docs/application/layout-redesign.md. Same generic getSetting/saveSetting
+// store as playerState/logLevel above, just a different key.
+ipcMain.handle('settings:get-layout', async () => {
+  return await getSetting('layoutPrefs', null);
+});
+
+ipcMain.handle('settings:set-layout', async (event, layoutPrefs) => {
+  return await saveSetting('layoutPrefs', layoutPrefs);
 });
 
 // Logging level handlers
@@ -783,74 +789,48 @@ ipcMain.handle('debug:playlist-tables', async (event, playlistId) => {
     }
 
     // Check 1: Playlist exists
-    const playlist = await new Promise((resolve, reject) => {
-      musicDB.db.get('SELECT * FROM playlists WHERE id = ?', [playlistId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const playlist = musicDB.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
 
     // Check 2: Playlist tracks entries
-    const playlistTracksEntries = await new Promise((resolve, reject) => {
-      musicDB.db.all(
-        'SELECT * FROM playlist_tracks WHERE playlist_id = ?',
-        [playlistId],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+    const playlistTracksEntries = musicDB.db
+      .prepare('SELECT * FROM playlist_tracks WHERE playlist_id = ?')
+      .all(playlistId);
 
     // Check 3: Sample tracks in tracks table
-    const sampleTracks = await new Promise((resolve, reject) => {
-      musicDB.db.all('SELECT id, path, title FROM tracks LIMIT 10', (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const sampleTracks = musicDB.db.prepare('SELECT id, path, title FROM tracks LIMIT 10').all();
 
-    // Check 4: Join query that should work
-    const joinResults = await new Promise((resolve, reject) => {
-      musicDB.db.all(
+    // Check 4: Join query that should work (playlist_tracks now keys on track_path, not track_id)
+    const joinResults = musicDB.db
+      .prepare(
         `
-        SELECT 
+        SELECT
           pt.playlist_id,
           pt.track_id,
+          pt.track_path,
           pt.position,
           t.id as actual_track_id,
           t.path,
           t.title,
           t.artist
         FROM playlist_tracks pt
-        LEFT JOIN tracks t ON pt.track_id = t.id
+        LEFT JOIN tracks t ON pt.track_path = t.path
         WHERE pt.playlist_id = ?
         ORDER BY pt.position ASC
-      `,
-        [playlistId],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+      `
+      )
+      .all(playlistId);
 
     // Check 5: Count total tracks and playlist_tracks
-    const counts = await new Promise((resolve, reject) => {
-      musicDB.db.get(
+    const counts = musicDB.db
+      .prepare(
         `
-        SELECT 
+        SELECT
           (SELECT COUNT(*) FROM tracks) as total_tracks,
           (SELECT COUNT(*) FROM playlist_tracks) as total_playlist_tracks,
           (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?) as this_playlist_tracks
-      `,
-        [playlistId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+      `
+      )
+      .get(playlistId);
 
     const result = {
       playlistId,
@@ -1573,28 +1553,25 @@ ipcMain.handle('api:debug:playlist-tracks', async (event, playlistId) => {
     }
 
     // Check playlist_tracks entries with LEFT JOIN to see missing tracks
+    // (playlist_tracks keys on track_path since the M3U-backed rewrite — see Issue #17)
     const debugQuery = `
-      SELECT 
+      SELECT
         pt.id as playlist_track_id,
         pt.playlist_id,
         pt.track_id,
+        pt.track_path,
         pt.position,
         t.id as track_exists,
         t.path,
         t.title,
         t.artist
       FROM playlist_tracks pt
-      LEFT JOIN tracks t ON pt.track_id = t.id
+      LEFT JOIN tracks t ON pt.track_path = t.path
       WHERE pt.playlist_id = ?
       ORDER BY pt.position ASC
     `;
 
-    const debugResult = await new Promise((resolve, reject) => {
-      musicDB.db.all(debugQuery, [playlistId], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
+    const debugResult = musicDB.db.prepare(debugQuery).all(playlistId) || [];
 
     const validTracks = debugResult.filter((r) => r.track_exists);
     const missingTracks = debugResult.filter((r) => !r.track_exists);
@@ -1605,6 +1582,7 @@ ipcMain.handle('api:debug:playlist-tracks', async (event, playlistId) => {
       validTracks: validTracks.length,
       missingTracks: missingTracks.length,
       missingTrackIds: missingTracks.map((m) => m.track_id),
+      missingTrackPaths: missingTracks.map((m) => m.track_path),
     };
 
     console.log(
@@ -1636,17 +1614,16 @@ ipcMain.handle('api:cleanup:orphaned-playlist-tracks', async (event) => {
       return { error: 'Database not available' };
     }
 
-    const result = await new Promise((resolve, reject) => {
-      musicDB.db.run(
-        `DELETE FROM playlist_tracks 
-         WHERE track_id NOT IN (SELECT id FROM tracks)`,
-        function (err) {
-          if (err) reject(err);
-          else resolve({ changes: this.changes });
-        }
-      );
-    });
+    // Orphaned by legacy numeric FK (rows still carrying a track_id that no longer exists)...
+    const byId = musicDB.db
+      .prepare(`DELETE FROM playlist_tracks WHERE track_id IS NOT NULL AND track_id NOT IN (SELECT id FROM tracks)`)
+      .run();
+    // ...and orphaned by path (current FK — a track_path that matches no track on disk anymore)
+    const byPath = musicDB.db
+      .prepare(`DELETE FROM playlist_tracks WHERE track_path IS NOT NULL AND track_path NOT IN (SELECT path FROM tracks)`)
+      .run();
 
+    const result = { changes: byId.changes + byPath.changes };
     console.log(`🧹 Main: Cleaned up ${result.changes} orphaned playlist_tracks entries`);
     return { success: true, cleaned: result.changes };
   } catch (error) {
@@ -1706,54 +1683,90 @@ ipcMain.handle('cover-fetcher:start-scan', async (event, options) => {
 });
 
 // ============================================================================
+// LYRICS IPC HANDLERS
+// ============================================================================
+
+const { fetchLyricsFromLRCLIB } = require('./server/lyrics-fetcher');
+
+// Returns { lyrics, source } for a track, plain text only (see
+// docs/application/lyrics-feature.md). Order of preference:
+//   1. Already in the DB (embedded tag found at scan time, or a prior LRCLIB hit) — no network call.
+//   2. Already checked LRCLIB before and it came up empty (lyrics_fetched_at set, lyrics NULL) —
+//      trust that answer, don't hit the API again every time the modal opens.
+//   3. Never checked — fetch from LRCLIB now, cache the result (hit or miss) either way.
+ipcMain.handle('lyrics:get-for-track', async (event, trackPath) => {
+  if (!musicDB) {
+    return { lyrics: null, source: null, error: 'Database not ready' };
+  }
+
+  try {
+    const track = musicDB.getTrackByPath(trackPath);
+    if (!track) {
+      return { lyrics: null, source: null, error: 'Track not found' };
+    }
+
+    if (track.lyrics) {
+      return { lyrics: track.lyrics, source: track.lyrics_source };
+    }
+
+    if (track.lyrics_fetched_at) {
+      return { lyrics: null, source: null };
+    }
+
+    logger.info('Fetching lyrics from LRCLIB', { title: track.title, artist: track.artist });
+
+    const fetched = await fetchLyricsFromLRCLIB({
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      duration: track.duration,
+    });
+
+    musicDB.updateTrackLyrics(trackPath, { lyrics: fetched, source: fetched ? 'lrclib' : null });
+
+    return { lyrics: fetched, source: fetched ? 'lrclib' : null };
+  } catch (error) {
+    logger.error('Error fetching lyrics for track', { error: error.message, trackPath });
+    return { lyrics: null, source: null, error: error.message };
+  }
+});
+
+// ============================================================================
 // UTILITY FUNCTIONS - DATABASE HELPERS
 // ============================================================================
 
-// Perform playlist migration to use file paths (should be moved to database class)
+// Backfill playlist_tracks.track_path for any legacy rows that still only carry a numeric
+// track_id (the schema has shipped track_path as a first-class column since Issue #17's
+// M3U-backed rewrite — this just heals rows written before that). Safe to run repeatedly.
 async function performPlaylistMigration() {
-  console.log('🔄 Starting playlist migration to use file paths...');
+  console.log('🔄 Backfilling playlist_tracks.track_path from track_id where missing...');
 
-  return new Promise((resolve, reject) => {
-    musicDB.db.serialize(() => {
-      musicDB.db.run('BEGIN TRANSACTION', (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+  // The column already exists in CREATE TABLE (server/database.js), but guard the ALTER
+  // anyway in case this runs against an old on-disk DB file that predates it.
+  try {
+    musicDB.db.prepare('ALTER TABLE playlist_tracks ADD COLUMN track_path TEXT').run();
+  } catch (alterErr) {
+    // Expected once the column already exists: "duplicate column name: track_path"
+    if (!/duplicate column/i.test(alterErr.message)) {
+      throw alterErr;
+    }
+  }
 
-        // Add track_path column if it doesn't exist
-        musicDB.db.run('ALTER TABLE playlist_tracks ADD COLUMN track_path TEXT', (alterErr) => {
-          // Ignore error if column already exists
-
-          // Update existing records to use paths
-          musicDB.db.run(
-            `UPDATE playlist_tracks 
-             SET track_path = (
-               SELECT path FROM tracks WHERE tracks.id = playlist_tracks.track_id
-             )
-             WHERE track_id IS NOT NULL AND track_path IS NULL`,
-            (updateErr) => {
-              if (updateErr) {
-                musicDB.db.run('ROLLBACK');
-                reject(updateErr);
-                return;
-              }
-
-              musicDB.db.run('COMMIT', (commitErr) => {
-                if (commitErr) {
-                  musicDB.db.run('ROLLBACK');
-                  reject(commitErr);
-                } else {
-                  console.log('✅ Playlist migration complete');
-                  resolve({ success: true, message: 'Playlists migrated to use file paths' });
-                }
-              });
-            }
-          );
-        });
-      });
-    });
+  const backfill = musicDB.db.transaction(() => {
+    return musicDB.db
+      .prepare(
+        `UPDATE playlist_tracks
+         SET track_path = (
+           SELECT path FROM tracks WHERE tracks.id = playlist_tracks.track_id
+         )
+         WHERE track_id IS NOT NULL AND track_path IS NULL`
+      )
+      .run();
   });
+
+  const result = backfill();
+  console.log(`✅ Playlist migration complete — backfilled ${result.changes} row(s)`);
+  return { success: true, message: 'Playlists migrated to use file paths', backfilled: result.changes };
 }
 
 // ============================================================================
@@ -2011,7 +2024,7 @@ async function resolveAlbumArt(trackPath, album, artist, musicFolder) {
 
     if (!artPath) {
       try {
-        artPath = await getSampleCover();
+        artPath = await pathManager.getCover('sample-cover.jpg');
       } catch (error) {
         console.warn(`⚠️ Could not get sample cover: ${error.message}`);
       }

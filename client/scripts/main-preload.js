@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     getPlayerState: () => ipcRenderer.invoke('settings:get-player-state'),
     setPlayerState: (state) => ipcRenderer.invoke('settings:set-player-state', state),
 
+    getLayout: () => ipcRenderer.invoke('settings:get-layout'),
+    setLayout: (layoutPrefs) => ipcRenderer.invoke('settings:set-layout', layoutPrefs),
+
     getLogLevel: () => ipcRenderer.invoke('settings:get-log-level'),
     setLogLevel: (level) => ipcRenderer.invoke('settings:set-log-level', level),
   },
@@ -269,6 +272,17 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
   // ============================================================================
   coverFetcher: {
     startScan: (options) => ipcRenderer.invoke('cover-fetcher:start-scan', options),
+  },
+
+  // ============================================================================
+  // LYRICS
+  // ============================================================================
+  lyrics: {
+    /**
+     * Get plain-text lyrics for a track (embedded/cached, or fetched from
+     * LRCLIB on demand). Returns { lyrics, source, error? }.
+     */
+    getForTrack: (trackPath) => ipcRenderer.invoke('lyrics:get-for-track', trackPath),
   },
 
   // Listen for cover fetcher progress events

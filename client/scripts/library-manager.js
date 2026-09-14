@@ -121,17 +121,14 @@ class LibraryManager {
         const existingTracks = await window.queMusicAPI.database.getAllTracks();
 
         if (existingTracks.length === 0) {
-          this.app.logger.debug(' Saved folder found but database is empty - may need to rescan');
-          // Load folder structure and let user know they might want to rescan
-          await this.loadMusicLibraryStructure(savedFolder);
-
-          // Show a helpful message about rescanning
-          setTimeout(() => {
-            this.app.showNotification(
-              'Your library appears empty. You may need to rescan your music folder.',
-              'info'
-            );
-          }, 2000);
+          // Saved folder, but nothing in the DB yet — same situation as a brand-new
+          // folder selection (fresh install, or the DB file was deleted/reset while
+          // settings.json still points at a real folder). Previously this just loaded
+          // the (empty) folder structure and left the user staring at "No Songs Found"
+          // with only a passive toast — looked like a bug even though files existed on
+          // disk. Now it runs the same auto-scan a fresh folder selection gets.
+          this.app.logger.debug(' Saved folder found but database is empty - running initial scan');
+          await this.performInitialLibraryScan(savedFolder);
         } else {
           console.log(`📚 Found ${existingTracks.length} tracks in database`);
           // Load normally with existing database
@@ -240,323 +237,19 @@ class LibraryManager {
     this.app.uiController.clearRightPane('Select a folder from the left to view its tracks');
   }
 
+  // Loads the folder tree for a newly-selected music folder into the left pane.
+  //
+  // This used to render into #mainContent with its own one-off "folder-browser"
+  // markup (createFolderBrowser()) — but #mainContent is the parent of BOTH
+  // #welcomeScreen and #dualPaneLayout (which contains #leftPaneContent /
+  // #rightPaneContent), so overwriting its innerHTML destroyed the entire
+  // dual-pane structure the rest of the app depends on. Every view switch,
+  // search, and the left-pane folder tree itself would then silently stop
+  // working (their target elements no longer existed) until a full reload —
+  // this is what "the folders are missing" looked like from the outside.
+  // Delegates to the same safe dual-pane renderer normal startup already uses.
   async loadMusicLibrary(folderPath) {
-    try {
-      this.app.logger.info(' Loading music library from:', folderPath);
-
-      // Show loading message
-      const musicContent = document.getElementById('musicContent');
-      if (musicContent) {
-        musicContent.innerHTML = `
-          <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <p>Loading your music library...</p>
-          </div>
-        `;
-      }
-
-      // Get folder structure
-      const folderTree = await window.queMusicAPI.files.getFolderTree(folderPath);
-      this.app.logger.debug(' Folder tree loaded:', folderTree.length, 'folders');
-
-      // Create basic folder browser with empty right pane initially
-      this.createFolderBrowser(folderTree, [], folderPath);
-
-      this.app.showNotification('Music library loaded!', 'success');
-    } catch (error) {
-      this.app.logger.error('❌ Failed to load music library:', error);
-      this.app.showNotification('Failed to load music library', 'error');
-    }
-  }
-
-  createFolderBrowser(folderTree, songs, currentPath) {
-    const mainContent = document.getElementById('mainContent');
-    if (!mainContent) return;
-
-    // Determine right pane content
-    let rightPaneContent;
-    if (songs.length === 0) {
-      rightPaneContent = `
-        <div class="empty-pane">
-          <div class="empty-pane-icon">📁</div>
-          <p>Select a folder from the left to view its tracks</p>
-        </div>
-      `;
-    } else {
-      rightPaneContent = this.renderSongList(songs);
-    }
-
-    // Simple folder browser HTML
-    const browserHTML = `
-      <div class="folder-browser">
-        <div class="folder-tree">
-          <h3>Folders</h3>
-          <div class="tree-container">
-            ${this.renderFolderTree(this.filterSystemFolders(folderTree))}
-          </div>
-        </div>
-        <div class="song-list-panel">
-          <div class="song-list-header">
-            <h3>${songs.length > 0 ? this.app.getBasename(currentPath) : 'Select a Folder'} ${songs.length > 0 ? `(${songs.length} songs)` : ''}</h3>
-          </div>
-          <div class="song-list-content">
-            ${rightPaneContent}
-          </div>
-        </div>
-      </div>
-    `;
-
-    mainContent.innerHTML = browserHTML;
-
-    // Setup folder click events
-    this.setupFolderEvents();
-
-    // Setup initial song events with context menu support (only if songs exist)
-    if (songs.length > 0) {
-      this.setupInitialSongEvents();
-    }
-  }
-
-  setupInitialSongEvents() {
-    // Setup play events only - context menus handled by UIController delegation
-    document.querySelectorAll('.song-card').forEach((card) => {
-      const songPath = card.dataset.path;
-
-      // Double-click to play
-      card.addEventListener('dblclick', () => {
-        this.app.coreAudio.playSong(songPath);
-      });
-
-      // Single click to select
-      card.addEventListener('click', () => {
-        document.querySelectorAll('.song-card').forEach((c) => c.classList.remove('selected'));
-        card.classList.add('selected');
-      });
-
-      // NOTE: Context menu is handled by UIController's global delegation
-    });
-
-    this.app.logger.debug(' Setup play events for initial song list (context menus via delegation)');
-  }
-
-  renderFolderTree(folders, level = 0) {
-    return folders
-      .map(
-        (folder) => `
-      <div class="tree-node" data-path="${folder.path}">
-        <div class="tree-item ${folder.children.length > 0 ? 'has-children' : ''}" style="padding-left: ${level * 20}px">
-          ${folder.children.length > 0 ? '<span class="tree-toggle">▶</span>' : '<span class="tree-spacer"></span>'}
-          <span class="folder-icon">📁</span>
-          <span class="folder-name">${folder.name}</span>
-          <span class="song-count">(${folder.songCount})</span>
-        </div>
-        ${
-          folder.children.length > 0
-            ? `
-          <div class="tree-children hidden">
-            ${this.renderFolderTree(folder.children, level + 1)}
-          </div>
-        `
-            : ''
-        }
-      </div>
-    `
-      )
-      .join('');
-  }
-
-  renderSongList(songs) {
-    if (songs.length === 0) {
-      return `
-        <div class="empty-state">
-          <div class="empty-state-icon">🎵</div>
-          <div class="empty-state-title">No songs found</div>
-          <div class="empty-state-description">This folder doesn't contain any supported audio files.</div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="song-list">
-        ${songs
-          .map(
-            (song, index) => `
-          <div class="song-card" data-path="${song.path}" data-index="${index}">
-            <div class="song-card-artwork">
-              <img src="${song.albumArt || this.defaultAlbumArt || ''}"
-                   alt="Album art"
-                   loading="lazy"
-                   onerror="this.src = this.src === '${this.defaultAlbumArt}' ? '' : '${this.defaultAlbumArt}';">
-            </div>
-            <div class="song-info">
-              <div class="song-title">${song.title || (song.name ? song.name.replace(/\.[^/.]+$/, '') : 'Unknown Title')}</div>
-              <div class="song-artist">${song.artist || 'Unknown Artist'}</div>
-              ${song.album ? `<div class="song-album">${song.album}</div>` : ''}
-            </div>
-            <div class="song-metadata">
-              ${song.format || 'Unknown'} • ${this.app.formatFileSize(song.filesize || song.size || 0)}
-              ${song.year ? ` • ${song.year}` : ''}
-            </div>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-    `;
-  }
-
-  setupFolderEvents() {
-    // Folder tree clicks
-    document.querySelectorAll('.tree-item').forEach((item) => {
-      item.addEventListener('click', async (e) => {
-        e.stopPropagation();
-
-        const node = item.closest('.tree-node');
-        const folderPath = node.dataset.path;
-
-        this.app.logger.debug(' Folder clicked:', folderPath);
-
-        // Remove previous selection
-        document.querySelectorAll('.tree-item').forEach((i) => i.classList.remove('selected'));
-        item.classList.add('selected');
-
-        // Toggle folder if it has children
-        if (item.classList.contains('has-children')) {
-          this.app.logger.debug(' Toggling folder with children');
-          this.toggleFolder(node);
-        }
-
-        // Load songs from selected folder
-        this.app.logger.debug(' Loading songs from folder');
-        await this.loadSongsFromFolder(folderPath);
-      });
-    });
-
-    // Song events - simplified, no individual context menu setup
-    document.querySelectorAll('.song-card').forEach((card) => {
-      const songPath = card.dataset.path;
-
-      // Double-click to play
-      card.addEventListener('dblclick', () => {
-        this.app.coreAudio.playSong(songPath);
-      });
-
-      // NOTE: Context menu is handled by UIController's global delegation
-    });
-
-    this.app.logger.debug(' Setup folder events (context menus via delegation)');
-  }
-
-  toggleFolder(node) {
-    const toggle = node.querySelector('.tree-toggle');
-    const children = node.querySelector('.tree-children');
-
-    if (children) {
-      const isExpanded = !children.classList.contains('hidden');
-
-      if (isExpanded) {
-        children.classList.add('hidden');
-        toggle.textContent = '▶';
-      } else {
-        children.classList.remove('hidden');
-        toggle.textContent = '▼';
-      }
-    }
-  }
-
-  async loadSongsFromFolder(folderPath) {
-    try {
-      const songs = await window.queMusicAPI.files.getSongsInFolder(folderPath);
-
-      // ENHANCEMENT: Get metadata from database for each song
-      const songsWithMetadata = await Promise.all(
-        songs.map(async (song) => {
-          try {
-            // Try to find this song in the database
-            const dbTrack = await window.queMusicAPI.database.getTrackByPath(song.path);
-
-            if (dbTrack) {
-              return {
-                ...song,
-                title: dbTrack.title || song.name,
-                artist: dbTrack.artist || 'Unknown Artist',
-                album: 'Unknown Album',
-                year: null,
-                genre: null,
-              };
-            }
-          } catch (error) {
-            console.warn(`Could not get metadata for ${song.path}`);
-            return {
-              ...song,
-              title: song.name,
-              artist: 'Unknown Artist',
-              album: 'Unknown Album',
-              year: null,
-              genre: null,
-            };
-          }
-        })
-      );
-
-      // Update song list panel
-      const songListContent = document.querySelector('.song-list-content');
-      const songListHeader = document.querySelector('.song-list-header h3');
-
-      if (songListHeader) {
-        songListHeader.textContent = `${this.app.getBasename(folderPath)} (${songs.length} songs)`;
-      }
-
-      if (songListContent) {
-        const tracksHTML = this.generateTrackListWithSelection(songsWithMetadata);
-        songListContent.innerHTML = tracksHTML;
-        setTimeout(() => {
-          this.setupLibrarySelectionEvents();
-        }, 100);
-      }
-    } catch (error) {
-      this.app.logger.error('❌ Failed to load songs:', error);
-    }
-  }
-
-  renderEnhancedSongList(songs) {
-    if (songs.length === 0) {
-      return `
-      <div class="empty-state">
-        <div class="empty-state-icon">🎵</div>
-        <div class="empty-state-title">No songs found</div>
-        <div class="empty-state-description">This folder doesn't contain any supported audio files.</div>
-      </div>
-    `;
-    }
-
-    return `
-    <div class="song-list">
-      ${songs
-        .map(
-          (song, index) => `
-        <div class="song-card" 
-             data-path="${song.path}" 
-             data-index="${index}"
-             data-title="${this.escapeHtml(song.title || song.name)}"
-             data-artist="${this.escapeHtml(song.artist || 'Unknown Artist')}"
-             data-album="${this.escapeHtml(song.album || 'Unknown Album')}">
-          <div class="song-info">
-            <div class="song-title">${song.title || song.name.replace(/\.[^/.]+$/, '')}</div>
-            <div class="song-artist">${song.artist || 'Unknown Artist'}</div>
-            ${song.album && song.album !== 'Unknown Album' ? `<div class="song-album">${song.album}</div>` : ''}
-          </div>
-          <div class="song-metadata">
-            ${song.format} • ${this.app.formatFileSize(song.size)}
-            ${song.year ? ` • ${song.year}` : ''}
-            ${song.genre ? ` • ${song.genre}` : ''}
-          </div>
-        </div>
-      `
-        )
-        .join('')}
-    </div>
-  `;
+    return this.loadMusicLibraryStructure(folderPath);
   }
 
   setupLibrarySongEvents() {
@@ -641,6 +334,75 @@ class LibraryManager {
     this.updateLibraryTrackHighlight();
   }
 
+  // "Add All to Playlist" button (folder view). Shows a small playlist picker
+  // anchored under the button; picking one bulk-adds every song currently shown.
+  async showAddAllToPlaylistMenu(anchorEl, songs) {
+    document.getElementById('addAllPlaylistMenu')?.remove();
+
+    if (!songs || songs.length === 0) {
+      this.app.showNotification('No songs to add', 'warning');
+      return;
+    }
+
+    const menu = document.createElement('div');
+    menu.id = 'addAllPlaylistMenu';
+    menu.className = 'song-context-menu'; // reuse existing context-menu box styling
+    menu.innerHTML = `
+      <div class="submenu-header">Add ${songs.length} track${songs.length !== 1 ? 's' : ''} to...</div>
+      <div class="submenu-content" id="addAllPlaylistMenuContent">
+        <div class="context-item disabled"><span class="context-icon">⏳</span><span>Loading playlists...</span></div>
+      </div>
+    `;
+    document.body.appendChild(menu);
+
+    const rect = anchorEl.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.left}px`;
+
+    const content = menu.querySelector('#addAllPlaylistMenuContent');
+    try {
+      const playlists = await window.queMusicAPI.playlists.getAll();
+      content.innerHTML =
+        playlists.length > 0
+          ? playlists
+              .map(
+                (p) => `
+            <div class="context-item playlist-option" data-playlist-id="${p.id}">
+              <span class="context-icon">📋</span>
+              <span>${this.escapeHtml(p.name)}</span>
+              <span class="playlist-track-count">${p.track_count || 0}</span>
+            </div>`
+              )
+              .join('')
+          : '<div class="context-item disabled"><span class="context-icon">📭</span><span>No playlists yet — create one first</span></div>';
+
+      content.querySelectorAll('.playlist-option').forEach((option) => {
+        option.addEventListener('click', async () => {
+          const playlistId = option.dataset.playlistId;
+          menu.remove();
+          await this.app.playlistRenderer.addTrackPathsToPlaylist(
+            playlistId,
+            songs.map((s) => s.path)
+          );
+        });
+      });
+    } catch (error) {
+      console.error('❌ Error loading playlists for Add All menu:', error);
+      content.innerHTML = '<div class="context-item disabled">Failed to load playlists</div>';
+    }
+
+    // Close on outside click (deferred so this click doesn't immediately close it)
+    setTimeout(() => {
+      const closeHandler = (e) => {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener('click', closeHandler, true);
+        }
+      };
+      document.addEventListener('click', closeHandler, true);
+    }, 0);
+  }
+
   // Method to highlight currently playing track in library view
   updateLibraryTrackHighlight() {
     // Remove existing highlighting
@@ -678,6 +440,19 @@ class LibraryManager {
           } else {
             this.app.logger.warn('⚠️ No songs available for Play All');
           }
+        } else if (
+          event.target &&
+          event.target.dataset &&
+          event.target.dataset.action === 'add-all-to-playlist'
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (this.currentFolderSongs && this.currentFolderSongs.length > 0) {
+            this.showAddAllToPlaylistMenu(event.target, this.currentFolderSongs);
+          } else {
+            this.app.showNotification('No songs available to add', 'warning');
+          }
         }
       },
       true
@@ -711,208 +486,11 @@ class LibraryManager {
   // ========================================
   // LIBRARY VIEW METHODS
   // ========================================
-
-  async loadArtistsView() {
-    try {
-      // this.app.logger.info(' Loading artists view...');
-      const artists = await window.queMusicAPI.database.getAllArtists();
-
-      this.app.currentView = 'artists';
-      this.app.updateContentHeader('artists');
-      this.hideWelcomeScreen();
-
-      const musicContent = document.getElementById('musicContent');
-      if (musicContent) {
-        musicContent.innerHTML = this.renderArtistsView(artists);
-        this.setupArtistsViewEvents();
-      }
-
-      console.log(`📚 Loaded ${artists.length} artists`);
-    } catch (error) {
-      this.app.logger.error('Error loading artists view:', error);
-      this.app.showNotification('Failed to load artists', 'error');
-    }
-  }
-
-  async loadAlbumsView() {
-    try {
-      // console.log('💿 Loading albums view...');
-      const albums = await window.queMusicAPI.database.getAllAlbums();
-
-      this.app.currentView = 'albums';
-      this.app.updateContentHeader('albums');
-      this.hideWelcomeScreen();
-
-      const musicContent = document.getElementById('musicContent');
-      if (musicContent) {
-        musicContent.innerHTML = this.renderAlbumsView(albums);
-        this.setupAlbumsViewEvents();
-      }
-
-      console.log(`💿 Loaded ${albums.length} albums`);
-    } catch (error) {
-      this.app.logger.error('Error loading albums view:', error);
-      this.app.showNotification('Failed to load albums', 'error');
-    }
-  }
-
-  renderArtistsView(artists) {
-    if (artists.length === 0) {
-      return `
-        <div class="empty-state">
-          <div class="empty-state-icon">🎤</div>
-          <div class="empty-state-title">No artists found</div>
-          <div class="empty-state-description">Your music library appears to be empty</div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="library-view">
-        <div class="library-header">
-          <h3>${artists.length} Artists</h3>
-          <div class="view-controls">
-            <select id="artistSortSelect" class="sort-select">
-              <option value="name">Sort by Name</option>
-              <option value="track_count">Sort by Track Count</option>
-            </select>
-          </div>
-        </div>
-        <div class="library-grid">
-          ${artists
-            .map(
-              (artist) => `
-            <div class="library-card artist-card" data-artist="${artist.artist}">
-              <div class="card-artwork">
-                <div class="artwork-placeholder">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                </div>
-              </div>
-              <div class="card-info">
-                <h4 class="card-title">${artist.artist || 'Unknown Artist'}</h4>
-                <p class="card-subtitle">${artist.track_count} tracks</p>
-              </div>
-              <button class="icon-btn play-artist-btn" title="Play all tracks">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="5,3 19,12 5,21"></polygon>
-                </svg>
-              </button>
-            </div>
-          `
-            )
-            .join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  renderAlbumsView(albums) {
-    if (albums.length === 0) {
-      return `
-        <div class="empty-state">
-          <div class="empty-state-icon">💿</div>
-          <div class="empty-state-title">No albums found</div>
-          <div class="empty-state-description">Your music library appears to be empty</div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="library-view">
-        <div class="library-header">
-          <h3>${albums.length} Albums</h3>
-          <div class="view-controls">
-            <select id="albumSortSelect" class="sort-select">
-              <option value="title">Sort by Title</option>
-              <option value="artist">Sort by Artist</option>
-              <option value="year">Sort by Year</option>
-              <option value="track_count">Sort by Track Count</option>
-            </select>
-          </div>
-        </div>
-        <div class="library-grid">
-          ${albums
-            .map(
-              (album) => `
-            <div class="library-card album-card" data-album="${album.album}" data-artist="${album.artist}">
-              <div class="card-artwork">
-                <div class="artwork-placeholder">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polygon points="10,8 16,12 10,16"></polygon>
-                  </svg>
-                </div>
-              </div>
-              <div class="card-info">
-                <h4 class="card-title">${album.album || 'Unknown Album'}</h4>
-                <p class="card-subtitle">
-                  ${album.artist || 'Unknown Artist'}
-                  ${album.year ? ` • ${album.year}` : ''}
-                  • ${album.track_count} tracks
-                </p>
-              </div>
-              <button class="icon-btn play-album-btn" title="Play album">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="5,3 19,12 5,21"></polygon>
-                </svg>
-              </button>
-            </div>
-          `
-            )
-            .join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  setupArtistsViewEvents() {
-    // Artist card clicks - show tracks by artist
-    document.querySelectorAll('.artist-card').forEach((card) => {
-      card.addEventListener('click', async (e) => {
-        if (e.target.closest('.play-artist-btn')) return;
-
-        const artist = card.dataset.artist;
-        await this.showArtistTracks(artist);
-      });
-    });
-
-    // Play artist buttons
-    document.querySelectorAll('.play-artist-btn').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const card = btn.closest('.artist-card');
-        const artist = card.dataset.artist;
-        await this.playArtist(artist);
-      });
-    });
-  }
-
-  setupAlbumsViewEvents() {
-    // Album card clicks - show tracks in album
-    document.querySelectorAll('.album-card').forEach((card) => {
-      card.addEventListener('click', async (e) => {
-        if (e.target.closest('.play-album-btn')) return;
-
-        const album = card.dataset.album;
-        const artist = card.dataset.artist;
-        await this.showAlbumTracks(album, artist);
-      });
-    });
-
-    // Play album buttons
-    document.querySelectorAll('.play-album-btn').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const card = btn.closest('.album-card');
-        const album = card.dataset.album;
-        const artist = card.dataset.artist;
-        await this.playAlbum(album, artist);
-      });
-    });
-  }
+  // (Artist/album grid browsing lives in UIController.loadArtistsInLeftPane /
+  // loadAlbumsInLeftPane + selectArtistInBrowser / selectAlbumInBrowser, which
+  // render into the dual-pane layout. An earlier single-panel version of this
+  // feature — loadArtistsView/loadAlbumsView/renderArtistsView/renderAlbumsView
+  // and their helpers — was fully superseded and has been removed.)
 
   async showLibraryView() {
     try {
@@ -1301,15 +879,16 @@ class LibraryManager {
       ${tracks
         .map(
           (track, index) => `
-          <div class="song-card" 
-               data-track-index="${index}" 
-               data-track-id="${track.id}" 
-               data-path="${track.path}"
+          <div class="song-card"
+               draggable="true"
+               data-track-index="${index}"
+               data-track-id="${track.id}"
+               data-path="${this.escapeHtml(track.path)}"
                data-title="${this.escapeHtml(track.title || track.filename || 'Unknown')}"
                data-artist="${this.escapeHtml(track.artist || 'Unknown Artist')}"
                data-album="${this.escapeHtml(track.album || 'Unknown Album')}">
             <div class="song-checkbox">
-              <input type="checkbox" class="song-select-checkbox" data-track-path="${track.path}">
+              <input type="checkbox" class="song-select-checkbox" data-track-path="${this.escapeHtml(track.path)}">
             </div>
             <div class="song-info">
               <div class="song-title">${this.escapeHtml(track.title || track.filename || 'Unknown')}</div>
@@ -1366,15 +945,16 @@ class LibraryManager {
       ${initialTracks
         .map(
           (track, index) => `
-          <div class="song-card" 
-               data-track-index="${index}" 
-               data-track-id="${track.id}" 
-               data-path="${track.path}"
+          <div class="song-card"
+               draggable="true"
+               data-track-index="${index}"
+               data-track-id="${track.id}"
+               data-path="${this.escapeHtml(track.path)}"
                data-title="${this.escapeHtml(track.title || track.filename || 'Unknown')}"
                data-artist="${this.escapeHtml(track.artist || 'Unknown Artist')}"
                data-album="${this.escapeHtml(track.album || 'Unknown Album')}">
             <div class="song-checkbox">
-              <input type="checkbox" class="song-select-checkbox" data-track-path="${track.path}">
+              <input type="checkbox" class="song-select-checkbox" data-track-path="${this.escapeHtml(track.path)}">
             </div>
             <div class="song-info">
               <div class="song-title">${this.escapeHtml(track.title || track.filename || 'Unknown')}</div>
@@ -1499,6 +1079,29 @@ class LibraryManager {
       });
     }
 
+    // Drag a song (or the current multi-selection) out of the library onto a playlist
+    // card to add it — see UIController.loadPlaylistBrowser for the drop side.
+    songList.addEventListener('dragstart', (e) => {
+      const songCard = e.target.closest('.song-card');
+      if (!songCard) return;
+
+      const selectedCards = songList.querySelectorAll('.song-card.selected');
+      const draggedPaths =
+        selectedCards.length > 1 && songCard.classList.contains('selected')
+          ? Array.from(selectedCards).map((c) => c.dataset.path)
+          : [songCard.dataset.path];
+
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('application/x-que-track-paths', JSON.stringify(draggedPaths));
+      e.dataTransfer.setData('text/plain', draggedPaths.join('\n'));
+      songCard.classList.add('dragging');
+    });
+
+    songList.addEventListener('dragend', (e) => {
+      const songCard = e.target.closest('.song-card');
+      if (songCard) songCard.classList.remove('dragging');
+    });
+
     // Load More button for chunked rendering
     const loadMoreBtn = document.getElementById('loadMoreTracksBtn');
     if (loadMoreBtn && this.pendingTracks && this.pendingTracks.length > 0) {
@@ -1538,15 +1141,16 @@ class LibraryManager {
     const nextChunkHTML = nextChunk
       .map(
         (track, index) => `
-          <div class="song-card" 
-               data-track-index="${startIndex + index}" 
-               data-track-id="${track.id}" 
-               data-path="${track.path}"
+          <div class="song-card"
+               draggable="true"
+               data-track-index="${startIndex + index}"
+               data-track-id="${track.id}"
+               data-path="${this.escapeHtml(track.path)}"
                data-title="${this.escapeHtml(track.title || track.filename || 'Unknown')}"
                data-artist="${this.escapeHtml(track.artist || 'Unknown Artist')}"
                data-album="${this.escapeHtml(track.album || 'Unknown Album')}">
             <div class="song-checkbox">
-              <input type="checkbox" class="song-select-checkbox" data-track-path="${track.path}">
+              <input type="checkbox" class="song-select-checkbox" data-track-path="${this.escapeHtml(track.path)}">
             </div>
             <div class="song-info">
               <div class="song-title">${this.escapeHtml(track.title || track.filename || 'Unknown')}</div>
@@ -1878,7 +1482,10 @@ class LibraryManager {
 
     if (rightPaneActions) {
       if (validSongs.length > 0) {
-        rightPaneActions.innerHTML = `<button class="btn-primary btn-sm" id="playAllBtn" data-action="play-all">Play All</button>`;
+        rightPaneActions.innerHTML = `
+          <button class="btn-primary btn-sm" id="playAllBtn" data-action="play-all">Play All</button>
+          <button class="btn-secondary btn-sm" id="addAllToPlaylistBtn" data-action="add-all-to-playlist">Add All to Playlist</button>
+        `;
 
         // Store the songs for the event delegation handler
         this.currentFolderSongs = validSongs;
@@ -1909,148 +1516,6 @@ class LibraryManager {
     // console.log(`Displayed ${validSongs.length} valid songs with Select All functionality`);
   }
 
-  // ADD this new method:
-  setupSongCardEvents() {
-    const songCards = document.querySelectorAll('.song-card');
-
-    songCards.forEach((card) => {
-      const songPath = card.dataset.path;
-
-      // console.log(`🎵 Setting up events for: ${songPath}`);
-
-      // Double click to play
-      card.addEventListener('dblclick', () => {
-        // this.app.logger.debug(' Double-click detected, playing:', songPath);
-        this.app.coreAudio.playSong(songPath);
-      });
-
-      // Single click to select
-      card.addEventListener('click', () => {
-        songCards.forEach((c) => c.classList.remove('selected'));
-        card.classList.add('selected');
-      });
-
-      // NOTE: Context menu is handled by UIController's global delegation
-    });
-
-    console.log(
-      `🖱️ Added event listeners to ${songCards.length} song cards (context menus via delegation)`
-    );
-  }
-
-  generateSongListForRightPane(songs) {
-    // console.log(`🔨 Generating HTML for ${songs.length} songs`);
-
-    return `
-      <div class="right-pane-track-list">
-        <div class="track-list-header-right">
-          <div>#</div>
-          <div>Title</div>
-          <div>Album</div>
-          <div>Size</div>
-          <div></div>
-        </div>
-        <div class="track-list-content-right">
-          ${songs
-            .map(
-              (song, index) => `
-            <div class="song-card" data-path="${song.path}" data-index="${index}">
-              <div class="track-number-right">
-                <span class="track-position-right">${index + 1}</span>
-                <button class="track-play-btn-right">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="5,3 19,12 5,21"></polygon>
-                  </svg>
-                </button>
-              </div>
-              <div class="track-info-right">
-                <div class="track-title-right">${this.escapeHtml(song.title || song.name.replace(/\.[^/.]+$/, ''))}</div>
-                <div class="track-artist-right">${this.escapeHtml(song.artist || 'Unknown Artist')}</div>
-              </div>
-              <div class="track-album-right">${this.escapeHtml(song.album || 'Unknown Album')}</div>
-              <div class="track-duration-right">${this.app.formatFileSize(song.size)}</div>
-              <div class="track-actions-right">
-                <button class="track-action-btn-right" title="More options">⋮</button>
-              </div>
-            </div>
-          `
-            )
-            .join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  setupRightPaneSongEvents() {
-    const trackList = document.querySelector('.track-list-content-right');
-    if (!trackList) {
-      this.app.logger.warn('⚠️ Track list not found in right pane');
-      return;
-    }
-
-    // this.app.logger.debug(' Setting up right pane song events');
-
-    // Clear existing event listeners
-    const newTrackList = trackList.cloneNode(true);
-    trackList.parentNode.replaceChild(newTrackList, trackList);
-
-    // Add fresh event listeners to the new element
-    const freshTrackList = document.querySelector('.track-list-content-right');
-
-    freshTrackList.addEventListener('click', (event) => {
-      const trackCard = event.target.closest('.track-card-right');
-      if (!trackCard) return;
-
-      const songPath = trackCard.dataset.path;
-      this.app.logger.debug(' Track clicked:', songPath);
-
-      if (event.target.closest('.track-play-btn-right')) {
-        // Play button clicked
-        // console.log('▶️ Play button clicked');
-        this.app.coreAudio.playSong(songPath);
-      } else if (event.target.closest('.track-action-btn-right')) {
-        // More options clicked - let global delegation handle context menu
-        // console.log('⋮ More options clicked - context menu via delegation');
-      } else {
-        // Track clicked - play
-        // this.app.logger.debug(' Track info clicked, playing');
-        this.app.coreAudio.playSong(songPath);
-      }
-    });
-
-    // Double-click to play
-    freshTrackList.addEventListener('dblclick', (event) => {
-      const trackCard = event.target.closest('.track-card-right');
-      if (trackCard) {
-        const songPath = trackCard.dataset.path;
-        console.log('⏯️ Double-click play:', songPath);
-        this.app.coreAudio.playSong(songPath);
-      }
-    });
-
-    // NOTE: Right-click context menu is handled by UIController's global delegation
-
-    // this.app.logger.info(' Right pane song events setup complete (context menus via delegation)');
-  }
-
-  extractSongDataFromRightPaneCard(card) {
-    const songPath = card.dataset.path;
-    const titleElement = card.querySelector('.track-title-right');
-    const artistElement = card.querySelector('.track-artist-right');
-    const albumElement = card.querySelector('.track-album-right');
-
-    const songData = {
-      path: songPath,
-      name: titleElement?.textContent || 'Unknown',
-      title: titleElement?.textContent || 'Unknown',
-      artist: artistElement?.textContent || 'Unknown Artist',
-      album: albumElement?.textContent || 'Unknown Album',
-      filename: this.app.getBasename(songPath),
-    };
-
-    console.log('📋 Extracted song data:', songData);
-    return songData;
-  }
 
   showEmptyLibraryState() {
     // this.app.logger.info(' showEmptyLibraryState FIXED - showing in dual panes');
@@ -2097,52 +1562,6 @@ class LibraryManager {
     div.textContent = text;
     return div.innerHTML;
   }
-  async showArtistTracks(artist) {
-    try {
-      const tracks = await window.queMusicAPI.database.getTracksByArtist(artist);
-      this.displaySearchResults(tracks, `by ${artist}`);
-    } catch (error) {
-      this.app.logger.error('Error loading artist tracks:', error);
-      this.app.showNotification('Failed to load artist tracks', 'error');
-    }
-  }
-
-  async showAlbumTracks(album, artist) {
-    try {
-      const tracks = await window.queMusicAPI.database.getTracksByAlbum(album, artist);
-      this.displaySearchResults(tracks, `${album} by ${artist}`);
-    } catch (error) {
-      this.app.logger.error('Error loading album tracks:', error);
-      this.app.showNotification('Failed to load album tracks', 'error');
-    }
-  }
-
-  async playArtist(artist) {
-    try {
-      const tracks = await window.queMusicAPI.database.getTracksByArtist(artist);
-      if (tracks.length > 0) {
-        this.app.coreAudio.playSong(tracks[0].path);
-        this.app.showNotification(`Playing ${artist} (${tracks.length} tracks)`, 'success');
-      }
-    } catch (error) {
-      this.app.logger.error('Error playing artist:', error);
-      this.app.showNotification('Failed to play artist', 'error');
-    }
-  }
-
-  async playAlbum(album, artist) {
-    try {
-      const tracks = await window.queMusicAPI.database.getTracksByAlbum(album, artist);
-      if (tracks.length > 0) {
-        this.app.coreAudio.playSong(tracks[0].path);
-        this.app.showNotification(`Playing ${album} (${tracks.length} tracks)`, 'success');
-      }
-    } catch (error) {
-      this.app.logger.error('Error playing album:', error);
-      this.app.showNotification('Failed to play album', 'error');
-    }
-  }
-
   // ========================================
   // SEARCH METHODS
   // ========================================
@@ -2697,7 +2116,7 @@ class LibraryManager {
           <div class="results-breadcrumb">
             <span class="breadcrumb-item">Filters</span>
             <span class="breadcrumb-separator">›</span>
-            <span class="breadcrumb-current">${query}</span>
+            <span class="breadcrumb-current">${this.escapeHtml(query)}</span>
           </div>
         </div>
         <div class="results-actions">
@@ -2715,7 +2134,8 @@ class LibraryManager {
           .map(
             (track, index) => `
           <div class="search-result-card"
-               data-path="${track.path}"
+               draggable="true"
+               data-path="${this.escapeHtml(track.path)}"
                data-index="${index}"
                data-title="${this.escapeHtml(track.title || 'Unknown Title')}"
                data-artist="${this.escapeHtml(track.artist || 'Unknown Artist')}"
@@ -2727,15 +2147,15 @@ class LibraryManager {
                    onerror="this.src = this.src === '${this.defaultAlbumArt}' ? '' : '${this.defaultAlbumArt}';">
             </div>
             <div class="track-info">
-              <div class="track-title">${track.title || 'Unknown Title'}</div>
+              <div class="track-title">${this.escapeHtml(track.title || 'Unknown Title')}</div>
               <div class="track-details">
-                <span class="track-artist">${track.artist || 'Unknown Artist'}</span>
-                ${track.album ? ` • <span class="track-album">${track.album}</span>` : ''}
-                ${track.year ? ` • <span class="track-year">${track.year}</span>` : ''}
+                <span class="track-artist">${this.escapeHtml(track.artist || 'Unknown Artist')}</span>
+                ${track.album ? ` • <span class="track-album">${this.escapeHtml(track.album)}</span>` : ''}
+                ${track.year ? ` • <span class="track-year">${this.escapeHtml(String(track.year))}</span>` : ''}
               </div>
             </div>
             <div class="track-metadata">
-              <span class="track-format">${track.format}</span>
+              <span class="track-format">${this.escapeHtml(track.format)}</span>
               <span class="track-size">${this.app.formatFileSize(track.filesize)}</span>
             </div>
             <button class="icon-btn play-track-btn" title="Play track">
@@ -2769,6 +2189,15 @@ class LibraryManager {
       card.addEventListener('dblclick', () => {
         this.app.coreAudio.playSong(trackPath);
       });
+
+      // Drag onto a playlist card to add this track (see UIController.loadPlaylistBrowser)
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/x-que-track-paths', JSON.stringify([trackPath]));
+        e.dataTransfer.setData('text/plain', trackPath);
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
 
       // NOTE: Context menu is handled by UIController's global delegation
     });
@@ -3760,8 +3189,9 @@ class LibraryManager {
           this.app.showNotification('Updating durations...', 'info');
           try {
             const result = await window.queMusicAPI.database.updateDurations();
+            const failedNote = result.failed ? `, ${result.failed} failed` : '';
             this.app.showNotification(
-              `Updated ${result.updated} of ${result.processed} tracks!`,
+              `Updated ${result.updated} of ${result.total} tracks${failedNote}`,
               'success'
             );
             setTimeout(() => this.openDatabaseManager(), 1500);

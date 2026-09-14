@@ -1707,3 +1707,65 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================
+   LYRICS MODAL — positioned toward the left, faded album art behind the text
+   (see docs/application/lyrics-feature.md, "Decided — source and display")
+   ======================================== */
+
+.lyrics-modal {
+  justify-content: flex-start;
+  padding-left: 60px;
+}
+
+.lyrics-modal-content {
+  width: 420px;
+  max-width: 90vw;
+}
+
+.lyrics-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(14px) brightness(0.5);
+  opacity: 0.6;
+  z-index: 0;
+}
+
+.lyrics-modal-content .modal-header,
+.lyrics-modal-content .modal-body,
+.lyrics-modal-content .modal-footer {
+  position: relative;
+  z-index: 1;
+}
+
+.lyrics-track-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-lg);
+}
+
+.lyrics-track-info span:first-child {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+}
+
+.lyrics-track-info span:last-child {
+  color: var(--text-secondary);
+}
+
+.lyrics-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-height: 50vh;
+  overflow-y: auto;
+  color: var(--text-primary);
+}
+
+.lyrics-state {
+  text-align: center;
+  padding: var(--space-xl) 0;
+  color: var(--text-secondary);
+}
