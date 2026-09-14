@@ -61,6 +61,35 @@ async function run() {
 
   console.log('✅ Task 2: evaluation engine checks passed');
 
+  // --- Task 3: getPlaylistById / getAllPlaylists branch on type ---
+  const viaGetById = await db.getPlaylistById(smartAll.id);
+  assert.deepStrictEqual(viaGetById.tracks.map((t) => t.path), ['/b.mp3']);
+  assert.strictEqual(viaGetById.type, 'smart');
+
+  const allPlaylists = db.getAllPlaylists();
+  const smartAllRow = allPlaylists.find((p) => p.id === smartAll.id);
+  assert.strictEqual(smartAllRow.track_count, 1, `expected live count 1, got ${smartAllRow.track_count}`);
+
+  console.log('✅ Task 3: getPlaylistById/getAllPlaylists branching checks passed');
+
+  // --- Task 4: save-as-static snapshot ---
+  const snapshot = await db.saveSmartPlaylistAsStatic(smartAll.id);
+  assert.strictEqual(snapshot.type, 'static');
+  assert.strictEqual(snapshot.name, 'Rock AND Popular (Snapshot)');
+  const snapshotTracks = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
+  assert.deepStrictEqual(snapshotTracks, ['/b.mp3']);
+
+  // Editing the source smart playlist's rules must not touch the snapshot.
+  db.addSmartPlaylistRules(smartAll.id, [{ field: 'genre', operator: 'is', value: 'Jazz' }]);
+  const snapshotAfterEdit = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
+  assert.deepStrictEqual(
+    snapshotAfterEdit,
+    ['/b.mp3'],
+    'snapshot changed after editing source smart playlist rules'
+  );
+
+  console.log('✅ Task 4: save-as-static checks passed');
+
   db.db.close();
 }
 

@@ -1066,6 +1066,20 @@ class MusicDatabase {
       `
         )
         .all();
+
+      // Smart playlists have no playlist_tracks rows, so the COUNT() above is
+      // always 0 for them — compute their track_count live from their rules instead.
+      for (const playlist of rows) {
+        if (playlist.type === 'smart') {
+          const rules = this.getSmartPlaylistRules(playlist.id);
+          const { sql, params } = this.buildSmartPlaylistWhereClause(rules, playlist.match_mode);
+          const { count } = this.db
+            .prepare(`SELECT COUNT(*) as count FROM tracks t WHERE ${sql}`)
+            .get(...params);
+          playlist.track_count = count;
+        }
+      }
+
       console.log(`📋 Retrieved ${rows.length} playlists`);
       return rows || [];
     } catch (err) {
@@ -1344,6 +1358,12 @@ class MusicDatabase {
 
       if (!playlist) {
         throw new Error(`Playlist with ID ${playlistId} not found`);
+      }
+
+      if (playlist.type === 'smart') {
+        playlist.tracks = await this.getSmartPlaylistTracks(playlistId);
+        console.log(`🧠 Retrieved smart playlist "${playlist.name}" with ${playlist.tracks.length} tracks`);
+        return playlist;
       }
 
       // Get tracks in playlist
