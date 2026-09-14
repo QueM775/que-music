@@ -77,13 +77,30 @@ CREATE TABLE IF NOT EXISTS playlists (
   name TEXT NOT NULL UNIQUE,                    -- Playlist name (must be unique)
   description TEXT,                             -- Optional description
   
-  -- Cached statistics (updated when tracks are added/removed)
+  -- Cached statistics (updated when tracks are added/removed; computed live
+  -- instead for type='smart' rows — see getAllPlaylists() in server/database.js)
   track_count INTEGER DEFAULT 0,               -- Number of tracks in playlist
   total_duration INTEGER DEFAULT 0,            -- Total duration in seconds
-  
+
+  -- Smart playlists (added 2026-09-14, see docs/superpowers/specs/2026-09-14-smart-playlists-design.md)
+  type TEXT NOT NULL DEFAULT 'static',         -- 'static' (hand-built) or 'smart' (rule-based)
+  match_mode TEXT,                             -- 'all' or 'any'; NULL for static playlists
+
   -- System timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Smart playlist rules — one row per rule; a playlist's tracks are always
+-- computed from these at read time, never stored in playlist_tracks.
+CREATE TABLE IF NOT EXISTS smart_playlist_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  playlist_id INTEGER NOT NULL,                 -- References playlists.id
+  field TEXT NOT NULL,                          -- artist/album/genre/year/play_count/date_added/favorite
+  operator TEXT NOT NULL,                       -- is/is not/contains/greater than/less than/between/before/after/in the last N days
+  value TEXT NOT NULL,                          -- stored as text, cast per field type at query time
+  sort_order INTEGER NOT NULL DEFAULT 0,        -- display order in the rule builder UI
+  FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
 );
 
 -- Playlist track associations with ordering and dual path support

@@ -21,6 +21,7 @@ class MusicDatabase {
 
     // Heal any existing on-disk DB file that predates the lyrics columns
     this.migrateAddLyricsColumns();
+    this.migrateAddSmartPlaylistColumns();
   }
 
   // ============================================================================
@@ -98,6 +99,16 @@ class MusicDatabase {
       FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
       FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
       UNIQUE(playlist_id, track_path)
+    );
+
+    CREATE TABLE IF NOT EXISTS smart_playlist_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      field TEXT NOT NULL,
+      operator TEXT NOT NULL,
+      value TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS favorites (
@@ -272,6 +283,26 @@ class MusicDatabase {
         console.log(`✅ Added tracks.${column.name} column`);
       } catch (err) {
         // Expected once the column already exists: "duplicate column name: <name>"
+        if (!/duplicate column/i.test(err.message)) {
+          throw err;
+        }
+      }
+    }
+  }
+
+  // Heals existing on-disk DBs that predate smart playlists — same guarded
+  // ALTER TABLE pattern as migrateAddLyricsColumns(). Safe to run on every launch.
+  migrateAddSmartPlaylistColumns() {
+    const columns = [
+      { name: 'type', ddl: "ALTER TABLE playlists ADD COLUMN type TEXT NOT NULL DEFAULT 'static'" },
+      { name: 'match_mode', ddl: 'ALTER TABLE playlists ADD COLUMN match_mode TEXT' },
+    ];
+
+    for (const column of columns) {
+      try {
+        this.db.prepare(column.ddl).run();
+        console.log(`✅ Added playlists.${column.name} column`);
+      } catch (err) {
         if (!/duplicate column/i.test(err.message)) {
           throw err;
         }
