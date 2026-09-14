@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-14T12:07:41.283Z
+ * Generated: 2026-09-14T18:16:42.289Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -3924,7 +3924,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/header.css (5832 bytes)
+ * styles/layout/header.css (6517 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -4114,6 +4114,32 @@ Only favorites/recent-specific functionality remains
   transform: translate(-50%, -50%) rotate(0deg) scale(1);
 }
 
+/* Header icon accent colors — matches the sidebar's per-icon treatment
+   instead of leaving everything at flat --text-secondary gray. */
+.header-icon-search {
+  color: var(--info-500);
+}
+.header-icon-sun {
+  color: var(--accent-500);
+}
+.header-icon-moon {
+  color: #6366f1;
+}
+.header-icon-help {
+  color: #14b8a6;
+}
+.header-icon-settings {
+  color: #8b5cf6;
+}
+
+.icon-btn:not(:hover):not(.active) .header-icon-search,
+.icon-btn:not(:hover):not(.active) .header-icon-sun,
+.icon-btn:not(:hover):not(.active) .header-icon-moon,
+.icon-btn:not(:hover):not(.active) .header-icon-help,
+.icon-btn:not(:hover):not(.active) .header-icon-settings {
+  opacity: 0.85;
+}
+
 /* ========================================
    RESPONSIVE HEADER
    ======================================== */
@@ -4220,7 +4246,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/sidebar.css (6948 bytes)
+ * styles/layout/sidebar.css (8105 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -4381,11 +4407,57 @@ Only favorites/recent-specific functionality remains
   height: 18px;
   flex-shrink: 0;
   opacity: 0.8;
-  transition: opacity var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .nav-item:hover svg,
 .nav-item.active svg {
+  opacity: 1;
+}
+
+/* Per-icon accent colors — give each nav destination its own identity
+   instead of one flat gray. Full strength on hover; the active pill's
+   solid background + white text (see .nav-item.active above) overrides
+   these on purpose so the active row still reads as one clean block. */
+.nav-icon-library {
+  color: var(--primary-500);
+}
+.nav-icon-favorites {
+  color: var(--accent-500);
+}
+.nav-icon-recent {
+  color: #14b8a6;
+}
+.nav-icon-discover {
+  color: #a855f7;
+}
+.nav-icon-nowplaying {
+  color: var(--success-500);
+}
+.nav-icon-playlists {
+  color: #ec4899;
+}
+.nav-icon-folder {
+  color: var(--accent-500);
+}
+.nav-icon-database {
+  color: #06b6d4;
+}
+
+.nav-item:not(.active) .nav-icon-library,
+.nav-item:not(.active) .nav-icon-favorites,
+.nav-item:not(.active) .nav-icon-recent,
+.nav-item:not(.active) .nav-icon-discover,
+.nav-item:not(.active) .nav-icon-nowplaying,
+.nav-item:not(.active) .nav-icon-playlists,
+.nav-item:not(.active) .nav-icon-folder,
+.nav-item:not(.active) .nav-icon-database {
+  opacity: 0.75;
+}
+
+.nav-item:hover:not(.active) svg {
   opacity: 1;
 }
 

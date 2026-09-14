@@ -23,14 +23,16 @@ Not a rewrite of the UI from zero — a deliberate pass to kill the pattern that
 
 ## Feature roadmap, pulled from the Nagi comparison
 
-In rough priority order — not a commitment, a menu. See `compared.md` for the full feature-by-feature comparison this is drawn from.
+In rough priority order — not a commitment, a menu. See `compared.md` for the full feature-by-feature comparison this is drawn from. **Status legend: `[x]` done and live-verified, `[ ]` not started.** Update this list the same session anything on it changes state — don't let it drift back into "can't tell what's done."
 
-1. **A real queue, separate from "the loaded playlist."** ✅ Built 2026-09-13 — see `docs/issues/issues_track.md`. `CoreAudio.queue` is now independent of `this.playlist`; queued tracks play next ahead of the playlist's own advancement.
-2. **Rule-based smart playlists.** Field + operator + value (artist is X, genre contains Y, play count > Z) instead of only hand-built M3U lists. Biggest feature gap versus Nagi.
-3. **Plain-text lyrics.** No sync/karaoke — Erich doesn't use that. Check embedded file tags first, fall back to a fetch (LRCLIB or similar) on demand, cache in the database. See `lyrics-feature.md` for the full design decision (2026-09-13).
-4. **A real equalizer + loudness normalization.** Currently just a volume slider.
-5. **Last.fm scrobbling / Discord Rich Presence** — smaller, self-contained integrations, good candidates once the core is stable.
-6. **Dynamic theming off album art, resizable mini-player** — polish-tier, lowest priority, highest effort-to-value ratio given Electron can't fully match native Fluent materials anyway.
+- [x] **A real queue, separate from "the loaded playlist."** Built 2026-09-13 — see `docs/issues/issues_track.md`. `CoreAudio.queue` is now independent of `this.playlist`; queued tracks play next ahead of the playlist's own advancement.
+- [x] **Plain-text lyrics.** No sync/karaoke — Erich doesn't use that. Checks embedded file tags first, falls back to LRCLIB on demand, caches in the database. Built 2026-09-13 — see `lyrics-feature.md`.
+- [ ] **Rule-based smart playlists.** Field + operator + value (artist is X, genre contains Y, play count > Z) instead of only hand-built M3U lists. Biggest feature gap versus Nagi. **Next up.**
+- [ ] **A real equalizer + loudness normalization.** Currently just a volume slider — no frequency bands, no ReplayGain. (Not to be confused with the visualizer in `visualizer.md`, which is a working audio-reactive display, not an EQ.)
+- [ ] **Last.fm scrobbling / Discord Rich Presence** — smaller, self-contained integrations, good candidates once the core is stable.
+- [ ] **Dynamic theming off album art, resizable mini-player** — polish-tier, lowest priority, highest effort-to-value ratio given Electron can't fully match native Fluent materials anyway.
+
+Sidebar nav icon overhaul (duplicate icons fixed, per-icon accent colors, header icons recolored) was done 2026-09-14 as a UI polish pass outside this list — see `docs/issues/issues_track.md` for detail. Not a roadmap item, just logged so it's not lost.
 
 ## Not part of this roadmap
 

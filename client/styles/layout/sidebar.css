@@ -156,11 +156,57 @@
   height: 18px;
   flex-shrink: 0;
   opacity: 0.8;
-  transition: opacity var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .nav-item:hover svg,
 .nav-item.active svg {
+  opacity: 1;
+}
+
+/* Per-icon accent colors — give each nav destination its own identity
+   instead of one flat gray. Full strength on hover; the active pill's
+   solid background + white text (see .nav-item.active above) overrides
+   these on purpose so the active row still reads as one clean block. */
+.nav-icon-library {
+  color: var(--primary-500);
+}
+.nav-icon-favorites {
+  color: var(--accent-500);
+}
+.nav-icon-recent {
+  color: #14b8a6;
+}
+.nav-icon-discover {
+  color: #a855f7;
+}
+.nav-icon-nowplaying {
+  color: var(--success-500);
+}
+.nav-icon-playlists {
+  color: #ec4899;
+}
+.nav-icon-folder {
+  color: var(--accent-500);
+}
+.nav-icon-database {
+  color: #06b6d4;
+}
+
+.nav-item:not(.active) .nav-icon-library,
+.nav-item:not(.active) .nav-icon-favorites,
+.nav-item:not(.active) .nav-icon-recent,
+.nav-item:not(.active) .nav-icon-discover,
+.nav-item:not(.active) .nav-icon-nowplaying,
+.nav-item:not(.active) .nav-icon-playlists,
+.nav-item:not(.active) .nav-icon-folder,
+.nav-item:not(.active) .nav-icon-database {
+  opacity: 0.75;
+}
+
+.nav-item:hover:not(.active) svg {
   opacity: 1;
 }
 

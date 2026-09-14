@@ -2,6 +2,21 @@
 
 ## Version History & Bug Fixes
 
+### Sidebar Nav Icon Overhaul + Per-Icon Accent Colors - 2026-09-14
+
+Erich flagged the collapsible sidebar nav icons as unintuitive ("those circles don't tell the user anything") and, separately, flat/monochrome with no visual polish.
+
+#### Changes ✅
+
+- **Fixed real duplicate-icon bugs**: Discover and Now Playing were both rendering the exact same circle+play-triangle SVG; Music Library and Playlists were both rendering the exact same music-note SVG. Not just a style complaint — two pairs of nav items were visually identical.
+- **Replaced 6 of 8 sidebar nav icons** in `client/pages/index.html` (sidebar toggle, Music Library, Recently Played, Discover, Now Playing, Playlists, Database Manager) after several rounds of live feedback — landed on: hamburger (toggle), 2x2 grid (Library), rewind/skip-back (Recently Played), 4-point sparkle (Discover), audio bars (Now Playing), stacked list with bullets (Playlists), server rack (Database Manager). Change Music Folder's existing folder-outline icon and Favorites' star were kept, just recolored. No icon on the rail is circle-based anymore.
+- **Added per-icon accent colors** (`client/styles/layout/sidebar.css`): each nav SVG got a `.nav-icon-*` class with its own `color` (Library blue, Favorites gold + filled solid star, Recently Played teal, Discover purple, Now Playing green, Playlists pink, Change Music Folder amber, Database cyan), dimmed slightly at rest and full-strength on hover. The active item's existing solid-background/white-icon treatment (`.nav-item.active`) is left as the override so the active row still reads as one clean block instead of clashing with its accent color.
+- **Real bug caught mid-session**: the first color pass appeared to do nothing — because `client/pages/index.html` links `styles/bundled.css`, a pre-built concatenation of all the `styles/**/*.css` source files, and neither `npm start` nor `npm run dev` regenerates it automatically (only `npm run dist`/`dist-win` do, via `build-css.js`). Edited `sidebar.css` sat there inert until `node build-css.js` was run by hand to rebuild the bundle. See the CLAUDE.md note added alongside this entry — **any styles/ edit needs `node build-css.js` before it'll show up in a plain `npm start` session.**
+- **Files Modified**: `client/pages/index.html`, `client/styles/layout/sidebar.css`, `CLAUDE.md` (dev workflow note)
+- Confirmed live by Erich after the bundle rebuild + full app restart ("now you've got color, I like it").
+
+**Follow-up same day — header icons (search, theme toggle, help, settings).** Same treatment applied to the 4 header icon buttons in `client/pages/index.html` / `client/styles/layout/header.css`: gave search/sun/moon/help/settings each a `.header-icon-*` accent color (blue, amber, indigo, teal, violet). Also fixed two real icon bugs found along the way — the Settings gear was a broken 6-spoke asterisk with no actual gear teeth (replaced with the standard Feather cog path), and the Help icon was an abstract curved-line "?" attempt inside a circle that Erich flagged twice as unreadable ("I don't know what the other one is") — replaced with a literal bold `?` glyph and, per Erich's explicit call, no circle around it at all. Confirmed live ("they're good, we'll keep them").
+
 ### Up Next Queue Drop Position Fixed - 2026-09-14
 
 Live-usage bug found by Erich: dragging a track from the folder view onto the Up Next pane always appended it to the bottom of the queue, ignoring where it was actually dropped.

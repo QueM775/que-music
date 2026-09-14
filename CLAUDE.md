@@ -16,7 +16,16 @@ npm run dev        # Alternative development command
 npm run make       # Build distribution packages
 npm run format     # Format code with Prettier
 npm run rebuild    # Rebuild native modules for Electron
+node build-css.js  # Rebuild client/styles/bundled.css from styles/**/*.css
 ```
+
+**CSS gotcha**: `client/pages/index.html` links only `styles/bundled.css`, a pre-built
+concatenation of every file under `client/styles/`. `npm start`/`npm run dev` do **not**
+regenerate it — only `npm run dist`/`dist-win` do (they run `build-css.js` first). Any
+edit to a source stylesheet (`styles/layout/*.css`, `styles/components/*.css`, etc.) is
+invisible in a dev session until you manually run `node build-css.js` and fully restart
+the app. Found 2026-09-14 when a sidebar icon color pass silently did nothing for several
+rounds of feedback — see `docs/issues/issues_track.md`.
 
 ### Logging System
 

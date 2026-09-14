@@ -11,6 +11,7 @@ class LayoutResizer {
     this.appMain = document.querySelector('.app-main');
     this.dualPane = document.querySelector('.dual-pane-layout');
     this.sidebarToggle = document.getElementById('sidebarToggle');
+    this.sidebarToggleDivider = document.getElementById('sidebarToggleDivider');
 
     // In-memory mirror of what's persisted — updated as the user drags/toggles,
     // written to disk on mouseup/click rather than on every mousemove.
@@ -84,6 +85,7 @@ class LayoutResizer {
       this.sidebar?.classList.add('collapsed');
       this.appMain?.classList.add('sidebar-collapsed');
       if (this.sidebarToggle) this.sidebarToggle.title = 'Expand sidebar';
+      this.setToggleDivider(true);
     }
     if (this.prefs.sidebarWidth) {
       document.documentElement.style.setProperty('--sidebar-width', `${this.prefs.sidebarWidth}px`);
@@ -105,9 +107,19 @@ class LayoutResizer {
       const collapsed = this.sidebar.classList.toggle('collapsed');
       this.appMain.classList.toggle('sidebar-collapsed', collapsed);
       this.sidebarToggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+      this.setToggleDivider(collapsed);
       this.prefs.sidebarCollapsed = collapsed;
       this.savePrefs();
     });
+  }
+
+  // Slides the panel icon's divider line from the left third (expanded) to
+  // the right third (collapsed) so the icon itself hints which way it'll go.
+  setToggleDivider(collapsed) {
+    if (!this.sidebarToggleDivider) return;
+    const x = collapsed ? 15 : 9;
+    this.sidebarToggleDivider.setAttribute('x1', x);
+    this.sidebarToggleDivider.setAttribute('x2', x);
   }
 
   // Generic drag-to-resize: `direction` is which way the pane grows relative

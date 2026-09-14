@@ -185,6 +185,32 @@
   transform: translate(-50%, -50%) rotate(0deg) scale(1);
 }
 
+/* Header icon accent colors — matches the sidebar's per-icon treatment
+   instead of leaving everything at flat --text-secondary gray. */
+.header-icon-search {
+  color: var(--info-500);
+}
+.header-icon-sun {
+  color: var(--accent-500);
+}
+.header-icon-moon {
+  color: #6366f1;
+}
+.header-icon-help {
+  color: #14b8a6;
+}
+.header-icon-settings {
+  color: #8b5cf6;
+}
+
+.icon-btn:not(:hover):not(.active) .header-icon-search,
+.icon-btn:not(:hover):not(.active) .header-icon-sun,
+.icon-btn:not(:hover):not(.active) .header-icon-moon,
+.icon-btn:not(:hover):not(.active) .header-icon-help,
+.icon-btn:not(:hover):not(.active) .header-icon-settings {
+  opacity: 0.85;
+}
+
 /* ========================================
    RESPONSIVE HEADER
    ======================================== */
