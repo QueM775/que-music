@@ -2,6 +2,35 @@
 
 ## Version History & Bug Fixes
 
+### Rule-Based Smart Playlists Built - 2026-09-14
+
+Roadmap item #3 (`docs/application/roadmap.md`), the biggest feature gap versus Nagi per `docs/application/compared.md`. Full brainstorm → spec → plan → implementation cycle on branch `feature/smart-playlists` (not yet merged to master). Spec: `docs/superpowers/specs/2026-09-14-smart-playlists-design.md`. Plan: `docs/superpowers/plans/2026-09-14-smart-playlists.md`.
+
+#### What shipped ✅
+
+- **Schema**: `playlists.type` (`'static'`/`'smart'`) and `playlists.match_mode` (`'all'`/`'any'`), plus a new `smart_playlist_rules` table (field/operator/value/sort_order), guarded-migration pattern matching `migrateAddLyricsColumns()`.
+- **Evaluation engine** (`server/database.js`): `getSmartPlaylistTracks()` translates a playlist's rules into one parameterized SQL query (AND/OR per `match_mode`) against `tracks` — no in-app filtering. Fields: artist/album/genre/year/play_count/date_added/favorite. `getPlaylistById()` branches on `type` so every existing renderer read path (`selectPlaylist`, `loadPlaylistInRightPane`, etc.) works unchanged for both playlist types.
+- **"Save as Static Playlist"**: snapshots a smart playlist's current matches into a real, independent static playlist. Originally auto-named `"<source> (Snapshot)"`; changed same day (see below) to prompt via the same Create Playlist modal, pre-filled and pre-selected with the source name, per Erich's explicit request.
+- **Rule builder UI**: Static/Smart type toggle on the Create/Edit Playlist modal; Smart mode shows a match-mode selector and repeating field/operator/value rows (`client/pages/index.html`, `client/scripts/playlist-renderer.js`). Smart playlists show a ✦ badge in both playlist list views (sidebar list and dual-pane browser).
+- **M3U export made automatic app-wide** (expanded scope, approved live): every playlist — static, hand-built, or a smart-playlist snapshot — now auto-exports to `.m3u` on every track add/remove/reorder (`_autoExportM3U()`), so a file always exists in the Playlists folder without a manual click. The old "Export to M3U" context menu item was removed (Save as Static covers the smart-playlist case; auto-export covers everything else).
+
+#### Bugs found and fixed during live testing ✅
+
+- **Rule builder inputs unreadable**: `.smart-rule-field`/`.smart-rule-operator`/`.smart-rule-value` were missing the `.form-input` class, rendering as unstyled white boxes with invisible dark-on-white text.
+- **Case-sensitive genre matching**: text field `is`/`is not` used SQLite's default case-sensitive `=`; typing "classical" didn't match a track tagged "Classical". Now uses `COLLATE NOCASE` for text fields (artist/album/genre); numeric/date fields keep exact comparison.
+- **Generic save-error messages**: both the create/edit modal and `updatePlaylist()` showed a flat "Failed to save playlist" instead of the real reason. `updatePlaylist()` didn't wrap `UNIQUE constraint failed` into a friendly message the way `createPlaylist()` already did (leaked a raw SQLite error to Erich when he renamed a playlist to an existing name) — now consistent. The renderer's catch block now shows `error.message` instead of a hardcoded string.
+- **`exportPlaylistToM3U()` was completely broken**: missing `await` on the async `getPlaylistById()` call (so `playlist` was a pending Promise, and `playlist.name.replace(...)` threw a TypeError on every successful-tracks path), *and* its track query joined `playlist_tracks.track_id`, a column `addTrackToPlaylist()` never populates (only `track_path` is written) — the join always returned zero rows. Both fixed; this bug predated smart playlists entirely and would have silently broken the new auto-export feature if not caught.
+- **Deleted playlists resurrected on next app launch**: `setPlaylistFolder()` runs `importExistingM3UFiles()` on every startup, re-importing any `.m3u` file found in the Playlists folder. `deletePlaylist()` never removed its own file, so once auto-export started writing one for every playlist, deleting a playlist left a ghost file that came back as a "new" playlist on the next launch. `deletePlaylist()` now unlinks the matching `.m3u` file (best-effort, same filename pattern the export uses). One already-orphaned file (`test (Snapshot).m3u`) manually cleaned up from Erich's real Playlists folder.
+
+#### Verification
+
+No test framework in this repo — verified via `scripts/dev-verify/smart-playlists.js`, a standalone script run through Electron's bundled Node (`ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron.cmd scripts/dev-verify/smart-playlists.js`, since `better-sqlite3` is compiled against Electron's ABI, not system Node) against an in-memory database. Covers schema, AND/OR evaluation per field/operator, `getPlaylistById`/`getAllPlaylists` branching, save-as-static (including snapshot independence from later rule edits), auto-export, delete cleanup, and the two error-message fixes. All passing as of the last commit on the branch. Also live-tested by Erich against his real ~5000-track library: created multiple smart playlists (genre/year rules), confirmed track counts, badge display, save-as-static with custom naming, and playlist deletion no longer resurrecting.
+
+#### Open for next session
+
+- Branch `feature/smart-playlists` not yet merged to master — no `finishing-a-development-branch` pass run yet.
+- UX question: a lone `year is X` rule matches every genre tagged that year (correct per the engine, but produced a mixed-genre result Erich wasn't happy with on a live test with "is 1960"). Decide whether the rule builder needs guidance/guardrails here, or whether this is just "add a second rule" user education.
+
 ### Sidebar Nav Icon Overhaul + Per-Icon Accent Colors - 2026-09-14
 
 Erich flagged the collapsible sidebar nav icons as unintuitive ("those circles don't tell the user anything") and, separately, flat/monochrome with no visual polish.

@@ -1,6 +1,6 @@
 # Que-Music Project Structure
 
-**Last verified**: 2026-09-14 (full pass — every path below was checked against the actual filesystem, not carried over from an older version of this doc; added four `application/` docs that existed on disk but were missing from this map)
+**Last verified**: 2026-09-14 (full pass — every path below was checked against the actual filesystem, not carried over from an older version of this doc; added four `application/` docs that existed on disk but were missing from this map. Same day, added the new `docs/superpowers/` and `scripts/dev-verify/` folders created during the smart playlists feature.)
 
 ## Overview
 
@@ -16,7 +16,9 @@ que-music/
 ├── assets/                     # Static assets (icons, images, covers)
 ├── BAT-Files/                  # Local utility batch files (gitignored — machine-specific)
 ├── client/                     # Frontend application code (renderer process)
-├── docs/                       # Documentation — exactly two folders, see below
+├── docs/                       # Documentation, see below
+├── scripts/
+│   └── dev-verify/             # Standalone Node scripts verifying features with no test framework
 ├── server/                     # Backend services (main-process modules)
 ├── .gitignore
 ├── .prettierrc.js
@@ -36,27 +38,30 @@ que-music/
 
 ## `/docs/` — Documentation
 
-Exactly two folders. If something doesn't fit either, it probably needs its own file inside one of them rather than a new top-level folder.
+Two hand-maintained folders (`issues/`, `application/`), plus `superpowers/` — the fixed output location the Claude Code `superpowers` skill set writes design specs and implementation plans to (`brainstorming`/`writing-plans` skills). If something doesn't fit `issues/` or `application/`, it probably needs its own file inside one of them rather than a new top-level folder — `superpowers/` is the one deliberate exception, since its path is a skill convention, not a project choice.
 
 ```
 docs/
 ├── issues/
 │   ├── issues_track.md     # THE bug/feature tracker — chronological, newest first
 │   └── CHANGELOG.md        # Release notes
-└── application/
-    ├── architecture.md                     # App architecture & execution flow
-    ├── folder-structure.md                 # This file
-    ├── css-architecture.md                 # How the CSS bundle is built and ordered
-    ├── database-schema.sql                 # The real, current DB schema
-    ├── album-art.md                        # Album art resolution priority order
-    ├── visualizer.md                       # Visualizer keyboard shortcuts
-    ├── logger.md                           # Logging system usage
-    ├── packaging-guide.md                  # Electron Builder distribution guide
-    ├── electron-startup-troubleshooting.md # Common startup failure modes
-    ├── compared.md                         # Feature/polish comparison vs. Nagi (research only)
-    ├── roadmap.md                          # Where the app goes next, priority order
-    ├── layout-redesign.md                  # 4-column resizable layout spec (built 2026-09-13)
-    └── lyrics-feature.md                   # Plain-text lyrics design decision (built 2026-09-13)
+├── application/
+│   ├── architecture.md                     # App architecture & execution flow
+│   ├── folder-structure.md                 # This file
+│   ├── css-architecture.md                 # How the CSS bundle is built and ordered
+│   ├── database-schema.sql                 # The real, current DB schema
+│   ├── album-art.md                        # Album art resolution priority order
+│   ├── visualizer.md                       # Visualizer keyboard shortcuts
+│   ├── logger.md                           # Logging system usage
+│   ├── packaging-guide.md                  # Electron Builder distribution guide
+│   ├── electron-startup-troubleshooting.md # Common startup failure modes
+│   ├── compared.md                         # Feature/polish comparison vs. Nagi (research only)
+│   ├── roadmap.md                          # Where the app goes next, priority order
+│   ├── layout-redesign.md                  # 4-column resizable layout spec (built 2026-09-13)
+│   └── lyrics-feature.md                   # Plain-text lyrics design decision (built 2026-09-13)
+└── superpowers/
+    ├── specs/2026-09-14-smart-playlists-design.md   # Smart playlists design spec
+    └── plans/2026-09-14-smart-playlists.md          # Smart playlists implementation plan
 ```
 
 ---
