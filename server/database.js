@@ -1180,13 +1180,22 @@ class MusicDatabase {
     }
 
     const column = this._smartFieldColumn(field);
+    const isTextField = ['artist', 'album', 'genre'].includes(field);
 
     switch (operator) {
       case 'is':
-        return { sql: `${column} = ?`, params: [value] };
+        // Text fields compare case-insensitively — a user typing "classical"
+        // should match a track tagged "Classical"; SQLite's `=` is case-sensitive
+        // by default. Numeric/date fields keep an exact match.
+        return isTextField
+          ? { sql: `${column} = ? COLLATE NOCASE`, params: [value] }
+          : { sql: `${column} = ?`, params: [value] };
       case 'is not':
-        return { sql: `${column} != ?`, params: [value] };
+        return isTextField
+          ? { sql: `${column} != ? COLLATE NOCASE`, params: [value] }
+          : { sql: `${column} != ?`, params: [value] };
       case 'contains':
+        // LIKE is already case-insensitive for ASCII in SQLite by default.
         return { sql: `${column} LIKE ?`, params: [`%${value}%`] };
       case 'greater than':
         return { sql: `${column} > ?`, params: [Number(value)] };

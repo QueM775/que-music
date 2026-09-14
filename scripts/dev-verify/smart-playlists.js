@@ -97,6 +97,16 @@ async function run() {
 
   console.log('✅ updatePlaylist match_mode persistence check passed');
 
+  // --- text field "is" must be case-insensitive (real bug found live: typing
+  // "classical" didn't match a track tagged "Classical") ---
+  insertTrack.run('/d.mp3', 'd.mp3', 'D', 'Artist D', 'Album D', 2000, 'Classical', 0, now);
+  const caseTest = db.createPlaylist({ name: 'Case Insensitive Genre', type: 'smart', match_mode: 'all' });
+  db.addSmartPlaylistRules(caseTest.id, [{ field: 'genre', operator: 'is', value: 'classical' }]);
+  const caseResult = (await db.getSmartPlaylistTracks(caseTest.id)).map((t) => t.path);
+  assert.deepStrictEqual(caseResult, ['/d.mp3'], `case-insensitive "is" returned ${JSON.stringify(caseResult)}`);
+
+  console.log('✅ case-insensitive text match check passed');
+
   db.db.close();
 }
 
