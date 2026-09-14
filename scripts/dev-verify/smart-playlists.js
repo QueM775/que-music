@@ -146,6 +146,18 @@ async function run() {
 
   console.log('✅ updatePlaylist duplicate-name error message check passed');
 
+  // --- deletePlaylist() must remove its auto-exported .m3u file so it can't
+  // be resurrected by importExistingM3UFiles() on the next app launch ---
+  const deleteTestPlaylist = db.createPlaylist({ name: 'Delete Me' });
+  await db.addTrackToPlaylist(deleteTestPlaylist.id, rockOld.lastInsertRowid);
+  const deleteTestM3U = path.join(tmpDir, 'Delete Me.m3u');
+  assert(fs.existsSync(deleteTestM3U), 'expected the auto-exported file to exist before delete');
+
+  await db.deletePlaylist(deleteTestPlaylist.id);
+  assert(!fs.existsSync(deleteTestM3U), 'deletePlaylist() left its .m3u file behind');
+
+  console.log('✅ deletePlaylist M3U cleanup check passed');
+
   db.db.close();
 }
 

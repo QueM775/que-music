@@ -1529,6 +1529,11 @@ class MusicDatabase {
   }
 
   async deletePlaylist(playlistId) {
+    // Look this up before the delete so we still have the name to compute
+    // the .m3u filename afterward — same safeName pattern exportPlaylistToM3U
+    // uses when it writes the file in the first place.
+    const playlistBeforeDelete = this.db.prepare('SELECT name FROM playlists WHERE id = ?').get(playlistId);
+
     try {
       this.db.prepare('BEGIN').run();
 
@@ -1540,6 +1545,24 @@ class MusicDatabase {
 
       this.db.prepare('COMMIT').run();
       console.log(`📋 Deleted playlist ${playlistId}`);
+
+      // Best-effort cleanup of the auto-exported .m3u file. Without this, a
+      // deleted playlist's file stays on disk and setPlaylistFolder()'s
+      // startup scan (importExistingM3UFiles()) resurrects it as a "new"
+      // playlist on the next launch — exactly the bug Erich hit live.
+      if (this.playlistFolder && playlistBeforeDelete) {
+        const safeName = playlistBeforeDelete.name.replace(/[<>:"/\\|?*]/g, '_');
+        const filePath = path.join(this.playlistFolder, safeName + '.m3u');
+        try {
+          await fs.unlink(filePath);
+          console.log(`🗑️ Removed M3U file for deleted playlist: ${filePath}`);
+        } catch (unlinkErr) {
+          if (unlinkErr.code !== 'ENOENT') {
+            console.warn(`⚠️ Could not remove M3U file for deleted playlist:`, unlinkErr.message);
+          }
+        }
+      }
+
       return { success: true, deleted: result.changes > 0 };
     } catch (err) {
       try {
