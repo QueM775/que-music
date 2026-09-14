@@ -779,6 +779,39 @@ ipcMain.handle('playlist:delete', async (event, playlistId) => {
   }
 });
 
+// SAVE A SMART PLAYLIST'S CURRENT MATCHES AS A NEW STATIC PLAYLIST
+ipcMain.handle('playlist:save-smart-as-static', async (event, playlistId) => {
+  try {
+    const snapshot = await musicDB.saveSmartPlaylistAsStatic(playlistId);
+    return snapshot;
+  } catch (error) {
+    console.error('❌ Error saving smart playlist as static:', error);
+    throw error;
+  }
+});
+
+// REPLACE A SMART PLAYLIST'S RULES (used by the rule builder's edit flow)
+ipcMain.handle('playlist:set-smart-rules', async (event, { playlistId, rules }) => {
+  try {
+    const result = musicDB.addSmartPlaylistRules(playlistId, rules);
+    return result;
+  } catch (error) {
+    console.error('❌ Error setting smart playlist rules:', error);
+    throw error;
+  }
+});
+
+// GET A SMART PLAYLIST'S RULES (used by the rule builder's edit flow)
+ipcMain.handle('playlist:get-smart-rules', async (event, playlistId) => {
+  try {
+    const rules = musicDB.getSmartPlaylistRules(playlistId);
+    return rules;
+  } catch (error) {
+    console.error('❌ Error getting smart playlist rules:', error);
+    throw error;
+  }
+});
+
 // Database debug IPC handler
 ipcMain.handle('debug:playlist-tables', async (event, playlistId) => {
   try {
