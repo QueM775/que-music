@@ -27,6 +27,40 @@ async function run() {
 
   console.log('✅ Task 1: schema checks passed');
 
+  // --- Task 2: evaluation engine ---
+  const now = new Date().toISOString();
+  const insertTrack = db.db.prepare(`
+    INSERT INTO tracks (path, filename, title, artist, album, year, genre, play_count, date_added)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const rockOld = insertTrack.run('/a.mp3', 'a.mp3', 'A', 'Artist A', 'Album A', 1990, 'Rock', 2, now);
+  const rockNew = insertTrack.run('/b.mp3', 'b.mp3', 'B', 'Artist B', 'Album B', 2020, 'Rock', 20, now);
+  const jazz = insertTrack.run('/c.mp3', 'c.mp3', 'C', 'Artist C', 'Album C', 2020, 'Jazz', 20, now);
+  db.db.prepare('INSERT INTO favorites (track_id) VALUES (?)').run(rockNew.lastInsertRowid);
+
+  const smartAll = db.createPlaylist({ name: 'Rock AND Popular', type: 'smart', match_mode: 'all' });
+  db.addSmartPlaylistRules(smartAll.id, [
+    { field: 'genre', operator: 'is', value: 'Rock' },
+    { field: 'play_count', operator: 'greater than', value: '10' },
+  ]);
+  const allResult = (await db.getSmartPlaylistTracks(smartAll.id)).map((t) => t.path).sort();
+  assert.deepStrictEqual(allResult, ['/b.mp3'], `match_mode 'all' returned ${JSON.stringify(allResult)}`);
+
+  const smartAny = db.createPlaylist({ name: 'Rock OR Favorite', type: 'smart', match_mode: 'any' });
+  db.addSmartPlaylistRules(smartAny.id, [
+    { field: 'genre', operator: 'is', value: 'Rock' },
+    { field: 'favorite', operator: 'is', value: 'true' },
+  ]);
+  const anyResult = (await db.getSmartPlaylistTracks(smartAny.id)).map((t) => t.path).sort();
+  assert.deepStrictEqual(anyResult, ['/a.mp3', '/b.mp3'], `match_mode 'any' returned ${JSON.stringify(anyResult)}`);
+
+  const smartContains = db.createPlaylist({ name: 'Artist contains B', type: 'smart', match_mode: 'all' });
+  db.addSmartPlaylistRules(smartContains.id, [{ field: 'artist', operator: 'contains', value: 'B' }]);
+  const containsResult = (await db.getSmartPlaylistTracks(smartContains.id)).map((t) => t.path);
+  assert.deepStrictEqual(containsResult, ['/b.mp3']);
+
+  console.log('✅ Task 2: evaluation engine checks passed');
+
   db.db.close();
 }
 

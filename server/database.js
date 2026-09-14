@@ -1076,15 +1076,21 @@ class MusicDatabase {
 
   createPlaylist(playlistData) {
     try {
-      const { name, description = '' } = playlistData;
+      const { name, description = '', type = 'static', match_mode = null, rules = null } = playlistData;
 
-      const stmt = this.db.prepare('INSERT INTO playlists (name, description) VALUES (?, ?)');
-      const result = stmt.run(name, description);
+      const stmt = this.db.prepare(
+        'INSERT INTO playlists (name, description, type, match_mode) VALUES (?, ?, ?, ?)'
+      );
+      const result = stmt.run(name, description, type, match_mode);
       const playlistId = result.lastInsertRowid;
+
+      if (type === 'smart' && rules) {
+        this.addSmartPlaylistRules(playlistId, rules);
+      }
 
       // Get the created playlist
       const row = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
-      console.log(`📋 Created playlist: ${name}`);
+      console.log(`📋 Created playlist: ${name} (${type})`);
       return row;
     } catch (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
@@ -1095,6 +1101,146 @@ class MusicDatabase {
       console.error('❌ Error creating playlist:', err);
       throw err;
     }
+  }
+
+  // ============================================================================
+  // SMART PLAYLISTS
+  // ============================================================================
+
+  // Replaces all rules for a smart playlist. Called both on creation and on
+  // edit-save from the rule builder UI — always a full replace, no partial
+  // patch, since the rule builder always submits its whole rule set.
+  addSmartPlaylistRules(playlistId, rules) {
+    const deleteExisting = this.db.prepare('DELETE FROM smart_playlist_rules WHERE playlist_id = ?');
+    const insertRule = this.db.prepare(`
+      INSERT INTO smart_playlist_rules (playlist_id, field, operator, value, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const doInsert = this.db.transaction((playlistId, rules) => {
+      deleteExisting.run(playlistId);
+      rules.forEach((rule, index) => {
+        insertRule.run(playlistId, rule.field, rule.operator, String(rule.value), index);
+      });
+    });
+
+    doInsert(playlistId, rules);
+    console.log(`🧠 Set ${rules.length} smart playlist rule(s) for playlist ${playlistId}`);
+    return { success: true, ruleCount: rules.length };
+  }
+
+  getSmartPlaylistRules(playlistId) {
+    return this.db
+      .prepare(
+        'SELECT field, operator, value FROM smart_playlist_rules WHERE playlist_id = ? ORDER BY sort_order ASC'
+      )
+      .all(playlistId);
+  }
+
+  // Field -> real column expression. 'favorite' isn't a tracks column, so it's
+  // handled as a subquery membership test rather than a plain comparison.
+  _smartFieldColumn(field) {
+    const textColumns = { artist: 't.artist', album: 't.album', genre: 't.genre' };
+    const numberColumns = { year: 't.year', play_count: 't.play_count' };
+    if (textColumns[field]) return textColumns[field];
+    if (numberColumns[field]) return numberColumns[field];
+    if (field === 'date_added') return 't.date_added';
+    throw new Error(`Unknown smart playlist field: ${field}`);
+  }
+
+  // Converts one rule row into a { sql, params } WHERE fragment. Every value
+  // is bound as a parameter — never string-concatenated into the query.
+  _smartRuleToFragment(rule) {
+    const { field, operator, value } = rule;
+
+    if (field === 'favorite') {
+      const wantFavorite = value === 'true' || value === true;
+      const sub = 'EXISTS (SELECT 1 FROM favorites f WHERE f.track_id = t.id)';
+      if (operator === 'is') {
+        return wantFavorite ? { sql: sub, params: [] } : { sql: `NOT ${sub}`, params: [] };
+      }
+      if (operator === 'is not') {
+        return wantFavorite ? { sql: `NOT ${sub}`, params: [] } : { sql: sub, params: [] };
+      }
+      throw new Error(`Unsupported operator "${operator}" for field "favorite"`);
+    }
+
+    const column = this._smartFieldColumn(field);
+
+    switch (operator) {
+      case 'is':
+        return { sql: `${column} = ?`, params: [value] };
+      case 'is not':
+        return { sql: `${column} != ?`, params: [value] };
+      case 'contains':
+        return { sql: `${column} LIKE ?`, params: [`%${value}%`] };
+      case 'greater than':
+        return { sql: `${column} > ?`, params: [Number(value)] };
+      case 'less than':
+        return { sql: `${column} < ?`, params: [Number(value)] };
+      case 'between': {
+        const [low, high] = String(value).split('|');
+        return { sql: `${column} BETWEEN ? AND ?`, params: [Number(low), Number(high)] };
+      }
+      case 'before':
+        return { sql: `${column} < ?`, params: [value] };
+      case 'after':
+        return { sql: `${column} > ?`, params: [value] };
+      case 'in the last N days':
+        return { sql: `${column} >= datetime('now', ?)`, params: [`-${Number(value)} days`] };
+      default:
+        throw new Error(`Unsupported operator "${operator}" for field "${field}"`);
+    }
+  }
+
+  // Shared by getSmartPlaylistTracks() and getAllPlaylists()'s live track_count.
+  buildSmartPlaylistWhereClause(rules, matchMode) {
+    if (!rules || rules.length === 0) {
+      return { sql: '0 = 1', params: [] }; // no rules => matches nothing
+    }
+    const fragments = rules.map((rule) => this._smartRuleToFragment(rule));
+    const joiner = matchMode === 'any' ? ' OR ' : ' AND ';
+    const sql = fragments.map((f) => `(${f.sql})`).join(joiner);
+    const params = fragments.flatMap((f) => f.params);
+    return { sql, params };
+  }
+
+  async getSmartPlaylistTracks(playlistId) {
+    const rules = this.getSmartPlaylistRules(playlistId);
+    const playlist = this.db.prepare('SELECT match_mode FROM playlists WHERE id = ?').get(playlistId);
+    const { sql, params } = this.buildSmartPlaylistWhereClause(rules, playlist?.match_mode);
+
+    const query = `
+      SELECT
+        t.id, t.path, t.filename, t.title, t.artist, t.album, t.year,
+        t.genre, t.duration, t.format, t.filesize, t.play_count
+      FROM tracks t
+      WHERE ${sql}
+      ORDER BY t.artist, t.album, t.title
+    `;
+
+    return this.db.prepare(query).all(...params);
+  }
+
+  async saveSmartPlaylistAsStatic(playlistId) {
+    const source = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
+    if (!source || source.type !== 'smart') {
+      throw new Error(`Playlist ${playlistId} is not a smart playlist`);
+    }
+
+    const tracks = await this.getSmartPlaylistTracks(playlistId);
+    const snapshot = this.createPlaylist({
+      name: `${source.name} (Snapshot)`,
+      description: `Snapshot of "${source.name}" — ${tracks.length} track(s), saved ${new Date().toISOString()}`,
+      type: 'static',
+    });
+
+    for (const track of tracks) {
+      await this.addTrackToPlaylist(snapshot.id, track.id);
+    }
+
+    console.log(`📸 Saved smart playlist "${source.name}" as static playlist "${snapshot.name}"`);
+    return this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(snapshot.id);
   }
 
   // ============================================================================
