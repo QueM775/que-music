@@ -35,3 +35,6 @@ BAT-Files/
 .cache/
 .temp/
 *.tsbuildinfo
+
+# Brainstorming visual companion (mockup scratch files)
+.superpowers/

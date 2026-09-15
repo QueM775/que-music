@@ -57,6 +57,9 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     getLayout: () => ipcRenderer.invoke('settings:get-layout'),
     setLayout: (layoutPrefs) => ipcRenderer.invoke('settings:set-layout', layoutPrefs),
 
+    getEqualizer: () => ipcRenderer.invoke('settings:get-equalizer'),
+    setEqualizer: (equalizerState) => ipcRenderer.invoke('settings:set-equalizer', equalizerState),
+
     getLogLevel: () => ipcRenderer.invoke('settings:get-log-level'),
     setLogLevel: (level) => ipcRenderer.invoke('settings:set-log-level', level),
   },
@@ -290,6 +293,18 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
      * LRCLIB on demand). Returns { lyrics, source, error? }.
      */
     getForTrack: (trackPath) => ipcRenderer.invoke('lyrics:get-for-track', trackPath),
+  },
+
+  // ============================================================================
+  // REPLAYGAIN (loudness normalization) — see LYRICS above for the sibling
+  // on-demand-fetch pattern this mirrors.
+  // ============================================================================
+  replaygain: {
+    /**
+     * Persists a lazily-computed ReplayGain dB value for a track that had no
+     * embedded tag. See docs/superpowers/specs/2026-09-15-equalizer-design.md.
+     */
+    updateTrack: (trackPath, gain) => ipcRenderer.invoke('replaygain:update-track', trackPath, gain),
   },
 
   // Listen for cover fetcher progress events

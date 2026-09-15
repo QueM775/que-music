@@ -699,6 +699,26 @@
                   <path d="M3 21h18"></path>
                 </svg>
               </button>
+              <button class="icon-btn" id="equalizerBtn" title="Equalizer">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="4" y1="21" x2="4" y2="14"></line>
+                  <line x1="4" y1="10" x2="4" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12" y2="3"></line>
+                  <line x1="20" y1="21" x2="20" y2="16"></line>
+                  <line x1="20" y1="12" x2="20" y2="3"></line>
+                  <line x1="1" y1="14" x2="7" y2="14"></line>
+                  <line x1="9" y1="8" x2="15" y2="8"></line>
+                  <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -1098,6 +1118,47 @@
       </div>
     </div>
 
+    <div class="modal-overlay equalizer-modal" id="equalizerModal" style="display: none">
+      <div class="modal-content equalizer-modal-content">
+        <div class="modal-header">
+          <h2>Equalizer</h2>
+          <button class="modal-close" id="closeEqualizerModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="equalizer-preset-row">
+            <label for="equalizerPresetSelect">Preset</label>
+            <select id="equalizerPresetSelect" class="form-select">
+              <option value="Custom">Custom</option>
+              <option value="Flat">Flat</option>
+              <option value="Rock">Rock</option>
+              <option value="Pop">Pop</option>
+              <option value="Bass Boost">Bass Boost</option>
+              <option value="Vocal">Vocal</option>
+            </select>
+          </div>
+
+          <div class="equalizer-bands" id="equalizerBands">
+            <!-- 5 band sliders rendered by equalizer-ui.js -->
+          </div>
+          <div class="equalizer-scale-labels">
+            <span>+12dB</span>
+            <span>-12dB</span>
+          </div>
+
+          <div class="equalizer-normalization-row">
+            <label for="equalizerNormalizationToggle">
+              <input type="checkbox" id="equalizerNormalizationToggle" checked />
+              Loudness normalization
+            </label>
+            <span title="ReplayGain-accurate — reads embedded tags, computes and caches the rest">ReplayGain</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="equalizerClose">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Load modules in the correct order (deferred to prevent flashing) -->
     <script src="../../simple-logger.js" defer></script>
     <script src="../scripts/window-controls.js" defer></script>
@@ -1108,6 +1169,7 @@
     <script src="../scripts/help-manager.js" defer></script>
     <script src="../scripts/cover-fetcher-ui.js" defer></script>
     <script src="../scripts/lyrics-ui.js" defer></script>
+    <script src="../scripts/equalizer-ui.js" defer></script>
     <script src="../scripts/layout-resizer.js" defer></script>
     <script src="../scripts/main-app.js" defer></script>
     <script src="../scripts/main-window.js" defer></script>

@@ -148,6 +148,13 @@ class MusicScanner {
       const embeddedLyrics =
         musicMetadata?.common?.lyrics?.[0] || metadata?.unsynchronisedLyrics?.text || null;
 
+      // ReplayGain, for loudness normalization (docs/superpowers/specs/2026-09-15-equalizer-design.md).
+      // Prefer the track-level tag; fall back to album-level if that's all the file has.
+      // music-metadata exposes these as { dB, ratio } objects, not bare numbers.
+      const replaygainGain = this.extractReplayGainDb(
+        musicMetadata?.common?.replaygain_track_gain ?? musicMetadata?.common?.replaygain_album_gain
+      );
+
       const trackData = {
         path: filePath,
         filename: path.basename(filePath),
@@ -170,6 +177,7 @@ class MusicScanner {
         lyrics: embeddedLyrics,
         lyricsSource: embeddedLyrics ? 'embedded' : null,
         lyricsFetchedAt: embeddedLyrics ? new Date().toISOString() : null,
+        replaygainGain,
       };
 
       return trackData;
@@ -199,6 +207,17 @@ class MusicScanner {
         return null;
       }
     }
+  }
+
+  // music-metadata's replaygain_track_gain/replaygain_album_gain common tags come
+  // through as { dB, ratio } objects (or occasionally a bare number, depending on
+  // the container/tag format) — normalize either shape to a plain number, or null
+  // if the tag isn't present at all.
+  extractReplayGainDb(tag) {
+    if (tag == null) return null;
+    if (typeof tag === 'number') return tag;
+    if (typeof tag.dB === 'number') return tag.dB;
+    return null;
   }
 
   parseFilename(filename) {

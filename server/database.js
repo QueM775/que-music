@@ -22,6 +22,8 @@ class MusicDatabase {
     // Heal any existing on-disk DB file that predates the lyrics columns
     this.migrateAddLyricsColumns();
     this.migrateAddSmartPlaylistColumns();
+    this.migrateAddReplayGainColumn();
+    this.migrateFixArtistUpsertTriggers();
   }
 
   // ============================================================================
@@ -58,7 +60,8 @@ class MusicDatabase {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       lyrics TEXT,
       lyrics_source TEXT,
-      lyrics_fetched_at DATETIME
+      lyrics_fetched_at DATETIME,
+      replaygain_gain REAL
     );
 
     CREATE TABLE IF NOT EXISTS artists (
@@ -177,12 +180,23 @@ class MusicDatabase {
       WHERE id = NEW.track_id;
     END;
 
+    -- NOTE: these use "INSERT ... SELECT ... WHERE NOT EXISTS" instead of the more
+    -- obvious "INSERT OR IGNORE", deliberately. When a trigger fires as part of the
+    -- UPDATE action of an outer "INSERT ... ON CONFLICT DO UPDATE" (upsert) statement,
+    -- better-sqlite3/SQLite does NOT suppress a UNIQUE violation from an "OR IGNORE"
+    -- inside that trigger body — it throws anyway, even though the exact same OR
+    -- IGNORE works fine from a plain UPDATE statement. Found 2026-09-15 while adding
+    -- equalizer/ReplayGain persistence (addTracks() is an upsert and calling it twice
+    -- on an existing artist crashed every time) — see
+    -- docs/superpowers/specs/2026-09-15-equalizer-design.md and scripts/dev-verify/
+    -- equalizer-replaygain.js. This WHERE NOT EXISTS form sidesteps conflict
+    -- resolution entirely, so it isn't subject to the same quirk.
     CREATE TRIGGER IF NOT EXISTS update_artist_track_count_insert
     AFTER INSERT ON tracks
     WHEN NEW.artist IS NOT NULL
     BEGIN
-      INSERT OR IGNORE INTO artists (name) VALUES (NEW.artist);
-      UPDATE artists 
+      INSERT INTO artists (name) SELECT NEW.artist WHERE NOT EXISTS (SELECT 1 FROM artists WHERE name = NEW.artist);
+      UPDATE artists
       SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = NEW.artist)
       WHERE name = NEW.artist;
     END;
@@ -192,7 +206,7 @@ class MusicDatabase {
     BEGIN
       UPDATE artists SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = OLD.artist)
       WHERE name = OLD.artist;
-      INSERT OR IGNORE INTO artists (name) VALUES (NEW.artist);
+      INSERT INTO artists (name) SELECT NEW.artist WHERE NEW.artist IS NOT NULL AND NOT EXISTS (SELECT 1 FROM artists WHERE name = NEW.artist);
       UPDATE artists SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = NEW.artist)
       WHERE name = NEW.artist;
     END;
@@ -310,6 +324,53 @@ class MusicDatabase {
     }
   }
 
+  // Heals existing on-disk DBs that predate the equalizer/loudness-normalization
+  // feature — same guarded ALTER TABLE pattern as migrateAddLyricsColumns().
+  // Safe to run on every launch. See docs/superpowers/specs/2026-09-15-equalizer-design.md.
+  migrateAddReplayGainColumn() {
+    try {
+      this.db.prepare('ALTER TABLE tracks ADD COLUMN replaygain_gain REAL').run();
+      console.log('✅ Added tracks.replaygain_gain column');
+    } catch (err) {
+      if (!/duplicate column/i.test(err.message)) {
+        throw err;
+      }
+    }
+  }
+
+  // Heals existing on-disk DBs created before the 2026-09-15 fix to the artist
+  // trigger's UNIQUE-violation-under-upsert bug (see the comment above the trigger
+  // definitions in initializeCompleteSchema()). CREATE TRIGGER IF NOT EXISTS never
+  // touches a trigger that already exists, so a plain re-run of the schema SQL isn't
+  // enough on an existing DB file — the broken "OR IGNORE" version has to be dropped
+  // and recreated. Safe to run on every launch.
+  migrateFixArtistUpsertTriggers() {
+    this.db.exec(`
+      DROP TRIGGER IF EXISTS update_artist_track_count_insert;
+      CREATE TRIGGER update_artist_track_count_insert
+      AFTER INSERT ON tracks
+      WHEN NEW.artist IS NOT NULL
+      BEGIN
+        INSERT INTO artists (name) SELECT NEW.artist WHERE NOT EXISTS (SELECT 1 FROM artists WHERE name = NEW.artist);
+        UPDATE artists
+        SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = NEW.artist)
+        WHERE name = NEW.artist;
+      END;
+
+      DROP TRIGGER IF EXISTS update_artist_track_count_update;
+      CREATE TRIGGER update_artist_track_count_update
+      AFTER UPDATE OF artist ON tracks
+      BEGIN
+        UPDATE artists SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = OLD.artist)
+        WHERE name = OLD.artist;
+        INSERT INTO artists (name) SELECT NEW.artist WHERE NEW.artist IS NOT NULL AND NOT EXISTS (SELECT 1 FROM artists WHERE name = NEW.artist);
+        UPDATE artists SET track_count = (SELECT COUNT(*) FROM tracks WHERE artist = NEW.artist)
+        WHERE name = NEW.artist;
+      END;
+    `);
+    console.log('✅ Fixed artist upsert triggers (2026-09-15 UNIQUE-under-upsert bug)');
+  }
+
   async validateSchema() {
     try {
       const expectedTables = [
@@ -362,10 +423,14 @@ class MusicDatabase {
     // the existing id and those columns untouched. lyrics/lyrics_source/lyrics_fetched_at
     // use COALESCE so a rescan that finds no embedded lyrics this time doesn't blow away
     // lyrics already cached from a prior embedded read or LRCLIB fetch.
+    // replaygain_gain uses COALESCE same as lyrics: a rescan that finds no embedded
+    // REPLAYGAIN_TRACK_GAIN tag this time shouldn't blow away a value already cached
+    // from a prior scan's tag read OR from the lazy on-first-play compute path (see
+    // updateTrackReplayGain() below and docs/superpowers/specs/2026-09-15-equalizer-design.md).
     const stmt = this.db.prepare(`
       INSERT INTO tracks
-      (path, filename, title, artist, album, year, genre, duration, filesize, format, bitrate, lyrics, lyrics_source, lyrics_fetched_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      (path, filename, title, artist, album, year, genre, duration, filesize, format, bitrate, lyrics, lyrics_source, lyrics_fetched_at, replaygain_gain, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(path) DO UPDATE SET
         filename = excluded.filename,
         title = excluded.title,
@@ -380,6 +445,7 @@ class MusicDatabase {
         lyrics = COALESCE(excluded.lyrics, tracks.lyrics),
         lyrics_source = COALESCE(excluded.lyrics_source, tracks.lyrics_source),
         lyrics_fetched_at = COALESCE(excluded.lyrics_fetched_at, tracks.lyrics_fetched_at),
+        replaygain_gain = COALESCE(excluded.replaygain_gain, tracks.replaygain_gain),
         updated_at = CURRENT_TIMESTAMP
     `);
 
@@ -403,7 +469,8 @@ class MusicDatabase {
             track.bitrate || null,
             track.lyrics || null,
             track.lyricsSource || null,
-            track.lyricsFetchedAt || null
+            track.lyricsFetchedAt || null,
+            track.replaygainGain ?? null
           );
 
           if ((i + 1) % 100 === 0 || i + 1 === tracks.length) {
@@ -493,6 +560,24 @@ class MusicDatabase {
       return { success: true, changes: result.changes };
     } catch (err) {
       console.error('❌ Error updating track lyrics:', err);
+      throw err;
+    }
+  }
+
+  // Records a lazily-computed ReplayGain value the first time a tag-less track is
+  // played (see docs/superpowers/specs/2026-09-15-equalizer-design.md). A track with
+  // an embedded REPLAYGAIN_TRACK_GAIN tag gets its value from addTracks() at scan
+  // time instead and never needs this path.
+  updateTrackReplayGain(trackPath, gain) {
+    try {
+      const result = this.db
+        .prepare(
+          `UPDATE tracks SET replaygain_gain = ?, updated_at = CURRENT_TIMESTAMP WHERE path = ?`
+        )
+        .run(gain, trackPath);
+      return { success: true, changes: result.changes };
+    } catch (err) {
+      console.error('❌ Error updating track replaygain_gain:', err);
       throw err;
     }
   }

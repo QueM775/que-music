@@ -74,6 +74,7 @@ class QueMusicApp {
     this.setupKeyboardShortcuts();
 
     await this.coreAudio.loadPlayerState();
+    await this.coreAudio.loadEqualizerState();
 
     await this.playlistRenderer.initializePlaylists();
 

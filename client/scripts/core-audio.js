@@ -1,5 +1,17 @@
 // core-audio.js - Audio engine, playback controls, and visualizer
 
+// Fixed 5-band EQ presets, hardcoded per docs/superpowers/specs/2026-09-15-equalizer-design.md
+// (no user-defined/saved custom presets in v1). Band order matches EQ_BAND_FREQUENCIES.
+const EQ_PRESETS = {
+  Flat: [0, 0, 0, 0, 0],
+  Rock: [4, 2, -2, 3, 4],
+  Pop: [-1, 2, 4, 2, -1],
+  'Bass Boost': [7, 5, 0, 0, 0],
+  Vocal: [-2, -1, 4, 4, 1],
+};
+
+const EQ_BAND_FREQUENCIES = [60, 250, 1000, 4000, 12000];
+
 class CoreAudio {
   constructor(app) {
     this.app = app;
@@ -38,6 +50,16 @@ class CoreAudio {
     this.dataArray = null;
     this.visualizerAnimationId = null;
 
+    // EQUALIZER + LOUDNESS NORMALIZATION (docs/superpowers/specs/2026-09-15-equalizer-design.md)
+    // One global EQ curve + normalization toggle, same scope as `volume` above.
+    this.eqBands = []; // 5 BiquadFilterNode, built once in setupAudioContext()
+    this.eqGains = [0, 0, 0, 0, 0]; // dB per band, -12..12
+    this.eqActivePreset = 'Flat';
+    this.normalizationGain = null; // GainNode, normalization stage ahead of the EQ chain
+    this.normalizationEnabled = true;
+    this.currentTrackReplayGainDb = null; // raw dB for the currently loaded track, or null if unknown
+    this.eqSaveTimeout = null;
+
     this.app.logger.debug(' CoreAudio initialized');
   }
 
@@ -69,6 +91,14 @@ class CoreAudio {
     this.updateFavoriteButton(false);
 
     this.app.logger.info(' Favorites and tracking fully initialized');
+
+    // Build the permanent audio graph now rather than waiting for the visualizer
+    // to be toggled on (docs/superpowers/specs/2026-09-15-equalizer-design.md). The
+    // context itself may come up 'suspended' under autoplay policy — that's fine,
+    // the existing playHandler already resumes it on the audio element's 'play' event.
+    this.setupAudioContext().catch((error) => {
+      this.app.logger.error('❌ Failed to build permanent audio graph:', error);
+    });
   }
 
   setupAudioEvents() {
@@ -297,6 +327,14 @@ class CoreAudio {
         this.audioPlayer.removeEventListener('error', onError);
         this.audioPlayer.removeEventListener('loadstart', onLoadStart);
         this.app.logger.debug(' Track ready to play');
+
+        // Loudness normalization for the newly loaded track (docs/superpowers/specs/
+        // 2026-09-15-equalizer-design.md). Fire-and-forget: doesn't block playback,
+        // applies live once resolved.
+        this.applyReplayGainForTrack(songPath).catch((error) => {
+          this.app.logger.warn('ReplayGain apply failed', { songPath, error: error.message });
+        });
+
         resolve();
       };
 
@@ -1229,6 +1267,183 @@ class CoreAudio {
   }
 
   // ========================================
+  // EQUALIZER + LOUDNESS NORMALIZATION
+  // See docs/superpowers/specs/2026-09-15-equalizer-design.md
+  // ========================================
+
+  // Sets one band's gain (dB, clamped ±12) and switches the active preset to
+  // "Custom" — called from equalizer-ui.js when the user drags a slider.
+  setBandGain(bandIndex, dB) {
+    if (!this.eqBands[bandIndex]) return;
+    const clamped = Math.max(-12, Math.min(12, Number(dB) || 0));
+    this.eqGains[bandIndex] = clamped;
+    this.eqBands[bandIndex].gain.value = clamped;
+    this.eqActivePreset = 'Custom';
+    this.updateEqualizerState();
+  }
+
+  // Applies a named preset from EQ_PRESETS to all 5 bands at once.
+  applyPreset(name) {
+    const preset = EQ_PRESETS[name];
+    if (!preset) return;
+    preset.forEach((dB, i) => {
+      this.eqGains[i] = dB;
+      if (this.eqBands[i]) {
+        this.eqBands[i].gain.value = dB;
+      }
+    });
+    this.eqActivePreset = name;
+    this.updateEqualizerState();
+  }
+
+  // Re-applies the currently stored band gains to the live filter nodes — used
+  // when the graph is (re)built after settings were already loaded.
+  applyEqGainsToFilters() {
+    this.eqGains.forEach((dB, i) => {
+      if (this.eqBands[i]) {
+        this.eqBands[i].gain.value = dB;
+      }
+    });
+  }
+
+  setNormalizationEnabled(enabled) {
+    this.normalizationEnabled = !!enabled;
+    this.applyReplayGainGainValue(this.currentTrackReplayGainDb);
+    this.updateEqualizerState();
+  }
+
+  getEqualizerState() {
+    return {
+      bands: [...this.eqGains],
+      activePreset: this.eqActivePreset,
+      normalizationEnabled: this.normalizationEnabled,
+    };
+  }
+
+  // Converts a dB offset into the normalization GainNode's linear gain value and
+  // applies it — no-op (unity gain) if normalization is off or the value is unknown.
+  applyReplayGainGainValue(gainDb) {
+    this.currentTrackReplayGainDb = gainDb;
+    if (!this.normalizationGain) return;
+
+    if (!this.normalizationEnabled || gainDb == null) {
+      this.normalizationGain.gain.value = 1;
+      return;
+    }
+
+    const clampedDb = Math.max(-12, Math.min(12, gainDb));
+    this.normalizationGain.gain.value = Math.pow(10, clampedDb / 20);
+  }
+
+  // Looks up (or lazily computes) ReplayGain for the track that just loaded and
+  // applies it live. Tag-based values come from the scanner (server/music-scanner.js);
+  // tag-less tracks get computed here on first play and cached via IPC so this only
+  // ever runs once per track.
+  async applyReplayGainForTrack(songPath) {
+    try {
+      const track = await window.queMusicAPI.database.getTrackByPath(songPath);
+      const taggedGain =
+        track && typeof track.replaygain_gain === 'number' ? track.replaygain_gain : null;
+
+      if (taggedGain != null) {
+        this.applyReplayGainGainValue(taggedGain);
+        return;
+      }
+
+      // No cached value yet — play unnormalized for now, compute in the background.
+      this.applyReplayGainGainValue(null);
+      const computed = await this.computeReplayGain(songPath);
+
+      // Only apply/persist if the user hasn't already moved on to a different track.
+      if (computed != null && this.currentTrack === songPath) {
+        this.applyReplayGainGainValue(computed);
+        window.queMusicAPI.replaygain.updateTrack(songPath, computed).catch((error) => {
+          this.app.logger.warn('Failed to persist computed ReplayGain', { songPath, error: error.message });
+        });
+      }
+    } catch (error) {
+      this.app.logger.warn('applyReplayGainForTrack failed', { songPath, error: error.message });
+    }
+  }
+
+  // Approximate loudness measurement for tracks with no embedded ReplayGain tag:
+  // decodes the file, measures average RMS level, and computes the gain needed to
+  // bring it to a rough reference level. This is NOT full ITU-R BS.1770 K-weighted
+  // LUFS measurement (that's substantially more complex) — a deliberate, documented
+  // approximation. Tag-based values (the common case for a tagged library) are exact.
+  async computeReplayGain(songPath) {
+    try {
+      const normalizedPath = songPath.replace(/\\/g, '/').trim();
+      const fileUrl = `file:///${encodeURI(normalizedPath).replace(/\s/g, '%20')}`;
+
+      const response = await fetch(fileUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+      let sumSquares = 0;
+      let sampleCount = 0;
+      const stride = 50; // sampled, not every frame — an average-level estimate doesn't need full resolution
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+        const data = audioBuffer.getChannelData(ch);
+        for (let i = 0; i < data.length; i += stride) {
+          sumSquares += data[i] * data[i];
+          sampleCount++;
+        }
+      }
+
+      const rms = Math.sqrt(sumSquares / Math.max(sampleCount, 1));
+      const measuredDb = 20 * Math.log10(rms || 1e-6);
+      const targetDb = -14; // rough streaming-loudness reference level
+
+      return Math.max(-12, Math.min(12, targetDb - measuredDb));
+    } catch (error) {
+      this.app.logger.warn('ReplayGain compute failed', { songPath, error: error.message });
+      return null;
+    }
+  }
+
+  // Debounced persistence, mirroring updatePlayerState() above — called on every
+  // slider/preset/toggle change from equalizer-ui.js.
+  updateEqualizerState() {
+    clearTimeout(this.eqSaveTimeout);
+    this.eqSaveTimeout = setTimeout(() => {
+      this.saveEqualizerState();
+    }, 1000);
+  }
+
+  async saveEqualizerState() {
+    try {
+      await window.queMusicAPI.settings.setEqualizer(this.getEqualizerState());
+    } catch (error) {
+      this.app.logger.error('Error saving equalizer state:', error);
+    }
+  }
+
+  async loadEqualizerState() {
+    try {
+      const state = await window.queMusicAPI.settings.getEqualizer();
+
+      if (state) {
+        if (Array.isArray(state.bands) && state.bands.length === 5) {
+          this.eqGains = state.bands.map((v) => Math.max(-12, Math.min(12, Number(v) || 0)));
+        }
+        this.eqActivePreset = state.activePreset || 'Flat';
+        this.normalizationEnabled = state.normalizationEnabled !== false;
+      }
+    } catch (error) {
+      this.app.logger.warn('Failed to load equalizer settings, falling back to flat/disabled:', error);
+      this.eqGains = [0, 0, 0, 0, 0];
+      this.eqActivePreset = 'Flat';
+      this.normalizationEnabled = false;
+    }
+
+    // Applies regardless of whether the graph exists yet — setupAudioContext() also
+    // re-applies once the filter nodes are actually built, so ordering with init doesn't matter.
+    this.applyEqGainsToFilters();
+    this.applyReplayGainGainValue(this.currentTrackReplayGainDb);
+  }
+
+  // ========================================
   // KEYBOARD SHORTCUTS (Audio-related)
   // ========================================
 
@@ -1333,8 +1548,36 @@ class CoreAudio {
         // Check if already connected
         if (!this.audioSource) {
           this.audioSource = this.audioContext.createMediaElementSource(this.audioPlayer);
-          this.audioSource.connect(this.analyser);
+
+          // Permanent chain (docs/superpowers/specs/2026-09-15-equalizer-design.md):
+          // source -> normalization gain -> 5 peaking EQ filters -> analyser -> destination.
+          // Built once, here, regardless of whether the visualizer is ever toggled on —
+          // createMediaElementSource() can only be called once per <audio> element, so
+          // the EQ/normalization stage and the visualizer have to share this one graph.
+          this.normalizationGain = this.audioContext.createGain();
+          this.normalizationGain.gain.value = 1; // unity until a track's ReplayGain value is known
+
+          this.eqBands = EQ_BAND_FREQUENCIES.map((freq) => {
+            const filter = this.audioContext.createBiquadFilter();
+            filter.type = 'peaking';
+            filter.frequency.value = freq;
+            filter.Q.value = 1;
+            filter.gain.value = 0;
+            return filter;
+          });
+
+          this.audioSource.connect(this.normalizationGain);
+          let node = this.normalizationGain;
+          for (const band of this.eqBands) {
+            node.connect(band);
+            node = band;
+          }
+          node.connect(this.analyser);
           this.analyser.connect(this.audioContext.destination);
+
+          // Re-apply any EQ/normalization state already loaded before the graph existed
+          this.applyEqGainsToFilters();
+          this.applyReplayGainGainValue(this.currentTrackReplayGainDb);
           // this.app.logger.info(' Audio player connected to analyser');
         }
 
@@ -1359,10 +1602,11 @@ class CoreAudio {
     // console.log(`🎨 Toggle visualizer (currently ${this.visualizerEnabled ? 'ON' : 'OFF'})`);
 
     if (!this.visualizerEnabled) {
-      // Turn on visualizer
-      const success = await this.setupAudioContext();
-      if (!success) {
-        this.app.showNotification('Failed to initialize audio visualizer', 'error');
+      // Turn on visualizer. The audio graph itself is now permanent — built once in
+      // initAudioEngine() — so this is purely a UI/animation-loop concern and never
+      // touches audioContext lifecycle (docs/superpowers/specs/2026-09-15-equalizer-design.md).
+      if (!this.analyser) {
+        this.app.showNotification('Audio graph not ready yet', 'error');
         return;
       }
 

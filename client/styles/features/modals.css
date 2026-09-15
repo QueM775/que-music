@@ -1769,3 +1769,90 @@
   padding: var(--space-xl) 0;
   color: var(--text-secondary);
 }
+
+/* ========================================
+   EQUALIZER MODAL — 5-band graphic EQ + loudness normalization toggle.
+   See docs/superpowers/specs/2026-09-15-equalizer-design.md.
+   ======================================== */
+
+.equalizer-modal-content {
+  width: 360px;
+  max-width: 90vw;
+}
+
+.equalizer-preset-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.equalizer-preset-row label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* #equalizerPresetSelect uses the shared .form-select class (client/styles/components/forms.css)
+   for its box styling — a one-off style here previously referenced a --bg-primary variable
+   that doesn't exist in this codebase, fell back to a transparent background, and rendered
+   unreadable (light theme text on whatever showed through). Found live 2026-09-15. */
+
+.equalizer-bands {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 160px;
+  padding: 0 var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.equalizer-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  height: 100%;
+}
+
+.equalizer-band input[type='range'] {
+  /* Electron's renderer is Chromium-only, so the (non-standard but Chromium-
+     supported) slider-vertical appearance is safe to rely on here. */
+  -webkit-appearance: slider-vertical;
+  width: 4px;
+  flex: 1;
+  accent-color: var(--primary);
+}
+
+.equalizer-band-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+
+.equalizer-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.equalizer-normalization-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+.equalizer-normalization-row label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.equalizer-normalization-row input[type='checkbox'] {
+  accent-color: var(--primary);
+}

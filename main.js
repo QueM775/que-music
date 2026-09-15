@@ -607,6 +607,17 @@ ipcMain.handle('settings:set-layout', async (event, layoutPrefs) => {
   return await saveSetting('layoutPrefs', layoutPrefs);
 });
 
+// Equalizer + loudness-normalization settings (band gains, active preset, on/off
+// toggle) — one global object, same generic getSetting/saveSetting store as
+// playerState/layoutPrefs above. See docs/superpowers/specs/2026-09-15-equalizer-design.md.
+ipcMain.handle('settings:get-equalizer', async () => {
+  return await getSetting('equalizer', null);
+});
+
+ipcMain.handle('settings:set-equalizer', async (event, equalizerState) => {
+  return await saveSetting('equalizer', equalizerState);
+});
+
 // Logging level handlers
 ipcMain.handle('settings:get-log-level', async () => {
   return await getSetting('logLevel', 'NONE');
@@ -1775,6 +1786,21 @@ ipcMain.handle('lyrics:get-for-track', async (event, trackPath) => {
   } catch (error) {
     logger.error('Error fetching lyrics for track', { error: error.message, trackPath });
     return { lyrics: null, source: null, error: error.message };
+  }
+});
+
+// Persists a lazily-computed ReplayGain value the first time a tag-less track is
+// played (see docs/superpowers/specs/2026-09-15-equalizer-design.md). Tracks with
+// an embedded tag get their value from the scanner instead and never call this.
+ipcMain.handle('replaygain:update-track', async (event, trackPath, gain) => {
+  if (!musicDB) {
+    return { success: false, error: 'Database not ready' };
+  }
+  try {
+    return musicDB.updateTrackReplayGain(trackPath, gain);
+  } catch (error) {
+    logger.error('Failed to persist computed ReplayGain value', { trackPath, error: error.message });
+    return { success: false, error: error.message };
   }
 });
 

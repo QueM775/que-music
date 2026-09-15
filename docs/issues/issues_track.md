@@ -2,6 +2,32 @@
 
 ## Version History & Bug Fixes
 
+### 5-Band Equalizer + Loudness Normalization Built - 2026-09-15
+
+Roadmap item #4 (`docs/application/roadmap.md`). Full brainstorm → spec → implementation cycle. Spec: `docs/superpowers/specs/2026-09-15-equalizer-design.md` (an earlier same-day draft split normalization into a follow-up cycle — Erich reviewed and explicitly folded it into this build instead; that draft was replaced, not kept alongside).
+
+#### What shipped ✅
+
+- **Permanent audio graph**: `core-audio.js`'s Web Audio graph used to only exist while the visualizer had been toggled on at least once (`setupAudioContext()` was only ever called from `toggleVisualizer()`). Moved the call to `initAudioEngine()` so the graph — and the EQ/normalization stage riding on it — exists from app start. `toggleVisualizer()` no longer touches `audioContext` lifecycle at all, just the analyser-read/animation loop.
+- **5-band EQ**: `MediaElementSource → normalization GainNode → 5 chained peaking BiquadFilterNodes (60/250/1k/4k/12k Hz, ±12dB) → AnalyserNode → destination`. `setBandGain()`, `applyPreset()`, `getEqualizerState()` on `CoreAudio`.
+- **Presets**: fixed, hardcoded list (Flat/Rock/Pop/Bass Boost/Vocal) — no user-defined/saved custom presets in v1.
+- **Loudness normalization (ReplayGain)**: scanner (`server/music-scanner.js`) reads embedded `REPLAYGAIN_TRACK_GAIN`/`REPLAYGAIN_ALBUM_GAIN` tags at scan time. Tracks with no tag get it computed lazily on first play (`computeReplayGain()` — an RMS-based approximation, not full ITU-R BS.1770 K-weighted LUFS, documented as such in code) and cached via a new `replaygain:update-track` IPC so it only ever computes once per track.
+- **UI**: new `client/scripts/equalizer-ui.js` (mirrors `lyrics-ui.js`'s pattern) — a modal (not a popover, per Erich's explicit call) opened from a new EQ button on the player bar, with 5 vertical sliders, the preset dropdown, and a normalization on/off checkbox. Styles added to `client/styles/features/modals.css` alongside the existing lyrics-modal section.
+- **Persistence**: one global settings object (`{ bands, activePreset, normalizationEnabled }`) via new `settings:get-equalizer`/`settings:set-equalizer` IPC, same generic file-backed store as `playerState`/`layoutPrefs`. Per-track ReplayGain values live on a new nullable `tracks.replaygain_gain` column (guarded `ALTER TABLE` migration, same pattern as `migrateAddLyricsColumns()`), folded into `addTracks()`'s upsert with `COALESCE` so a rescan that finds no tag doesn't clear a value already cached from a prior scan or the lazy-compute path.
+
+#### Bug found and fixed during verification ✅ (pre-existing, unrelated to this feature)
+
+- **`UNIQUE constraint failed: artists.name` on any upsert-triggered artist update**: `addTracks()` uses `INSERT ... ON CONFLICT(path) DO UPDATE`. The `update_artist_track_count_insert`/`update_artist_track_count_update` triggers used `INSERT OR IGNORE INTO artists (name) VALUES (NEW.artist)` to keep the `artists` table in sync. Discovered that when such a trigger fires as part of an upsert's `DO UPDATE` action (not a plain `UPDATE` statement), better-sqlite3/SQLite does **not** suppress the `OR IGNORE` conflict — it throws anyway, even though the identical trigger body works fine from a plain `UPDATE`. Reproduced in isolation with a two-column minimal schema, confirmed unrelated to any equalizer code (no ReplayGain columns involved at all) — this would have broken on *any* rescan of an existing track whose artist doesn't change, i.e. most real rescans. Fixed by rewriting both triggers to use `INSERT INTO artists (name) SELECT NEW.artist WHERE NOT EXISTS (...)` instead of `OR IGNORE`, which sidesteps conflict-resolution entirely. Existing on-disk DBs healed via a new `migrateFixArtistUpsertTriggers()` (`DROP TRIGGER` + recreate), same guarded-migration pattern as the others, runs on every launch.
+
+#### Verification
+
+No test framework in this repo — verified via new `scripts/dev-verify/equalizer-replaygain.js` (same standalone-script-through-Electron's-bundled-Node pattern as `smart-playlists.js`), covering: schema, tag-based value stored on insert, `COALESCE` preserving a cached value across a tag-less rescan, a new tag value overwriting an old one, the lazy-compute persistence path, and a rescan preserving a lazily-computed value. Also re-ran `scripts/dev-verify/smart-playlists.js` after the trigger fix to confirm no regression there. All passing. **Not yet done**: a live Electron launch/click-through of the EQ modal and audible normalization check — flagged as open below.
+
+#### Open for next session
+
+- Live Electron smoke test of the actual UI (open modal, drag sliders, switch presets, toggle normalization, relaunch and confirm persistence, confirm the visualizer still works with the now-permanent graph) — not yet performed.
+- Not committed to git yet.
+
 ### Rule-Based Smart Playlists Built - 2026-09-14
 
 Roadmap item #3 (`docs/application/roadmap.md`), the biggest feature gap versus Nagi per `docs/application/compared.md`. Full brainstorm → spec → plan → implementation cycle on branch `feature/smart-playlists` (not yet merged to master). Spec: `docs/superpowers/specs/2026-09-14-smart-playlists-design.md`. Plan: `docs/superpowers/plans/2026-09-14-smart-playlists.md`.
