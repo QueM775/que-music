@@ -1123,9 +1123,17 @@ class PlaylistRenderer {
     this.positionContextMenu(contextMenu, event.clientX, event.clientY);
     this.setupPlaylistContextMenuListeners(contextMenu, playlist);
 
-    // Global click listener to close menu
+    // Global click listener to close menu. A menu item's own click handler
+    // calls stopPropagation(), so clicking an item (e.g. "Save as Static
+    // Playlist") never lets this listener fire — it would otherwise leak,
+    // stacking one dead listener per right-click. Remove any previous one
+    // before attaching a new one so at most one is ever pending.
+    if (this._closeContextMenuHandler) {
+      document.removeEventListener('click', this._closeContextMenuHandler);
+    }
+    this._closeContextMenuHandler = () => this.hidePlaylistContextMenu();
     setTimeout(() => {
-      document.addEventListener('click', this.hidePlaylistContextMenu.bind(this), { once: true });
+      document.addEventListener('click', this._closeContextMenuHandler, { once: true });
     }, 0);
   }
 
