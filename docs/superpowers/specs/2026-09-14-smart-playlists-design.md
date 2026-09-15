@@ -78,11 +78,12 @@ No JS-side filtering of the full library — this is one SQL query per evaluatio
 New IPC handler, `playlist:saveSmartAsStatic`, given a smart playlist id:
 
 1. Run `getSmartPlaylistTracks()` to get the current match set.
-2. Create a new `playlists` row with `type = 'static'`, a name derived from the source smart playlist (e.g. "Rock Favorites (Snapshot)"), no `match_mode`.
+2. Create a new `playlists` row with `type = 'static'`, a name the user provides in the save modal (pre-filled with the source's name, selected for easy overtyping), no `match_mode`.
 3. Insert the matched tracks into `playlist_tracks` for the new playlist, in the order returned.
 4. Trigger the existing M3U export path so the new static playlist gets a `.m3u` file like any other, per the current dual-storage pattern.
+5. **Delete the source smart playlist** (`deletePlaylist()`), cascading its `smart_playlist_rules` rows via the FK.
 
-The original smart playlist and its rules are untouched — this creates a sibling, not a conversion in place.
+**Revised 2026-09-15** (was: "creates a sibling, not a conversion in place" — reversed on explicit product decision): this is a **conversion**, not a snapshot. After saving, only the static copy exists; the smart playlist and its rule definitions are gone. There is no way to have both a live smart playlist and a frozen copy of its matches — if you want to keep the smart playlist auto-updating, don't use this action, or rebuild it from the same rules afterward.
 
 ## UI
 
@@ -96,12 +97,13 @@ The original smart playlist and its rules are untouched — this creates a sibli
 - A rule with a field whose value doesn't parse for its type (e.g. non-numeric text in a `play_count` "greater than" rule) is rejected at save time in the rule builder UI, not silently coerced or run against the DB.
 - Deleting a smart playlist cascades to its rules via `ON DELETE CASCADE` on `smart_playlist_rules.playlist_id` — no orphaned rule rows, mirroring the FK-integrity fix already made for `addTracks()` (Issue #33).
 - An empty rule set (zero rules) is not a valid smart playlist — the rule builder UI blocks saving until at least one rule exists.
+- **Added 2026-09-15**: a rule set that currently matches zero tracks is also blocked at save time (create and edit both), via a `playlist:preview-smart-rules` IPC preview call before the playlist is written. Rationale: a 0-match rule set is far more often a mistake (wrong genre spelling, a tag that doesn't actually exist in the library) than an intentional "will fill in later" playlist, and the cost of a wrong guess (silently creating a dead playlist with no feedback) outweighs the case where someone genuinely wants an empty-for-now smart playlist. The warning is "No tracks match these rules" and the rule builder modal stays open so the rules can be corrected and resubmitted, rather than round-tripping through a created-then-deleted playlist.
 
 ## Testing
 
 - Schema migration: verify `ALTER TABLE playlists ADD COLUMN type/match_mode` runs clean on the existing dev DB snapshot (`sqlite-que-music` MCP server) and is idempotent on a second run.
 - Evaluation engine: unit-style checks against the dev DB snapshot for each field/operator combination, plus one AND and one OR multi-rule playlist, confirming the SQL fragment logic returns the expected track set.
-- Save-as-static: confirm the new static playlist's `playlist_tracks` rows and `.m3u` file match the smart playlist's evaluated set at the moment of saving, and that subsequently changing the source smart playlist's rules does not alter the snapshot.
+- Save-as-static: confirm the new static playlist's `playlist_tracks` rows and `.m3u` file match the smart playlist's evaluated set at the moment of saving, and confirm the source smart playlist and its `smart_playlist_rules` rows no longer exist afterward (conversion, not a snapshot — see revision above).
 - Live UI pass: launch the app, build a smart playlist through the rule builder, confirm it lists real tracks, confirm a "Save as Static Playlist" action produces an independent playlist — per this project's established practice of launching and visually verifying UI work rather than reviewing the diff alone.
 
 ## Out of scope for this pass

@@ -107,6 +107,8 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     setSmartRules: (playlistId, rules) =>
       ipcRenderer.invoke('playlist:set-smart-rules', { playlistId, rules }),
     getSmartRules: (playlistId) => ipcRenderer.invoke('playlist:get-smart-rules', playlistId),
+    previewSmartRules: (rules, matchMode) =>
+      ipcRenderer.invoke('playlist:preview-smart-rules', { rules, matchMode }),
     //  M3U file management methods
     setFolder: (musicFolderPath) => ipcRenderer.invoke('playlist:set-folder', musicFolderPath),
     getFolder: () => ipcRenderer.invoke('playlist:get-folder'),

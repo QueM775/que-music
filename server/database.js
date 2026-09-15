@@ -385,33 +385,34 @@ class MusicDatabase {
 
     try {
       const startTime = Date.now();
-      this.db.prepare('BEGIN').run();
 
-      for (let i = 0; i < tracksArray.length; i++) {
-        const track = tracksArray[i];
-        stmt.run(
-          track.path,
-          track.filename,
-          track.title || null,
-          track.artist || null,
-          track.album || null,
-          track.year || null,
-          track.genre || null,
-          track.duration || null,
-          track.filesize || 0,
-          track.format || null,
-          track.bitrate || null,
-          track.lyrics || null,
-          track.lyricsSource || null,
-          track.lyricsFetchedAt || null
-        );
+      const insertAll = this.db.transaction((tracks) => {
+        for (let i = 0; i < tracks.length; i++) {
+          const track = tracks[i];
+          stmt.run(
+            track.path,
+            track.filename,
+            track.title || null,
+            track.artist || null,
+            track.album || null,
+            track.year || null,
+            track.genre || null,
+            track.duration || null,
+            track.filesize || 0,
+            track.format || null,
+            track.bitrate || null,
+            track.lyrics || null,
+            track.lyricsSource || null,
+            track.lyricsFetchedAt || null
+          );
 
-        if ((i + 1) % 100 === 0 || i + 1 === tracksArray.length) {
-          console.log(`💾 Database progress: ${i + 1}/${tracksArray.length} tracks processed`);
+          if ((i + 1) % 100 === 0 || i + 1 === tracks.length) {
+            console.log(`💾 Database progress: ${i + 1}/${tracks.length} tracks processed`);
+          }
         }
-      }
+      });
+      insertAll(tracksArray);
 
-      this.db.prepare('COMMIT').run();
       const duration = Date.now() - startTime;
       console.log(
         `✅ Database update complete: ${tracksArray.length} tracks processed (${duration}ms)`
@@ -419,11 +420,6 @@ class MusicDatabase {
       return tracksArray.length;
     } catch (err) {
       console.error('❌ Database error during track insertion:', err.message);
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Failed to rollback transaction:', rollbackErr.message);
-      }
       throw err;
     }
   }
@@ -756,75 +752,21 @@ class MusicDatabase {
   }
 
   // ============================================================================
-  // EXPORT PLAYLIST TO M3U (FINAL WORKING VERSION)
+  // EXPORT PLAYLIST TO M3U
   // ============================================================================
-  // async exportPlaylistToM3U(playlistId) {
-  //   try {
-  //     if (!this.playlistFolder) {
-  //       throw new Error('Playlist folder not set');
-  //     }
-
-  //     // 1. Load playlist metadata
-  //     const playlist = this.getPlaylistById(playlistId);
-  //     if (!playlist) throw new Error(`Playlist ${playlistId} not found`);
-
-  //     // 2. Load tracks using JOIN query
-  //     const tracks = this.db
-  //       .prepare(
-  //         `
-  //     SELECT t.path
-  //     FROM playlist_tracks pt
-  //     JOIN tracks t ON t.id = pt.track_id
-  //     WHERE pt.playlist_id = ?
-  //     ORDER BY pt.position ASC
-  //   `
-  //       )
-  //       .all(playlistId);
-
-  //     if (!tracks || tracks.length === 0) {
-  //       throw new Error(`Playlist "${playlist.name}" has no tracks`);
-  //     }
-
-  //     // 3. Build file path
-  //     const safeName = playlist.name.replace(/[<>:"/\\|?*]/g, '_');
-  //     const filePath = path.join(this.playlistFolder, safeName + '.m3u');
-
-  //     // 4. Build content
-  //     const m3uContent = tracks.map((t) => t.path).join('\n');
-
-  //     // 5. Write file
-  //     await fs.writeFile(filePath, m3uContent, 'utf8');
-
-  //     console.log(`💾 Exported ${tracks.length} tracks → ${filePath}`);
-
-  //     return { success: true, filePath };
-  //   } catch (err) {
-  //     console.error('❌ EXPORT FAILED:', err);
-  //     throw err;
-  //   }
-  // }
   async exportPlaylistToM3U(playlistId) {
-    console.log('🟦 EXPORT REQUEST RECEIVED:', playlistId);
-
     try {
       if (!this.playlistFolder) {
-        console.log('❌ Playlist folder is NOT set');
         throw new Error('Playlist folder not set');
       }
-      console.log('📁 Playlist folder:', this.playlistFolder);
 
       // 1. Load playlist metadata
       const playlist = await this.getPlaylistById(playlistId);
-      console.log('📋 PLAYLIST OBJECT:', playlist);
-
       if (!playlist) {
-        console.log('❌ Playlist not found');
         throw new Error(`Playlist ${playlistId} not found`);
       }
 
       // 2. Load tracks using JOIN query
-      console.log('🔍 RUNNING TRACK QUERY…');
-
       const tracks = this.db
         .prepare(
           `
@@ -837,10 +779,7 @@ class MusicDatabase {
         )
         .all(playlistId);
 
-      console.log('🎵 TRACK RESULT:', tracks);
-
       if (!tracks || tracks.length === 0) {
-        console.log('❌ NO TRACKS FOUND FOR THIS PLAYLIST');
         throw new Error(`Playlist "${playlist.name}" has no tracks`);
       }
 
@@ -848,20 +787,17 @@ class MusicDatabase {
       const safeName = playlist.name.replace(/[<>:"/\\|?*]/g, '_');
       const filePath = path.join(this.playlistFolder, safeName + '.m3u');
 
-      console.log('📄 EXPORT PATH:', filePath);
-
       // 4. Build content
       const m3uContent = tracks.map((t) => t.path).join('\n');
-      console.log('📝 M3U CONTENT PREVIEW:', m3uContent.substring(0, 200));
 
       // 5. Write file
       await fs.writeFile(filePath, m3uContent, 'utf8');
 
-      console.log('✅ EXPORT SUCCESS!', filePath);
+      console.log(`💾 Exported ${tracks.length} tracks → ${filePath}`);
 
       return { success: true, filePath };
     } catch (err) {
-      console.log('🔥 DIAGNOSTIC EXPORT ERROR:', err);
+      console.error('❌ Error exporting playlist to M3U:', err);
       throw err;
     }
   }
@@ -1245,6 +1181,25 @@ class MusicDatabase {
     return this.db.prepare(query).all(...params);
   }
 
+  // Same query as getSmartPlaylistTracks(), but takes a rule set directly
+  // instead of looking one up by playlist id — lets the rule builder preview
+  // a match count before a playlist exists at all (or before edited rules
+  // are saved over the old ones).
+  async previewSmartPlaylistTracks(rules, matchMode) {
+    const { sql, params } = this.buildSmartPlaylistWhereClause(rules, matchMode);
+
+    const query = `
+      SELECT
+        t.id, t.path, t.filename, t.title, t.artist, t.album, t.year,
+        t.genre, t.duration, t.format, t.filesize, t.play_count
+      FROM tracks t
+      WHERE ${sql}
+      ORDER BY t.artist, t.album, t.title
+    `;
+
+    return this.db.prepare(query).all(...params);
+  }
+
   async saveSmartPlaylistAsStatic(playlistId, name = null) {
     const source = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
     if (!source || source.type !== 'smart') {
@@ -1262,7 +1217,13 @@ class MusicDatabase {
       await this.addTrackToPlaylist(snapshot.id, track.id);
     }
 
-    console.log(`📸 Saved smart playlist "${source.name}" as static playlist "${snapshot.name}"`);
+    // The static copy now holds this smart playlist's matches permanently —
+    // the smart playlist itself is redundant at that point, so this is a
+    // conversion, not a duplication. Delete it (cascades its rules via the
+    // smart_playlist_rules FK, cleans up its M3U file if it had one).
+    await this.deletePlaylist(playlistId);
+
+    console.log(`📸 Converted smart playlist "${source.name}" into static playlist "${snapshot.name}"`);
     return this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(snapshot.id);
   }
 
@@ -1535,15 +1496,13 @@ class MusicDatabase {
     const playlistBeforeDelete = this.db.prepare('SELECT name FROM playlists WHERE id = ?').get(playlistId);
 
     try {
-      this.db.prepare('BEGIN').run();
-
-      // Delete playlist tracks first
-      this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(playlistId);
-
-      // Delete playlist
-      const result = this.db.prepare('DELETE FROM playlists WHERE id = ?').run(playlistId);
-
-      this.db.prepare('COMMIT').run();
+      const deleteBoth = this.db.transaction((id) => {
+        // Delete playlist tracks first
+        this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(id);
+        // Delete playlist
+        return this.db.prepare('DELETE FROM playlists WHERE id = ?').run(id);
+      });
+      const result = deleteBoth(playlistId);
       console.log(`📋 Deleted playlist ${playlistId}`);
 
       // Best-effort cleanup of the auto-exported .m3u file. Without this, a
@@ -1565,11 +1524,6 @@ class MusicDatabase {
 
       return { success: true, deleted: result.changes > 0 };
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error deleting playlist:', err);
       throw err;
     }
@@ -1749,49 +1703,48 @@ class MusicDatabase {
     try {
       console.log('🔄 Populating artists and albums from existing tracks...');
 
-      this.db.prepare('BEGIN').run();
+      const repopulate = this.db.transaction(() => {
+        // Clear existing data
+        this.db.prepare('DELETE FROM artists').run();
+        this.db.prepare('DELETE FROM albums').run();
 
-      // Clear existing data
-      this.db.prepare('DELETE FROM artists').run();
-      this.db.prepare('DELETE FROM albums').run();
+        // Populate artists from tracks
+        this.db
+          .prepare(
+            `
+          INSERT INTO artists (name, track_count)
+          SELECT
+            artist,
+            COUNT(*) as track_count
+          FROM tracks
+          WHERE artist IS NOT NULL
+            AND artist != ''
+            AND artist != 'Unknown Artist'
+          GROUP BY artist
+        `
+          )
+          .run();
 
-      // Populate artists from tracks
-      this.db
-        .prepare(
-          `
-        INSERT INTO artists (name, track_count)
-        SELECT
-          artist,
-          COUNT(*) as track_count
-        FROM tracks
-        WHERE artist IS NOT NULL
-          AND artist != ''
-          AND artist != 'Unknown Artist'
-        GROUP BY artist
-      `
-        )
-        .run();
-
-      // Populate albums from tracks
-      this.db
-        .prepare(
-          `
-        INSERT INTO albums (title, artist, track_count, year)
-        SELECT
-          album,
-          artist,
-          COUNT(*) as track_count,
-          MIN(year) as year
-        FROM tracks
-        WHERE album IS NOT NULL
-          AND album != ''
-          AND album != 'Unknown Album'
-        GROUP BY album, artist
-      `
-        )
-        .run();
-
-      this.db.prepare('COMMIT').run();
+        // Populate albums from tracks
+        this.db
+          .prepare(
+            `
+          INSERT INTO albums (title, artist, track_count, year)
+          SELECT
+            album,
+            artist,
+            COUNT(*) as track_count,
+            MIN(year) as year
+          FROM tracks
+          WHERE album IS NOT NULL
+            AND album != ''
+            AND album != 'Unknown Album'
+          GROUP BY album, artist
+        `
+          )
+          .run();
+      });
+      repopulate();
 
       // Get counts of what was added
       const artistCount = this.db.prepare('SELECT COUNT(*) as artists FROM artists').get();
@@ -1804,11 +1757,6 @@ class MusicDatabase {
       console.log('✅ Artists and albums populated successfully:', result);
       return result;
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error populating artists and albums:', err);
       throw err;
     }
@@ -1955,65 +1903,60 @@ class MusicDatabase {
       let updated = 0;
       let duplicatesRemoved = 0;
 
-      this.db.prepare('BEGIN').run();
+      const applyCorrections = this.db.transaction(() => {
+        for (const targetPath of Object.keys(pathGroups)) {
+          const group = pathGroups[targetPath];
 
-      for (const targetPath of Object.keys(pathGroups)) {
-        const group = pathGroups[targetPath];
+          // Check if target path already exists in database
+          const existingTrack = this.db
+            .prepare('SELECT id FROM tracks WHERE path = ?')
+            .get(targetPath);
 
-        // Check if target path already exists in database
-        const existingTrack = this.db
-          .prepare('SELECT id FROM tracks WHERE path = ?')
-          .get(targetPath);
+          if (existingTrack) {
+            // Target path already exists, remove all duplicates
+            console.log(`🔄 Target path already exists: ${targetPath}`);
+            console.log(`🧹 Removing ${group.length} duplicate records`);
 
-        if (existingTrack) {
-          // Target path already exists, remove all duplicates
-          console.log(`🔄 Target path already exists: ${targetPath}`);
-          console.log(`🧹 Removing ${group.length} duplicate records`);
-
-          const duplicateIds = group.map((g) => g.originalTrack.id);
-          const placeholders = duplicateIds.map(() => '?').join(',');
-
-          const delResult = this.db
-            .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
-            .run(...duplicateIds);
-          duplicatesRemoved += delResult.changes;
-          console.log(`🧹 Removed ${delResult.changes} duplicate records for ${targetPath}`);
-        } else {
-          // Target path doesn't exist, update the first record and remove the rest
-          const firstCorrection = group[0];
-          const otherCorrections = group.slice(1);
-
-          this.db
-            .prepare('UPDATE tracks SET path = ? WHERE id = ?')
-            .run(targetPath, firstCorrection.originalTrack.id);
-          updated++;
-          console.log(`✅ Updated path: ${firstCorrection.originalTrack.path} -> ${targetPath}`);
-
-          // Remove any additional duplicates
-          if (otherCorrections.length > 0) {
-            const duplicateIds = otherCorrections.map((g) => g.originalTrack.id);
+            const duplicateIds = group.map((g) => g.originalTrack.id);
             const placeholders = duplicateIds.map(() => '?').join(',');
 
             const delResult = this.db
               .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
               .run(...duplicateIds);
             duplicatesRemoved += delResult.changes;
-            console.log(`🧹 Removed ${delResult.changes} additional duplicates for ${targetPath}`);
+            console.log(`🧹 Removed ${delResult.changes} duplicate records for ${targetPath}`);
+          } else {
+            // Target path doesn't exist, update the first record and remove the rest
+            const firstCorrection = group[0];
+            const otherCorrections = group.slice(1);
+
+            this.db
+              .prepare('UPDATE tracks SET path = ? WHERE id = ?')
+              .run(targetPath, firstCorrection.originalTrack.id);
+            updated++;
+            console.log(`✅ Updated path: ${firstCorrection.originalTrack.path} -> ${targetPath}`);
+
+            // Remove any additional duplicates
+            if (otherCorrections.length > 0) {
+              const duplicateIds = otherCorrections.map((g) => g.originalTrack.id);
+              const placeholders = duplicateIds.map(() => '?').join(',');
+
+              const delResult = this.db
+                .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
+                .run(...duplicateIds);
+              duplicatesRemoved += delResult.changes;
+              console.log(`🧹 Removed ${delResult.changes} additional duplicates for ${targetPath}`);
+            }
           }
         }
-      }
+      });
+      applyCorrections();
 
-      this.db.prepare('COMMIT').run();
       console.log(
         `✅ Path correction completed: ${updated} updated, ${duplicatesRemoved} duplicates removed`
       );
       return { updated, duplicatesRemoved, errors: 0 };
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error updating corrected paths:', err);
       throw err;
     }
@@ -2044,45 +1987,48 @@ class MusicDatabase {
         playlistTracks: 0,
       };
 
-      this.db.prepare('BEGIN').run();
+      const removeAll = this.db.transaction(() => {
+        // Remove from recently_played
+        const recentlyPlayedResult = this.db
+          .prepare(`DELETE FROM recently_played WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.recentlyPlayed = recentlyPlayedResult.changes;
+        console.log(`🧹 Removed ${recentlyPlayedResult.changes} recently played records`);
 
-      // Remove from recently_played
-      const recentlyPlayedResult = this.db
-        .prepare(`DELETE FROM recently_played WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.recentlyPlayed = recentlyPlayedResult.changes;
-      console.log(`🧹 Removed ${recentlyPlayedResult.changes} recently played records`);
+        // Remove from favorites
+        const favoritesResult = this.db
+          .prepare(`DELETE FROM favorites WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.favorites = favoritesResult.changes;
+        console.log(`🧹 Removed ${favoritesResult.changes} favorite records`);
 
-      // Remove from favorites
-      const favoritesResult = this.db
-        .prepare(`DELETE FROM favorites WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.favorites = favoritesResult.changes;
-      console.log(`🧹 Removed ${favoritesResult.changes} favorite records`);
+        // Remove from playlist_tracks. Two passes: by track_id (legacy FK) and
+        // by track_path (current FK, since the M3U-backed rewrite) — a row can
+        // be orphaned by either without being orphaned by both, and skipping
+        // the path pass (as this used to) left path-orphaned rows behind after
+        // a "Database Cleanup" run that looked like it succeeded. Mirrors the
+        // two-pass delete in main.js's api:cleanup:orphaned-playlist-tracks.
+        const playlistTracksByIdResult = this.db
+          .prepare(`DELETE FROM playlist_tracks WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        const playlistTracksByPathResult = this.db
+          .prepare(`DELETE FROM playlist_tracks WHERE track_path IS NOT NULL AND track_path NOT IN (SELECT path FROM tracks)`)
+          .run();
+        results.playlistTracks = playlistTracksByIdResult.changes + playlistTracksByPathResult.changes;
+        console.log(`🧹 Removed ${results.playlistTracks} playlist track records`);
 
-      // Remove from playlist_tracks
-      const playlistTracksResult = this.db
-        .prepare(`DELETE FROM playlist_tracks WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.playlistTracks = playlistTracksResult.changes;
-      console.log(`🧹 Removed ${playlistTracksResult.changes} playlist track records`);
+        // Finally, remove the tracks themselves
+        const tracksResult = this.db
+          .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.tracks = tracksResult.changes;
+        console.log(`🧹 Removed ${tracksResult.changes} track records`);
+      });
+      removeAll();
 
-      // Finally, remove the tracks themselves
-      const tracksResult = this.db
-        .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.tracks = tracksResult.changes;
-      console.log(`🧹 Removed ${tracksResult.changes} track records`);
-
-      this.db.prepare('COMMIT').run();
       console.log('✅ Orphaned record cleanup complete');
       return results;
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error removing orphaned records:', err);
       throw err;
     }

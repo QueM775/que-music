@@ -747,6 +747,29 @@
   flex: 2;
 }
 
+.smart-rule-value-wrapper {
+  flex: 2;
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.smart-rule-value-wrapper .smart-rule-value {
+  flex: 1;
+}
+
+.smart-rule-value-wrapper .smart-rule-value-low,
+.smart-rule-value-wrapper .smart-rule-value-high {
+  flex: 1;
+  min-width: 0;
+}
+
+.smart-rule-value-sep {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
 .playlist-type-badge.smart {
   color: #a855f7; /* matches the sidebar Discover accent from the 2026-09-14 icon pass */
   margin-right: var(--space-xs);

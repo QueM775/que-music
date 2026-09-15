@@ -517,10 +517,20 @@ git commit -m "feat(smart-playlists): getPlaylistById/getAllPlaylists branch on 
   const snapshotTracks = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
   assert.deepStrictEqual(snapshotTracks, ['/b.mp3']);
 
-  // Editing the source smart playlist's rules must not touch the snapshot.
-  db.addSmartPlaylistRules(smartAll.id, [{ field: 'genre', operator: 'is', value: 'Jazz' }]);
-  const snapshotAfterEdit = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
-  assert.deepStrictEqual(snapshotAfterEdit, ['/b.mp3'], 'snapshot changed after editing source smart playlist rules');
+  // Revised 2026-09-15: save-as-static now deletes the source smart playlist
+  // (conversion, not a snapshot — see 2026-09-14-smart-playlists-design.md).
+  // The old "editing the source after saving must not touch the snapshot"
+  // case is moot since the source no longer exists; replaced with a check
+  // that it and its rules are actually gone.
+  let sourceLookupError = null;
+  try {
+    await db.getPlaylistById(smartAll.id);
+  } catch (err) {
+    sourceLookupError = err;
+  }
+  assert(sourceLookupError, 'source smart playlist should be deleted after save-as-static (getPlaylistById should throw)');
+  const rulesAfterSave = db.getSmartPlaylistRules(smartAll.id);
+  assert.strictEqual(rulesAfterSave.length, 0, 'source smart playlist rules should be gone after save-as-static');
 
   console.log('✅ Task 4: save-as-static checks passed');
 ```

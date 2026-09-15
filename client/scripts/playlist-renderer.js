@@ -19,8 +19,8 @@ class PlaylistRenderer {
     artist: ['is', 'is not', 'contains'],
     album: ['is', 'is not', 'contains'],
     genre: ['is', 'is not', 'contains'],
-    year: ['is', 'greater than', 'less than'],
-    play_count: ['is', 'greater than', 'less than'],
+    year: ['is', 'greater than', 'less than', 'between'],
+    play_count: ['is', 'greater than', 'less than', 'between'],
     date_added: ['before', 'after', 'in the last N days'],
     favorite: ['is', 'is not'],
   };
@@ -33,7 +33,7 @@ class PlaylistRenderer {
 
     const fieldSelect = row.querySelector('.smart-rule-field');
     const operatorSelect = row.querySelector('.smart-rule-operator');
-    const valueInput = row.querySelector('.smart-rule-value');
+    const valueWrapper = row.querySelector('.smart-rule-value-wrapper');
     const removeBtn = row.querySelector('.smart-rule-remove');
 
     const populateOperators = () => {
@@ -41,12 +41,95 @@ class PlaylistRenderer {
       operatorSelect.innerHTML = ops.map((op) => `<option value="${op}">${op}</option>`).join('');
     };
 
+    // Renders whichever value control(s) fit the current field+operator —
+    // a bare text box for every field used to be the only option, so a
+    // typo'd favorite value or an unparseable date never got caught until
+    // save. `presetValue` pre-fills when opening an existing rule for edit.
+    const renderValueControl = (presetValue) => {
+      const field = fieldSelect.value;
+      const operator = operatorSelect.value;
+      valueWrapper.innerHTML = '';
+
+      if (field === 'favorite') {
+        const select = document.createElement('select');
+        select.className = 'smart-rule-value form-input';
+        select.innerHTML = `<option value="true">True</option><option value="false">False</option>`;
+        select.value = presetValue === 'false' || presetValue === false ? 'false' : 'true';
+        valueWrapper.appendChild(select);
+        return;
+      }
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator === 'between') {
+        const [low, high] = String(presetValue || '').split('|');
+        const lowInput = document.createElement('input');
+        lowInput.type = 'number';
+        lowInput.className = 'smart-rule-value-low form-input';
+        lowInput.placeholder = 'low';
+        lowInput.value = low || '';
+        const sep = document.createElement('span');
+        sep.className = 'smart-rule-value-sep';
+        sep.textContent = 'and';
+        const highInput = document.createElement('input');
+        highInput.type = 'number';
+        highInput.className = 'smart-rule-value-high form-input';
+        highInput.placeholder = 'high';
+        highInput.value = high || '';
+        valueWrapper.append(lowInput, sep, highInput);
+        return;
+      }
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field)) {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'smart-rule-value form-input';
+        input.value = presetValue || '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      if (field === 'date_added' && (operator === 'before' || operator === 'after')) {
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.className = 'smart-rule-value form-input';
+        // Stored value may be a full ISO datetime string from an earlier
+        // save — a date input only accepts the yyyy-mm-dd prefix of it.
+        input.value = presetValue ? String(presetValue).slice(0, 10) : '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      if (field === 'date_added' && operator === 'in the last N days') {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.className = 'smart-rule-value form-input';
+        input.placeholder = 'days';
+        input.value = presetValue || '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      // Default: text fields (artist/album/genre)
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'smart-rule-value form-input';
+      input.value = presetValue || '';
+      valueWrapper.appendChild(input);
+    };
+
     fieldSelect.value = rule.field;
     populateOperators();
     operatorSelect.value = rule.operator;
-    valueInput.value = rule.value;
+    renderValueControl(rule.value);
 
-    fieldSelect.addEventListener('change', populateOperators);
+    // Changing field or operator always resets the value control to match
+    // the new shape — carrying an old value across (e.g. a genre string
+    // into a date picker) wouldn't be meaningful anyway.
+    fieldSelect.addEventListener('change', () => {
+      populateOperators();
+      renderValueControl();
+    });
+    operatorSelect.addEventListener('change', () => renderValueControl());
     removeBtn.addEventListener('click', () => row.remove());
 
     document.getElementById('smartRuleRows').appendChild(row);
@@ -62,12 +145,31 @@ class PlaylistRenderer {
     for (const row of rows) {
       const field = row.querySelector('.smart-rule-field').value;
       const operator = row.querySelector('.smart-rule-operator').value;
-      const value = row.querySelector('.smart-rule-value').value.trim();
 
-      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator !== 'between') {
+      // 'between' renders two number inputs instead of the single generic
+      // value control — read whichever shape is actually present.
+      const lowInput = row.querySelector('.smart-rule-value-low');
+      const highInput = row.querySelector('.smart-rule-value-high');
+      const value =
+        lowInput && highInput
+          ? `${lowInput.value.trim()}|${highInput.value.trim()}`
+          : row.querySelector('.smart-rule-value').value.trim();
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator === 'between') {
+        const [low, high] = value.split('|');
+        if (low === '' || high === '' || Number.isNaN(Number(low)) || Number.isNaN(Number(high))) {
+          return { rules: null, error: 'Enter both a low and a high number for that range rule' };
+        }
+      } else if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field)) {
         if (value === '' || Number.isNaN(Number(value))) {
           return { rules: null, error: `"${value}" isn't a valid number for that rule` };
         }
+      } else if (field === 'date_added' && operator === 'in the last N days') {
+        if (value === '' || Number.isNaN(Number(value))) {
+          return { rules: null, error: `"${value}" isn't a valid number of days` };
+        }
+      } else if (field === 'date_added' && (operator === 'before' || operator === 'after') && value === '') {
+        return { rules: null, error: 'Pick a date for that rule' };
       }
 
       rules.push({ field, operator, value });
@@ -941,7 +1043,7 @@ class PlaylistRenderer {
           this.snapshotSourcePlaylistId,
           nameInput.value.trim()
         );
-        this.app.showNotification('Saved as a new static playlist', 'success');
+        this.app.showNotification('Converted to a static playlist', 'success');
         this.snapshotSourcePlaylistId = null;
         this.hidePlaylistModal();
         await this.refreshPlaylistsView();
@@ -987,6 +1089,22 @@ class PlaylistRenderer {
         playlistData.type = 'smart';
         playlistData.match_mode = document.getElementById('smartMatchMode').value;
         playlistData.rules = rules;
+
+        // Preview the match count before creating/saving anything — a rule
+        // set that matches 0 tracks is almost always a mistake (wrong genre
+        // spelling, a tag that doesn't actually exist in the library, etc.),
+        // so report it and let the user fix the rules instead of silently
+        // creating a dead playlist.
+        const matchingTracks = await window.queMusicAPI.playlists.previewSmartRules(
+          rules,
+          playlistData.match_mode
+        );
+        if (!matchingTracks || matchingTracks.length === 0) {
+          this.app.showNotification('No tracks match these rules — 0 matches found', 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
       }
 
       let newPlaylist = null;

@@ -283,16 +283,13 @@
 /* ========================================
    APP VERSION DISPLAY
    ======================================== */
-
-.app-version {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: var(--space-lg);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
+/* The .app-version rule that used to live here (position: absolute; left:0;
+   right:0; bottom:0;) was dead/orphaned CSS — no element in index.html uses
+   that class in a sidebar-footer context, only the header's #appVersion span
+   does (styled correctly in header.css). Because this file loads after
+   header.css in the bundle, this rule was winning the cascade and yanking
+   the version text out of the title bar into the top-left corner, on top of
+   the window controls. Removed 2026-09-15; header.css now solely owns it. */
 
 .version-info {
   text-align: center;

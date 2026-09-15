@@ -214,19 +214,13 @@ class MusicScanner {
       };
     }
 
-    // Try to parse "Title Artist" format (like "song title artist.mp3")
-    const words = nameWithoutExt.split(' ');
-    if (words.length >= 2) {
-      // Last word might be artist
-      const lastWord = words[words.length - 1];
-      if (lastWord.length > 2) {
-        return {
-          title: words.slice(0, -1).join(' ').trim(),
-          artist: lastWord.trim(),
-        };
-      }
-    }
-
+    // No "Artist - Title" separator found. There used to be a fallback here
+    // that guessed the last word of a multi-word filename was the artist
+    // (e.g. "song title artist.mp3") — removed: that's not a real filename
+    // convention, so it just as often mislabeled a real track (e.g.
+    // "Bohemian Rhapsody.mp3" would guess artist "Rhapsody"). A guaranteed-
+    // wrong guess is worse than no guess; this metadata is only used as a
+    // last resort anyway when the file has no embedded ID3 tags.
     return {
       title: nameWithoutExt,
       artist: null,

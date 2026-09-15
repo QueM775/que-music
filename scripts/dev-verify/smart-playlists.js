@@ -82,14 +82,20 @@ async function run() {
   const snapshotTracks = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
   assert.deepStrictEqual(snapshotTracks, ['/b.mp3']);
 
-  // Editing the source smart playlist's rules must not touch the snapshot.
-  db.addSmartPlaylistRules(smartAll.id, [{ field: 'genre', operator: 'is', value: 'Jazz' }]);
-  const snapshotAfterEdit = (await db.getPlaylistById(snapshot.id)).tracks.map((t) => t.path);
-  assert.deepStrictEqual(
-    snapshotAfterEdit,
-    ['/b.mp3'],
-    'snapshot changed after editing source smart playlist rules'
-  );
+  // Revised 2026-09-15: save-as-static now deletes the source smart playlist
+  // (conversion, not a snapshot — see 2026-09-14-smart-playlists-design.md's
+  // "Revised 2026-09-15" note). The old "editing the source after save must
+  // not touch the snapshot" case is moot since the source no longer exists;
+  // replaced with a check that it and its rules are actually gone.
+  let sourceLookupError = null;
+  try {
+    await db.getPlaylistById(smartAll.id);
+  } catch (err) {
+    sourceLookupError = err;
+  }
+  assert(sourceLookupError, 'source smart playlist should be deleted after save-as-static (getPlaylistById should throw)');
+  const rulesAfterSave = db.getSmartPlaylistRules(smartAll.id);
+  assert.strictEqual(rulesAfterSave.length, 0, 'source smart playlist rules should be gone after save-as-static');
 
   console.log('✅ Task 4: save-as-static checks passed');
 
@@ -135,14 +141,17 @@ async function run() {
 
   // --- updatePlaylist() must wrap UNIQUE constraint errors the same way
   // createPlaylist() does, instead of leaking the raw SQLite error message ---
+  // Uses 'Rock OR Favorite' (smartAny) as the collision target — 'Rock AND
+  // Popular' (smartAll) no longer exists to collide with as of the
+  // save-as-static-deletes-the-source revision above.
   let updateError = null;
   try {
-    await db.updatePlaylist({ id: customNamed.id, name: 'Rock AND Popular', description: '' });
+    await db.updatePlaylist({ id: customNamed.id, name: 'Rock OR Favorite', description: '' });
   } catch (err) {
     updateError = err;
   }
   assert(updateError, 'expected updatePlaylist to throw on a duplicate name');
-  assert.strictEqual(updateError.message, 'Playlist "Rock AND Popular" already exists');
+  assert.strictEqual(updateError.message, 'Playlist "Rock OR Favorite" already exists');
 
   console.log('✅ updatePlaylist duplicate-name error message check passed');
 
