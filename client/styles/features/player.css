@@ -443,86 +443,6 @@
 }
 
 /* ========================================
-   LYRICS DISPLAY
-   ======================================== */
-
-.lyrics-container {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 400px;
-}
-
-.lyrics-header {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-elevated);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.lyrics-title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.lyrics-sync-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.lyrics-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-lg);
-  line-height: var(--line-height-relaxed);
-}
-
-.lyrics-line {
-  margin-bottom: var(--space-sm);
-  padding: var(--space-xs) 0;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  transition: all var(--transition-fast);
-  cursor: pointer;
-}
-
-.lyrics-line:hover {
-  color: var(--text-primary);
-  background: var(--surface-elevated);
-  border-radius: var(--radius-sm);
-  padding-left: var(--space-sm);
-  padding-right: var(--space-sm);
-}
-
-.lyrics-line.current {
-  color: var(--primary);
-  font-weight: var(--font-weight-semibold);
-  background: var(--primary-50);
-  border-radius: var(--radius-sm);
-  padding-left: var(--space-sm);
-  padding-right: var(--space-sm);
-  transform: scale(1.02);
-}
-
-.lyrics-line.past {
-  opacity: 0.6;
-}
-
-.lyrics-line.future {
-  opacity: 0.4;
-}
-
-/* ========================================
    PLAYBACK SPEED CONTROL
    ======================================== */
 
@@ -801,7 +721,6 @@
    ======================================== */
 
 .queue-item:focus-visible,
-.lyrics-line:focus-visible,
 .effect-toggle:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -823,42 +742,23 @@
   overflow: hidden;
 }
 
-.lyrics-line[aria-current='true']::before {
-  content: 'Current lyric: ';
-  position: absolute;
-  left: -10000px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
 /* High contrast mode */
 @media (prefers-contrast: high) {
   .queue-container,
-  .equalizer-container,
-  .lyrics-container {
+  .equalizer-container {
     border-width: 2px;
   }
 
   .queue-item.current {
     border-left-width: 4px;
   }
-
-  .lyrics-line.current {
-    border: 2px solid var(--primary);
-  }
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .queue-item,
-  .lyrics-line,
   .effect-toggle {
     transition: none;
-  }
-
-  .lyrics-line.current {
-    transform: none;
   }
 
   .visualizer-canvas {

@@ -557,9 +557,13 @@ class SimpleLogger {
 
         const self = this; // Capture logger instance for closure access
 
-        // Replace console.log with development-level logger call
+        // Replace console.log with info-level logger call. The codebase's
+        // documented style (CLAUDE.md) uses console.log with emoji prefixes
+        // as its primary logging call at nearly every call site — routing it
+        // to dev() (level 4, the most verbose) meant HIGH (level 3) users saw
+        // almost nothing. info() matches what HIGH is documented to show.
         console.log = function(...args) {
-            self.dev('Console.log captured', { args: args });
+            self.info('Console.log captured', { args: args });
         };
 
         // Replace console.info with info-level logger call

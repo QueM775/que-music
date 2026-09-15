@@ -102,6 +102,13 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
       ipcRenderer.invoke('playlist:reorder-tracks', { playlistId, trackId, newPosition }),
     update: (playlistData) => ipcRenderer.invoke('playlist:update', playlistData),
     delete: (playlistId) => ipcRenderer.invoke('playlist:delete', playlistId),
+    saveSmartAsStatic: (playlistId, name) =>
+      ipcRenderer.invoke('playlist:save-smart-as-static', { playlistId, name }),
+    setSmartRules: (playlistId, rules) =>
+      ipcRenderer.invoke('playlist:set-smart-rules', { playlistId, rules }),
+    getSmartRules: (playlistId) => ipcRenderer.invoke('playlist:get-smart-rules', playlistId),
+    previewSmartRules: (rules, matchMode) =>
+      ipcRenderer.invoke('playlist:preview-smart-rules', { rules, matchMode }),
     //  M3U file management methods
     setFolder: (musicFolderPath) => ipcRenderer.invoke('playlist:set-folder', musicFolderPath),
     getFolder: () => ipcRenderer.invoke('playlist:get-folder'),

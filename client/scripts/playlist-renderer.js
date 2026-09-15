@@ -6,7 +6,176 @@ class PlaylistRenderer {
     this.currentEditingPlaylist = null;
     this.currentContextPlaylist = null;
     this.currentPlaylistData = null;
+    this.snapshotSourcePlaylistId = null;
     this._modalListenersSetup = false;
+  }
+
+  // ============================================================================
+  // SMART PLAYLIST RULE BUILDER
+  // ============================================================================
+
+  // Field -> allowed operators, mirrors server/database.js's _smartRuleToFragment().
+  static SMART_FIELD_OPERATORS = {
+    artist: ['is', 'is not', 'contains'],
+    album: ['is', 'is not', 'contains'],
+    genre: ['is', 'is not', 'contains'],
+    year: ['is', 'greater than', 'less than', 'between'],
+    play_count: ['is', 'greater than', 'less than', 'between'],
+    date_added: ['before', 'after', 'in the last N days'],
+    favorite: ['is', 'is not'],
+  };
+
+  static SMART_NUMERIC_FIELDS = new Set(['year', 'play_count']);
+
+  addSmartRuleRow(rule = { field: 'genre', operator: 'is', value: '' }) {
+    const template = document.getElementById('smartRuleRowTemplate');
+    const row = template.content.firstElementChild.cloneNode(true);
+
+    const fieldSelect = row.querySelector('.smart-rule-field');
+    const operatorSelect = row.querySelector('.smart-rule-operator');
+    const valueWrapper = row.querySelector('.smart-rule-value-wrapper');
+    const removeBtn = row.querySelector('.smart-rule-remove');
+
+    const populateOperators = () => {
+      const ops = PlaylistRenderer.SMART_FIELD_OPERATORS[fieldSelect.value] || [];
+      operatorSelect.innerHTML = ops.map((op) => `<option value="${op}">${op}</option>`).join('');
+    };
+
+    // Renders whichever value control(s) fit the current field+operator —
+    // a bare text box for every field used to be the only option, so a
+    // typo'd favorite value or an unparseable date never got caught until
+    // save. `presetValue` pre-fills when opening an existing rule for edit.
+    const renderValueControl = (presetValue) => {
+      const field = fieldSelect.value;
+      const operator = operatorSelect.value;
+      valueWrapper.innerHTML = '';
+
+      if (field === 'favorite') {
+        const select = document.createElement('select');
+        select.className = 'smart-rule-value form-input';
+        select.innerHTML = `<option value="true">True</option><option value="false">False</option>`;
+        select.value = presetValue === 'false' || presetValue === false ? 'false' : 'true';
+        valueWrapper.appendChild(select);
+        return;
+      }
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator === 'between') {
+        const [low, high] = String(presetValue || '').split('|');
+        const lowInput = document.createElement('input');
+        lowInput.type = 'number';
+        lowInput.className = 'smart-rule-value-low form-input';
+        lowInput.placeholder = 'low';
+        lowInput.value = low || '';
+        const sep = document.createElement('span');
+        sep.className = 'smart-rule-value-sep';
+        sep.textContent = 'and';
+        const highInput = document.createElement('input');
+        highInput.type = 'number';
+        highInput.className = 'smart-rule-value-high form-input';
+        highInput.placeholder = 'high';
+        highInput.value = high || '';
+        valueWrapper.append(lowInput, sep, highInput);
+        return;
+      }
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field)) {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'smart-rule-value form-input';
+        input.value = presetValue || '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      if (field === 'date_added' && (operator === 'before' || operator === 'after')) {
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.className = 'smart-rule-value form-input';
+        // Stored value may be a full ISO datetime string from an earlier
+        // save — a date input only accepts the yyyy-mm-dd prefix of it.
+        input.value = presetValue ? String(presetValue).slice(0, 10) : '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      if (field === 'date_added' && operator === 'in the last N days') {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.className = 'smart-rule-value form-input';
+        input.placeholder = 'days';
+        input.value = presetValue || '';
+        valueWrapper.appendChild(input);
+        return;
+      }
+
+      // Default: text fields (artist/album/genre)
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'smart-rule-value form-input';
+      input.value = presetValue || '';
+      valueWrapper.appendChild(input);
+    };
+
+    fieldSelect.value = rule.field;
+    populateOperators();
+    operatorSelect.value = rule.operator;
+    renderValueControl(rule.value);
+
+    // Changing field or operator always resets the value control to match
+    // the new shape — carrying an old value across (e.g. a genre string
+    // into a date picker) wouldn't be meaningful anyway.
+    fieldSelect.addEventListener('change', () => {
+      populateOperators();
+      renderValueControl();
+    });
+    operatorSelect.addEventListener('change', () => renderValueControl());
+    removeBtn.addEventListener('click', () => row.remove());
+
+    document.getElementById('smartRuleRows').appendChild(row);
+  }
+
+  // Returns { rules, error }. `error` is a user-facing string set the moment a
+  // numeric field's value doesn't parse — invalid input is rejected here, not
+  // silently coerced into a broken NaN comparison downstream.
+  gatherSmartRules() {
+    const rows = Array.from(document.querySelectorAll('#smartRuleRows .smart-rule-row'));
+    const rules = [];
+
+    for (const row of rows) {
+      const field = row.querySelector('.smart-rule-field').value;
+      const operator = row.querySelector('.smart-rule-operator').value;
+
+      // 'between' renders two number inputs instead of the single generic
+      // value control — read whichever shape is actually present.
+      const lowInput = row.querySelector('.smart-rule-value-low');
+      const highInput = row.querySelector('.smart-rule-value-high');
+      const value =
+        lowInput && highInput
+          ? `${lowInput.value.trim()}|${highInput.value.trim()}`
+          : row.querySelector('.smart-rule-value').value.trim();
+
+      if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field) && operator === 'between') {
+        const [low, high] = value.split('|');
+        if (low === '' || high === '' || Number.isNaN(Number(low)) || Number.isNaN(Number(high))) {
+          return { rules: null, error: 'Enter both a low and a high number for that range rule' };
+        }
+      } else if (PlaylistRenderer.SMART_NUMERIC_FIELDS.has(field)) {
+        if (value === '' || Number.isNaN(Number(value))) {
+          return { rules: null, error: `"${value}" isn't a valid number for that rule` };
+        }
+      } else if (field === 'date_added' && operator === 'in the last N days') {
+        if (value === '' || Number.isNaN(Number(value))) {
+          return { rules: null, error: `"${value}" isn't a valid number of days` };
+        }
+      } else if (field === 'date_added' && (operator === 'before' || operator === 'after') && value === '') {
+        return { rules: null, error: 'Pick a date for that rule' };
+      }
+
+      rules.push({ field, operator, value });
+    }
+
+    return { rules, error: null };
   }
 
   // ============================================================================
@@ -180,9 +349,13 @@ class PlaylistRenderer {
     const element = document.createElement('div');
     element.className = 'playlist-item';
     element.dataset.playlistId = playlist.id;
+    const badge =
+      playlist.type === 'smart'
+        ? '<span class="playlist-type-badge smart" title="Smart Playlist">✦</span>'
+        : '';
     element.innerHTML = `
       <div class="playlist-info">
-        <h4>${this.escapeHtml(playlist.name)}</h4>
+        <h4>${badge}${this.escapeHtml(playlist.name)}</h4>
         <span class="track-count">${playlist.track_count || 0} tracks</span>
       </div>
       <div class="playlist-actions">
@@ -478,7 +651,7 @@ class PlaylistRenderer {
   // PLAYLIST MODAL MANAGEMENT
   // ============================================================================
 
-  showPlaylistModal(playlist = null) {
+  async showPlaylistModal(playlist = null) {
     console.log('📋 Opening playlist modal...');
 
     const modal = document.getElementById('playlistModal');
@@ -490,6 +663,7 @@ class PlaylistRenderer {
     }
 
     this.currentEditingPlaylist = playlist;
+    this.snapshotSourcePlaylistId = null;
 
     // Update modal title and fields
     const modalTitle = document.getElementById('modalTitle');
@@ -505,6 +679,33 @@ class PlaylistRenderer {
       nameInput.value = '';
       descInput.value = '';
     }
+
+    // Smart playlist type toggle + rule builder
+    const typeToggle = document.getElementById('playlistTypeToggle');
+    typeToggle.style.display = ''; // in case showSaveAsStaticModal() hid it last time
+    const ruleBuilder = document.getElementById('smartRuleBuilder');
+    const matchModeSelect = document.getElementById('smartMatchMode');
+    document.getElementById('smartRuleRows').innerHTML = '';
+
+    const setType = (type) => {
+      typeToggle.querySelectorAll('.segmented-option').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+      });
+      ruleBuilder.style.display = type === 'smart' ? 'block' : 'none';
+    };
+
+    if (playlist && playlist.type === 'smart') {
+      setType('smart');
+      matchModeSelect.value = playlist.match_mode || 'all';
+      const rules = await window.queMusicAPI.playlists.getSmartRules(playlist.id);
+      rules.forEach((rule) => this.addSmartRuleRow(rule));
+    } else {
+      setType('static');
+    }
+
+    typeToggle.querySelectorAll('.segmented-option').forEach((btn) => {
+      btn.onclick = () => setType(btn.dataset.type);
+    });
 
     // Set up event listeners
     this.setupModalEventListeners();
@@ -523,6 +724,44 @@ class PlaylistRenderer {
         console.error('❌ Error focusing input:', error);
       }
     }, 350); // Wait for CSS transition
+  }
+
+  // Opens the same modal used for create/edit, but in "name the snapshot"
+  // mode: pre-filled with the source smart playlist's name (selected, so
+  // typing over it or just hitting the save button both work), type toggle
+  // and rule builder hidden since a snapshot is always a plain static playlist.
+  showSaveAsStaticModal(sourcePlaylist) {
+    const modal = document.getElementById('playlistModal');
+    if (!modal) return;
+
+    this.currentEditingPlaylist = null;
+    this.snapshotSourcePlaylistId = sourcePlaylist.id;
+
+    const modalTitle = document.getElementById('modalTitle');
+    const nameInput = document.getElementById('playlistName');
+    const descInput = document.getElementById('playlistDescription');
+    const typeToggle = document.getElementById('playlistTypeToggle');
+    const ruleBuilder = document.getElementById('smartRuleBuilder');
+
+    modalTitle.textContent = 'Save as Static Playlist';
+    nameInput.value = sourcePlaylist.name;
+    descInput.value = '';
+    typeToggle.style.display = 'none';
+    ruleBuilder.style.display = 'none';
+
+    this.setupModalEventListeners();
+
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+
+    setTimeout(() => {
+      try {
+        nameInput.focus();
+        nameInput.select();
+      } catch (error) {
+        console.error('❌ Error focusing input:', error);
+      }
+    }, 350);
   }
 
   // Show playlist modal with a specific track to be added
@@ -747,6 +986,12 @@ class PlaylistRenderer {
       savePlaylist.addEventListener('click', () => this.savePlaylistFromModal());
     }
 
+    // Smart playlist rule builder — "+ Add Rule"
+    const addRuleBtn = document.getElementById('addSmartRuleBtn');
+    if (addRuleBtn) {
+      addRuleBtn.addEventListener('click', () => this.addSmartRuleRow());
+    }
+
     // Click outside to close
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
@@ -772,6 +1017,7 @@ class PlaylistRenderer {
     }
 
     this.currentEditingPlaylist = null;
+    this.snapshotSourcePlaylistId = null;
   }
 
   validatePlaylistForm() {
@@ -789,6 +1035,31 @@ class PlaylistRenderer {
     const descInput = document.getElementById('playlistDescription');
     const saveBtn = document.getElementById('savePlaylist');
 
+    if (this.snapshotSourcePlaylistId) {
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        await window.queMusicAPI.playlists.saveSmartAsStatic(
+          this.snapshotSourcePlaylistId,
+          nameInput.value.trim()
+        );
+        this.app.showNotification('Converted to a static playlist', 'success');
+        this.snapshotSourcePlaylistId = null;
+        this.hidePlaylistModal();
+        await this.refreshPlaylistsView();
+        if (this.app.uiController && this.app.uiController.switchView) {
+          await this.app.uiController.switchView('playlists');
+        }
+      } catch (error) {
+        console.error('❌ Error saving snapshot:', error);
+        this.app.showNotification(error.message || 'Failed to save playlist', 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Create Playlist';
+      }
+      return;
+    }
+
     try {
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving...';
@@ -798,10 +1069,51 @@ class PlaylistRenderer {
         description: descInput.value.trim(),
       };
 
+      const activeType =
+        document.querySelector('#playlistTypeToggle .segmented-option.active')?.dataset.type || 'static';
+
+      if (activeType === 'smart') {
+        const { rules, error } = this.gatherSmartRules();
+        if (error) {
+          this.app.showNotification(error, 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
+        if (rules.length === 0) {
+          this.app.showNotification('Add at least one rule for a smart playlist', 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
+        playlistData.type = 'smart';
+        playlistData.match_mode = document.getElementById('smartMatchMode').value;
+        playlistData.rules = rules;
+
+        // Preview the match count before creating/saving anything — a rule
+        // set that matches 0 tracks is almost always a mistake (wrong genre
+        // spelling, a tag that doesn't actually exist in the library, etc.),
+        // so report it and let the user fix the rules instead of silently
+        // creating a dead playlist.
+        const matchingTracks = await window.queMusicAPI.playlists.previewSmartRules(
+          rules,
+          playlistData.match_mode
+        );
+        if (!matchingTracks || matchingTracks.length === 0) {
+          this.app.showNotification('No tracks match these rules — 0 matches found', 'warning');
+          saveBtn.disabled = false;
+          saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
+          return;
+        }
+      }
+
       let newPlaylist = null;
       if (this.currentEditingPlaylist) {
         playlistData.id = this.currentEditingPlaylist.id;
         newPlaylist = await window.queMusicAPI.playlists.update(playlistData);
+        if (activeType === 'smart') {
+          await window.queMusicAPI.playlists.setSmartRules(this.currentEditingPlaylist.id, playlistData.rules);
+        }
         this.app.showNotification('Playlist updated', 'success');
       } else {
         newPlaylist = await window.queMusicAPI.playlists.create(playlistData);
@@ -903,7 +1215,9 @@ class PlaylistRenderer {
       }
     } catch (error) {
       console.error('❌ Error saving playlist:', error);
-      this.app.showNotification('Failed to save playlist', 'error');
+      // Surface the real reason (e.g. "already exists") instead of a generic
+      // failure message — this is what an IPC-thrown Error's .message carries.
+      this.app.showNotification(error.message || 'Failed to save playlist', 'error');
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = this.currentEditingPlaylist ? 'Save Changes' : 'Create Playlist';
@@ -927,9 +1241,17 @@ class PlaylistRenderer {
     this.positionContextMenu(contextMenu, event.clientX, event.clientY);
     this.setupPlaylistContextMenuListeners(contextMenu, playlist);
 
-    // Global click listener to close menu
+    // Global click listener to close menu. A menu item's own click handler
+    // calls stopPropagation(), so clicking an item (e.g. "Save as Static
+    // Playlist") never lets this listener fire — it would otherwise leak,
+    // stacking one dead listener per right-click. Remove any previous one
+    // before attaching a new one so at most one is ever pending.
+    if (this._closeContextMenuHandler) {
+      document.removeEventListener('click', this._closeContextMenuHandler);
+    }
+    this._closeContextMenuHandler = () => this.hidePlaylistContextMenu();
     setTimeout(() => {
-      document.addEventListener('click', this.hidePlaylistContextMenu.bind(this), { once: true });
+      document.addEventListener('click', this._closeContextMenuHandler, { once: true });
     }, 0);
   }
 
@@ -955,10 +1277,14 @@ class PlaylistRenderer {
         <span class="context-icon">📋</span>
         Duplicate
       </div>
-      <div class="context-item" data-action="export">
-        <span class="context-icon">💾</span>
-        Export to M3U
-      </div>
+      ${
+        playlist.type === 'smart'
+          ? `<div class="context-item" data-action="save-as-static">
+        <span class="context-icon">📸</span>
+        Save as Static Playlist
+      </div>`
+          : ''
+      }
       <div class="context-separator"></div>
       <div class="context-item" data-action="clear">
         <span class="context-icon">🗑️</span>
@@ -996,9 +1322,8 @@ class PlaylistRenderer {
           case 'duplicate':
             await this.duplicateCurrentPlaylist();
             break;
-          case 'export':
-            console.log('EXPORTING Playlist ID:', this.currentContextPlaylist.id);
-            await this.exportPlaylistToM3U(this.currentContextPlaylist.id);
+          case 'save-as-static':
+            this.showSaveAsStaticModal(this.currentContextPlaylist);
             break;
 
           case 'clear':
@@ -1520,20 +1845,6 @@ class PlaylistRenderer {
     } catch (error) {
       console.error('❌ Error reordering playlist track:', error);
       this.app.showNotification('Failed to reorder track', 'error');
-    }
-  }
-
-  // ============================================================================
-  // M3U EXPORT
-  // ============================================================================
-
-  async exportPlaylistToM3U(playlistId) {
-    try {
-      await window.queMusicAPI.playlists.exportM3U(playlistId);
-      this.updatePlaylistStatus('Playlist exported to M3U file', 'success');
-    } catch (error) {
-      console.error('❌ Error exporting playlist:', error);
-      this.updatePlaylistStatus('Failed to export playlist', 'error');
     }
   }
 

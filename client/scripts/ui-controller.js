@@ -597,7 +597,7 @@ class UIController {
             (playlist) => `
           <div class="playlist-item-card" data-playlist-id="${playlist.id}">
             <div class="playlist-item-header">
-              <div class="playlist-item-name">${this.escapeHtml(playlist.name)}</div>
+              <div class="playlist-item-name">${playlist.type === 'smart' ? '<span class="playlist-type-badge smart" title="Smart Playlist">✦</span>' : ''}${this.escapeHtml(playlist.name)}</div>
               <button class="playlist-item-menu btn-icon" title="Playlist options" data-playlist-id="${playlist.id}">⋮</button>
             </div>
             <div class="playlist-item-stats">
@@ -3062,39 +3062,6 @@ Path: ${track.path}`;
     }
   }
 
-  // Fix for ui-controller.js - Settings Modal Methods
-  // Replace the existing showSettingsModal and hideSettingsModal methods with these:
-
-  showSettingsModal() {
-    this.app.logger.info('Opening settings...');
-
-    // Load current settings
-    this.loadSettingsIntoModal();
-
-    // Show modal with proper CSS classes
-    const modal = document.getElementById('settingsModal');
-    if (modal) {
-      // First set display to flex
-      modal.style.display = 'flex';
-
-      // Force a reflow to ensure display change is applied
-      modal.offsetHeight;
-
-      // Then add the show class for animation
-      setTimeout(() => {
-        modal.classList.add('show');
-      }, 10);
-
-      // Set up event listeners
-      this.setupSettingsEventListeners();
-
-      // Add escape key listener
-      this.addModalEscapeListener();
-    } else {
-      this.app.logger.error('❌ Settings modal element not found');
-    }
-  }
-
   hideSettingsModal() {
     const modal = document.getElementById('settingsModal');
     if (modal) {
@@ -3114,6 +3081,11 @@ Path: ${track.path}`;
   // Add these helper methods to your UIController class:
 
   addModalEscapeListener() {
+    // Guard against leaking a stale listener if this is ever called twice
+    // without an intervening hideSettingsModal() (e.g. a stray double-open)
+    // — same leaked-listener shape already found and fixed in the playlist
+    // context menu (commit d965d99).
+    this.removeModalEscapeListener();
     this.modalEscapeHandler = (e) => {
       if (e.key === 'Escape') {
         this.hideSettingsModal();

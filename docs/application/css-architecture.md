@@ -11,11 +11,10 @@ styles/core/variables.css        design tokens (spacing, radii, z-index, etc.)
 styles/core/reset.css            browser reset
 styles/core/colors.css           color tokens (light/dark theme variables)
 styles/core/typography.css       font stacks, type scale
-styles/legacy/main.css           core layout: grid, sidebar, player controls, now-playing
-styles/legacy/components.css     largest file: notifications, badges, search, library grid,
+styles/sections/components.css   largest file: notifications, badges, search, library grid,
                                   playlist UI, modals, dual-pane layout
-styles/legacy/favorites.css      favorites & recently-played views
-styles/legacy/folder-browser.css folder tree / file browser panel
+styles/sections/favorites.css    favorites & recently-played views
+styles/sections/folder-browser.css folder tree / file browser panel
 styles/layout/grid.css           top-level page grid
 styles/layout/header.css         header bar, logo
 styles/layout/sidebar.css        sidebar nav
@@ -33,7 +32,7 @@ help/help.css                    in-app help viewer
 styles/fixes/modal-interaction-fix.css  targeted override, applied last
 ```
 
-**Note on the `legacy/` folder name**: despite the name, `legacy/main.css` and `legacy/components.css` are the two largest, most load-bearing files in the bundle — they are *not* dead code, they're just named for an earlier CSS reorganization that never finished renaming them. Don't delete anything in `legacy/` without checking `build-css.js`'s file list first.
+**2026-09-15**: the `legacy/` folder was renamed to `sections/` — it was never actually legacy/dead code (that mislabeling once led to a real live-verified regression, see `docs/issues/issues_track.md`), it's genuinely load-bearing CSS for Database Manager stat/health cards, the Favorites & Recently Played views, and the folder tree/song-selection UI that just never got reorganized into the canonical `components/`/`features/` structure. `legacy/main.css` *was* confirmed 100% dead (every selector fully duplicated elsewhere) and was deleted outright rather than renamed. The other three files in `sections/` still have real property-level overlap with selectors also defined in `components/`/`features/`/`layout/` (e.g. `.song-card`, `.btn-primary`, `.stat-card`) — currently harmless because canonical files load after and win per-conflicting-property, but a genuine future consolidation candidate. Don't attempt that consolidation casually: verify each selector's full before/after computed style across every view that uses it (Database Manager, Favorites, Recently Played, folder browser, bulk playlist menus) before removing anything — a blind bulk-delete attempt here already broke the folder-tree row layout once.
 
 ## Loading order matters
 
@@ -41,7 +40,8 @@ styles/fixes/modal-interaction-fix.css  targeted override, applied last
 
 ## Known dead weight
 
-- `client/styles/legacy/folder-browser.old` — not referenced in `build-css.js`'s file list, not loaded anywhere. Confirmed dead; removed as part of the 2026-09-11 cleanup.
+- `client/styles/legacy/folder-browser.old` (path from before the `legacy/` → `sections/` rename) — not referenced in `build-css.js`'s file list, not loaded anywhere. Confirmed dead; removed as part of the 2026-09-11 cleanup.
+- `client/styles/legacy/main.css` (same pre-rename path) — confirmed 100% dead (every selector duplicated elsewhere in the bundle); removed 2026-09-15.
 
 ## Responsive breakpoints
 

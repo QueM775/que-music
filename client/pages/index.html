@@ -725,6 +725,14 @@
 
         <div class="modal-body">
           <div class="form-group">
+            <label>Playlist Type</label>
+            <div class="segmented-control" id="playlistTypeToggle">
+              <button type="button" class="segmented-option active" data-type="static">Static</button>
+              <button type="button" class="segmented-option" data-type="smart">Smart</button>
+            </div>
+          </div>
+
+          <div class="form-group">
             <label for="playlistName">Playlist Name</label>
             <input
               type="text"
@@ -744,6 +752,18 @@
               maxlength="500"
             ></textarea>
           </div>
+
+          <div class="form-group" id="smartRuleBuilder" style="display: none">
+            <label>Match</label>
+            <select id="smartMatchMode" class="setting-select">
+              <option value="all">ALL of the following rules</option>
+              <option value="any">ANY of the following rules</option>
+            </select>
+
+            <div id="smartRuleRows"></div>
+
+            <button type="button" class="btn-secondary" id="addSmartRuleBtn">+ Add Rule</button>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -754,6 +774,23 @@
         </div>
       </div>
     </div>
+
+    <template id="smartRuleRowTemplate">
+      <div class="smart-rule-row">
+        <select class="smart-rule-field form-input">
+          <option value="artist">Artist</option>
+          <option value="album">Album</option>
+          <option value="genre">Genre</option>
+          <option value="year">Year</option>
+          <option value="play_count">Play Count</option>
+          <option value="date_added">Date Added</option>
+          <option value="favorite">Favorite</option>
+        </select>
+        <select class="smart-rule-operator form-input"></select>
+        <span class="smart-rule-value-wrapper"></span>
+        <button type="button" class="btn-icon smart-rule-remove" title="Remove rule">✕</button>
+      </div>
+    </template>
 
     <!-- Context Menu for Playlists -->
     <div class="context-menu" id="playlistContextMenu" style="display: none">
@@ -780,6 +817,10 @@
         <span>Show Playlist Folder</span>
       </div>
     </div>
+    <!-- Note: this #playlistContextMenu block is dead markup — playlist-renderer.js's
+         createPlaylistContextMenu() builds and appends its own element with the same
+         id at click time instead of using this one. Pre-existing before the smart
+         playlists feature (2026-09-14); not cleaned up here to stay in scope. -->
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal" style="display: none">

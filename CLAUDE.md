@@ -50,6 +50,20 @@ Since this is a music player, test with diverse file types:
 - Test with spaces and special characters in filenames
 - Verify supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, WMA
 
+No test framework is installed (no Jest, no `npm test`). For backend logic
+(database/query behavior), the established pattern (see `scripts/dev-verify/`,
+started with the smart playlists feature) is a standalone Node script using
+an in-memory `MusicDatabase(':memory:')` instance and Node's built-in
+`assert` — not a real test runner, just enough to catch regressions before a
+live launch. `better-sqlite3` is compiled against Electron's Node ABI, not
+system Node, so run these scripts through Electron's bundled runtime:
+```bash
+ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron.cmd scripts/dev-verify/<name>.js
+```
+Plain `node scripts/dev-verify/<name>.js` will fail with a NODE_MODULE_VERSION
+mismatch error. UI/renderer work still needs an actual `npm start` launch and
+click-through — these scripts only cover `server/database.js`-level logic.
+
 ## Architecture Overview
 
 ### Main Process Architecture

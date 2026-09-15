@@ -706,3 +706,71 @@
 .setting-range {
   /* Copy styles from form-input, form-select, etc. */
 }
+
+/* Smart playlist rule builder — added 2026-09-14 */
+.segmented-control {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: 2px;
+}
+
+.segmented-option {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.segmented-option.active {
+  background: var(--primary);
+  color: white;
+}
+
+.smart-rule-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.smart-rule-row .smart-rule-field,
+.smart-rule-row .smart-rule-operator {
+  flex: 1;
+}
+
+.smart-rule-row .smart-rule-value {
+  flex: 2;
+}
+
+.smart-rule-value-wrapper {
+  flex: 2;
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.smart-rule-value-wrapper .smart-rule-value {
+  flex: 1;
+}
+
+.smart-rule-value-wrapper .smart-rule-value-low,
+.smart-rule-value-wrapper .smart-rule-value-high {
+  flex: 1;
+  min-width: 0;
+}
+
+.smart-rule-value-sep {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.playlist-type-badge.smart {
+  color: #a855f7; /* matches the sidebar Discover accent from the 2026-09-14 icon pass */
+  margin-right: var(--space-xs);
+}

@@ -21,6 +21,7 @@ class MusicDatabase {
 
     // Heal any existing on-disk DB file that predates the lyrics columns
     this.migrateAddLyricsColumns();
+    this.migrateAddSmartPlaylistColumns();
   }
 
   // ============================================================================
@@ -98,6 +99,16 @@ class MusicDatabase {
       FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
       FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
       UNIQUE(playlist_id, track_path)
+    );
+
+    CREATE TABLE IF NOT EXISTS smart_playlist_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      field TEXT NOT NULL,
+      operator TEXT NOT NULL,
+      value TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS favorites (
@@ -279,6 +290,26 @@ class MusicDatabase {
     }
   }
 
+  // Heals existing on-disk DBs that predate smart playlists — same guarded
+  // ALTER TABLE pattern as migrateAddLyricsColumns(). Safe to run on every launch.
+  migrateAddSmartPlaylistColumns() {
+    const columns = [
+      { name: 'type', ddl: "ALTER TABLE playlists ADD COLUMN type TEXT NOT NULL DEFAULT 'static'" },
+      { name: 'match_mode', ddl: 'ALTER TABLE playlists ADD COLUMN match_mode TEXT' },
+    ];
+
+    for (const column of columns) {
+      try {
+        this.db.prepare(column.ddl).run();
+        console.log(`✅ Added playlists.${column.name} column`);
+      } catch (err) {
+        if (!/duplicate column/i.test(err.message)) {
+          throw err;
+        }
+      }
+    }
+  }
+
   async validateSchema() {
     try {
       const expectedTables = [
@@ -354,33 +385,34 @@ class MusicDatabase {
 
     try {
       const startTime = Date.now();
-      this.db.prepare('BEGIN').run();
 
-      for (let i = 0; i < tracksArray.length; i++) {
-        const track = tracksArray[i];
-        stmt.run(
-          track.path,
-          track.filename,
-          track.title || null,
-          track.artist || null,
-          track.album || null,
-          track.year || null,
-          track.genre || null,
-          track.duration || null,
-          track.filesize || 0,
-          track.format || null,
-          track.bitrate || null,
-          track.lyrics || null,
-          track.lyricsSource || null,
-          track.lyricsFetchedAt || null
-        );
+      const insertAll = this.db.transaction((tracks) => {
+        for (let i = 0; i < tracks.length; i++) {
+          const track = tracks[i];
+          stmt.run(
+            track.path,
+            track.filename,
+            track.title || null,
+            track.artist || null,
+            track.album || null,
+            track.year || null,
+            track.genre || null,
+            track.duration || null,
+            track.filesize || 0,
+            track.format || null,
+            track.bitrate || null,
+            track.lyrics || null,
+            track.lyricsSource || null,
+            track.lyricsFetchedAt || null
+          );
 
-        if ((i + 1) % 100 === 0 || i + 1 === tracksArray.length) {
-          console.log(`💾 Database progress: ${i + 1}/${tracksArray.length} tracks processed`);
+          if ((i + 1) % 100 === 0 || i + 1 === tracks.length) {
+            console.log(`💾 Database progress: ${i + 1}/${tracks.length} tracks processed`);
+          }
         }
-      }
+      });
+      insertAll(tracksArray);
 
-      this.db.prepare('COMMIT').run();
       const duration = Date.now() - startTime;
       console.log(
         `✅ Database update complete: ${tracksArray.length} tracks processed (${duration}ms)`
@@ -388,11 +420,6 @@ class MusicDatabase {
       return tracksArray.length;
     } catch (err) {
       console.error('❌ Database error during track insertion:', err.message);
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Failed to rollback transaction:', rollbackErr.message);
-      }
       throw err;
     }
   }
@@ -725,91 +752,34 @@ class MusicDatabase {
   }
 
   // ============================================================================
-  // EXPORT PLAYLIST TO M3U (FINAL WORKING VERSION)
+  // EXPORT PLAYLIST TO M3U
   // ============================================================================
-  // async exportPlaylistToM3U(playlistId) {
-  //   try {
-  //     if (!this.playlistFolder) {
-  //       throw new Error('Playlist folder not set');
-  //     }
-
-  //     // 1. Load playlist metadata
-  //     const playlist = this.getPlaylistById(playlistId);
-  //     if (!playlist) throw new Error(`Playlist ${playlistId} not found`);
-
-  //     // 2. Load tracks using JOIN query
-  //     const tracks = this.db
-  //       .prepare(
-  //         `
-  //     SELECT t.path
-  //     FROM playlist_tracks pt
-  //     JOIN tracks t ON t.id = pt.track_id
-  //     WHERE pt.playlist_id = ?
-  //     ORDER BY pt.position ASC
-  //   `
-  //       )
-  //       .all(playlistId);
-
-  //     if (!tracks || tracks.length === 0) {
-  //       throw new Error(`Playlist "${playlist.name}" has no tracks`);
-  //     }
-
-  //     // 3. Build file path
-  //     const safeName = playlist.name.replace(/[<>:"/\\|?*]/g, '_');
-  //     const filePath = path.join(this.playlistFolder, safeName + '.m3u');
-
-  //     // 4. Build content
-  //     const m3uContent = tracks.map((t) => t.path).join('\n');
-
-  //     // 5. Write file
-  //     await fs.writeFile(filePath, m3uContent, 'utf8');
-
-  //     console.log(`💾 Exported ${tracks.length} tracks → ${filePath}`);
-
-  //     return { success: true, filePath };
-  //   } catch (err) {
-  //     console.error('❌ EXPORT FAILED:', err);
-  //     throw err;
-  //   }
-  // }
   async exportPlaylistToM3U(playlistId) {
-    console.log('🟦 EXPORT REQUEST RECEIVED:', playlistId);
-
     try {
       if (!this.playlistFolder) {
-        console.log('❌ Playlist folder is NOT set');
         throw new Error('Playlist folder not set');
       }
-      console.log('📁 Playlist folder:', this.playlistFolder);
 
       // 1. Load playlist metadata
-      const playlist = this.getPlaylistById(playlistId);
-      console.log('📋 PLAYLIST OBJECT:', playlist);
-
+      const playlist = await this.getPlaylistById(playlistId);
       if (!playlist) {
-        console.log('❌ Playlist not found');
         throw new Error(`Playlist ${playlistId} not found`);
       }
 
       // 2. Load tracks using JOIN query
-      console.log('🔍 RUNNING TRACK QUERY…');
-
       const tracks = this.db
         .prepare(
           `
       SELECT t.path
       FROM playlist_tracks pt
-      JOIN tracks t ON t.id = pt.track_id
+      JOIN tracks t ON t.path = pt.track_path
       WHERE pt.playlist_id = ?
       ORDER BY pt.position ASC
     `
         )
         .all(playlistId);
 
-      console.log('🎵 TRACK RESULT:', tracks);
-
       if (!tracks || tracks.length === 0) {
-        console.log('❌ NO TRACKS FOUND FOR THIS PLAYLIST');
         throw new Error(`Playlist "${playlist.name}" has no tracks`);
       }
 
@@ -817,20 +787,17 @@ class MusicDatabase {
       const safeName = playlist.name.replace(/[<>:"/\\|?*]/g, '_');
       const filePath = path.join(this.playlistFolder, safeName + '.m3u');
 
-      console.log('📄 EXPORT PATH:', filePath);
-
       // 4. Build content
       const m3uContent = tracks.map((t) => t.path).join('\n');
-      console.log('📝 M3U CONTENT PREVIEW:', m3uContent.substring(0, 200));
 
       // 5. Write file
       await fs.writeFile(filePath, m3uContent, 'utf8');
 
-      console.log('✅ EXPORT SUCCESS!', filePath);
+      console.log(`💾 Exported ${tracks.length} tracks → ${filePath}`);
 
       return { success: true, filePath };
     } catch (err) {
-      console.log('🔥 DIAGNOSTIC EXPORT ERROR:', err);
+      console.error('❌ Error exporting playlist to M3U:', err);
       throw err;
     }
   }
@@ -1035,6 +1002,20 @@ class MusicDatabase {
       `
         )
         .all();
+
+      // Smart playlists have no playlist_tracks rows, so the COUNT() above is
+      // always 0 for them — compute their track_count live from their rules instead.
+      for (const playlist of rows) {
+        if (playlist.type === 'smart') {
+          const rules = this.getSmartPlaylistRules(playlist.id);
+          const { sql, params } = this.buildSmartPlaylistWhereClause(rules, playlist.match_mode);
+          const { count } = this.db
+            .prepare(`SELECT COUNT(*) as count FROM tracks t WHERE ${sql}`)
+            .get(...params);
+          playlist.track_count = count;
+        }
+      }
+
       console.log(`📋 Retrieved ${rows.length} playlists`);
       return rows || [];
     } catch (err) {
@@ -1045,15 +1026,21 @@ class MusicDatabase {
 
   createPlaylist(playlistData) {
     try {
-      const { name, description = '' } = playlistData;
+      const { name, description = '', type = 'static', match_mode = null, rules = null } = playlistData;
 
-      const stmt = this.db.prepare('INSERT INTO playlists (name, description) VALUES (?, ?)');
-      const result = stmt.run(name, description);
+      const stmt = this.db.prepare(
+        'INSERT INTO playlists (name, description, type, match_mode) VALUES (?, ?, ?, ?)'
+      );
+      const result = stmt.run(name, description, type, match_mode);
       const playlistId = result.lastInsertRowid;
+
+      if (type === 'smart' && rules) {
+        this.addSmartPlaylistRules(playlistId, rules);
+      }
 
       // Get the created playlist
       const row = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
-      console.log(`📋 Created playlist: ${name}`);
+      console.log(`📋 Created playlist: ${name} (${type})`);
       return row;
     } catch (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
@@ -1064,6 +1051,180 @@ class MusicDatabase {
       console.error('❌ Error creating playlist:', err);
       throw err;
     }
+  }
+
+  // ============================================================================
+  // SMART PLAYLISTS
+  // ============================================================================
+
+  // Replaces all rules for a smart playlist. Called both on creation and on
+  // edit-save from the rule builder UI — always a full replace, no partial
+  // patch, since the rule builder always submits its whole rule set.
+  addSmartPlaylistRules(playlistId, rules) {
+    const deleteExisting = this.db.prepare('DELETE FROM smart_playlist_rules WHERE playlist_id = ?');
+    const insertRule = this.db.prepare(`
+      INSERT INTO smart_playlist_rules (playlist_id, field, operator, value, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const doInsert = this.db.transaction((playlistId, rules) => {
+      deleteExisting.run(playlistId);
+      rules.forEach((rule, index) => {
+        insertRule.run(playlistId, rule.field, rule.operator, String(rule.value), index);
+      });
+    });
+
+    doInsert(playlistId, rules);
+    console.log(`🧠 Set ${rules.length} smart playlist rule(s) for playlist ${playlistId}`);
+    return { success: true, ruleCount: rules.length };
+  }
+
+  getSmartPlaylistRules(playlistId) {
+    return this.db
+      .prepare(
+        'SELECT field, operator, value FROM smart_playlist_rules WHERE playlist_id = ? ORDER BY sort_order ASC'
+      )
+      .all(playlistId);
+  }
+
+  // Field -> real column expression. 'favorite' isn't a tracks column, so it's
+  // handled as a subquery membership test rather than a plain comparison.
+  _smartFieldColumn(field) {
+    const textColumns = { artist: 't.artist', album: 't.album', genre: 't.genre' };
+    const numberColumns = { year: 't.year', play_count: 't.play_count' };
+    if (textColumns[field]) return textColumns[field];
+    if (numberColumns[field]) return numberColumns[field];
+    if (field === 'date_added') return 't.date_added';
+    throw new Error(`Unknown smart playlist field: ${field}`);
+  }
+
+  // Converts one rule row into a { sql, params } WHERE fragment. Every value
+  // is bound as a parameter — never string-concatenated into the query.
+  _smartRuleToFragment(rule) {
+    const { field, operator, value } = rule;
+
+    if (field === 'favorite') {
+      const wantFavorite = value === 'true' || value === true;
+      const sub = 'EXISTS (SELECT 1 FROM favorites f WHERE f.track_id = t.id)';
+      if (operator === 'is') {
+        return wantFavorite ? { sql: sub, params: [] } : { sql: `NOT ${sub}`, params: [] };
+      }
+      if (operator === 'is not') {
+        return wantFavorite ? { sql: `NOT ${sub}`, params: [] } : { sql: sub, params: [] };
+      }
+      throw new Error(`Unsupported operator "${operator}" for field "favorite"`);
+    }
+
+    const column = this._smartFieldColumn(field);
+    const isTextField = ['artist', 'album', 'genre'].includes(field);
+
+    switch (operator) {
+      case 'is':
+        // Text fields compare case-insensitively — a user typing "classical"
+        // should match a track tagged "Classical"; SQLite's `=` is case-sensitive
+        // by default. Numeric/date fields keep an exact match.
+        return isTextField
+          ? { sql: `${column} = ? COLLATE NOCASE`, params: [value] }
+          : { sql: `${column} = ?`, params: [value] };
+      case 'is not':
+        return isTextField
+          ? { sql: `${column} != ? COLLATE NOCASE`, params: [value] }
+          : { sql: `${column} != ?`, params: [value] };
+      case 'contains':
+        // LIKE is already case-insensitive for ASCII in SQLite by default.
+        return { sql: `${column} LIKE ?`, params: [`%${value}%`] };
+      case 'greater than':
+        return { sql: `${column} > ?`, params: [Number(value)] };
+      case 'less than':
+        return { sql: `${column} < ?`, params: [Number(value)] };
+      case 'between': {
+        const [low, high] = String(value).split('|');
+        return { sql: `${column} BETWEEN ? AND ?`, params: [Number(low), Number(high)] };
+      }
+      case 'before':
+        return { sql: `${column} < ?`, params: [value] };
+      case 'after':
+        return { sql: `${column} > ?`, params: [value] };
+      case 'in the last N days':
+        return { sql: `${column} >= datetime('now', ?)`, params: [`-${Number(value)} days`] };
+      default:
+        throw new Error(`Unsupported operator "${operator}" for field "${field}"`);
+    }
+  }
+
+  // Shared by getSmartPlaylistTracks() and getAllPlaylists()'s live track_count.
+  buildSmartPlaylistWhereClause(rules, matchMode) {
+    if (!rules || rules.length === 0) {
+      return { sql: '0 = 1', params: [] }; // no rules => matches nothing
+    }
+    const fragments = rules.map((rule) => this._smartRuleToFragment(rule));
+    const joiner = matchMode === 'any' ? ' OR ' : ' AND ';
+    const sql = fragments.map((f) => `(${f.sql})`).join(joiner);
+    const params = fragments.flatMap((f) => f.params);
+    return { sql, params };
+  }
+
+  async getSmartPlaylistTracks(playlistId) {
+    const rules = this.getSmartPlaylistRules(playlistId);
+    const playlist = this.db.prepare('SELECT match_mode FROM playlists WHERE id = ?').get(playlistId);
+    const { sql, params } = this.buildSmartPlaylistWhereClause(rules, playlist?.match_mode);
+
+    const query = `
+      SELECT
+        t.id, t.path, t.filename, t.title, t.artist, t.album, t.year,
+        t.genre, t.duration, t.format, t.filesize, t.play_count
+      FROM tracks t
+      WHERE ${sql}
+      ORDER BY t.artist, t.album, t.title
+    `;
+
+    return this.db.prepare(query).all(...params);
+  }
+
+  // Same query as getSmartPlaylistTracks(), but takes a rule set directly
+  // instead of looking one up by playlist id — lets the rule builder preview
+  // a match count before a playlist exists at all (or before edited rules
+  // are saved over the old ones).
+  async previewSmartPlaylistTracks(rules, matchMode) {
+    const { sql, params } = this.buildSmartPlaylistWhereClause(rules, matchMode);
+
+    const query = `
+      SELECT
+        t.id, t.path, t.filename, t.title, t.artist, t.album, t.year,
+        t.genre, t.duration, t.format, t.filesize, t.play_count
+      FROM tracks t
+      WHERE ${sql}
+      ORDER BY t.artist, t.album, t.title
+    `;
+
+    return this.db.prepare(query).all(...params);
+  }
+
+  async saveSmartPlaylistAsStatic(playlistId, name = null) {
+    const source = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId);
+    if (!source || source.type !== 'smart') {
+      throw new Error(`Playlist ${playlistId} is not a smart playlist`);
+    }
+
+    const tracks = await this.getSmartPlaylistTracks(playlistId);
+    const snapshot = this.createPlaylist({
+      name: name || `${source.name} (Snapshot)`,
+      description: `Snapshot of "${source.name}" — ${tracks.length} track(s), saved ${new Date().toISOString()}`,
+      type: 'static',
+    });
+
+    for (const track of tracks) {
+      await this.addTrackToPlaylist(snapshot.id, track.id);
+    }
+
+    // The static copy now holds this smart playlist's matches permanently —
+    // the smart playlist itself is redundant at that point, so this is a
+    // conversion, not a duplication. Delete it (cascades its rules via the
+    // smart_playlist_rules FK, cleans up its M3U file if it had one).
+    await this.deletePlaylist(playlistId);
+
+    console.log(`📸 Converted smart playlist "${source.name}" into static playlist "${snapshot.name}"`);
+    return this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(snapshot.id);
   }
 
   // ============================================================================
@@ -1169,6 +1330,12 @@ class MusicDatabase {
         throw new Error(`Playlist with ID ${playlistId} not found`);
       }
 
+      if (playlist.type === 'smart') {
+        playlist.tracks = await this.getSmartPlaylistTracks(playlistId);
+        console.log(`🧠 Retrieved smart playlist "${playlist.name}" with ${playlist.tracks.length} tracks`);
+        return playlist;
+      }
+
       // Get tracks in playlist
       const tracksQuery = `
         SELECT
@@ -1202,6 +1369,22 @@ class MusicDatabase {
     }
   }
 
+  // Best-effort M3U export called after every playlist mutation (add/remove/
+  // reorder track) so a playlist's .m3u file never needs a manual "Export"
+  // click — it's always current. Swallows the expected non-error cases
+  // (no playlist folder configured yet, or the playlist is now empty) rather
+  // than letting them interrupt the mutation that triggered it.
+  async _autoExportM3U(playlistId) {
+    try {
+      await this.exportPlaylistToM3U(playlistId);
+    } catch (err) {
+      if (/Playlist folder not set|has no tracks/i.test(err.message)) {
+        return; // expected — nothing to export yet, or folder isn't configured
+      }
+      console.warn(`⚠️ Auto-export to M3U failed for playlist ${playlistId}:`, err.message);
+    }
+  }
+
   async addTrackToPlaylist(playlistId, trackId) {
     try {
       // Get track path first
@@ -1227,6 +1410,7 @@ class MusicDatabase {
           )
           .run(playlistId, track.path, position);
         console.log(`📋 Added track ${trackId} to playlist ${playlistId} at position ${position}`);
+        await this._autoExportM3U(playlistId);
         return { success: true, position };
       } catch (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
@@ -1254,6 +1438,7 @@ class MusicDatabase {
         .prepare('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_path = ?')
         .run(playlistId, track.path);
       console.log(`📋 Removed track ${trackId} from playlist ${playlistId}`);
+      await this._autoExportM3U(playlistId);
       return { success: true, removed: result.changes > 0 };
     } catch (err) {
       console.error('❌ Error removing track from playlist:', err);
@@ -1296,6 +1481,7 @@ class MusicDatabase {
 
       const result = doReorder();
       console.log(`📋 Reordered track ${trackId} to position ${newPosition} in playlist ${playlistId}`);
+      await this._autoExportM3U(playlistId);
       return result;
     } catch (err) {
       console.error('❌ Error reordering playlist tracks:', err);
@@ -1304,24 +1490,40 @@ class MusicDatabase {
   }
 
   async deletePlaylist(playlistId) {
+    // Look this up before the delete so we still have the name to compute
+    // the .m3u filename afterward — same safeName pattern exportPlaylistToM3U
+    // uses when it writes the file in the first place.
+    const playlistBeforeDelete = this.db.prepare('SELECT name FROM playlists WHERE id = ?').get(playlistId);
+
     try {
-      this.db.prepare('BEGIN').run();
-
-      // Delete playlist tracks first
-      this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(playlistId);
-
-      // Delete playlist
-      const result = this.db.prepare('DELETE FROM playlists WHERE id = ?').run(playlistId);
-
-      this.db.prepare('COMMIT').run();
+      const deleteBoth = this.db.transaction((id) => {
+        // Delete playlist tracks first
+        this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(id);
+        // Delete playlist
+        return this.db.prepare('DELETE FROM playlists WHERE id = ?').run(id);
+      });
+      const result = deleteBoth(playlistId);
       console.log(`📋 Deleted playlist ${playlistId}`);
+
+      // Best-effort cleanup of the auto-exported .m3u file. Without this, a
+      // deleted playlist's file stays on disk and setPlaylistFolder()'s
+      // startup scan (importExistingM3UFiles()) resurrects it as a "new"
+      // playlist on the next launch — exactly the bug Erich hit live.
+      if (this.playlistFolder && playlistBeforeDelete) {
+        const safeName = playlistBeforeDelete.name.replace(/[<>:"/\\|?*]/g, '_');
+        const filePath = path.join(this.playlistFolder, safeName + '.m3u');
+        try {
+          await fs.unlink(filePath);
+          console.log(`🗑️ Removed M3U file for deleted playlist: ${filePath}`);
+        } catch (unlinkErr) {
+          if (unlinkErr.code !== 'ENOENT') {
+            console.warn(`⚠️ Could not remove M3U file for deleted playlist:`, unlinkErr.message);
+          }
+        }
+      }
+
       return { success: true, deleted: result.changes > 0 };
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error deleting playlist:', err);
       throw err;
     }
@@ -1329,18 +1531,31 @@ class MusicDatabase {
 
   async updatePlaylist(playlistData) {
     try {
-      const { id, name, description = '' } = playlistData;
+      const { id, name, description = '', match_mode } = playlistData;
 
-      this.db
-        .prepare(
-          'UPDATE playlists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-        )
-        .run(name, description, id);
+      if (match_mode !== undefined) {
+        this.db
+          .prepare(
+            'UPDATE playlists SET name = ?, description = ?, match_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          )
+          .run(name, description, match_mode, id);
+      } else {
+        this.db
+          .prepare(
+            'UPDATE playlists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          )
+          .run(name, description, id);
+      }
 
       const playlist = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(id);
       console.log(`📋 Updated playlist: ${name}`);
       return playlist;
     } catch (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        const error = new Error(`Playlist "${playlistData.name}" already exists`);
+        console.error('❌ Error updating playlist:', error.message);
+        throw error;
+      }
       console.error('❌ Error updating playlist:', err);
       throw err;
     }
@@ -1488,49 +1703,48 @@ class MusicDatabase {
     try {
       console.log('🔄 Populating artists and albums from existing tracks...');
 
-      this.db.prepare('BEGIN').run();
+      const repopulate = this.db.transaction(() => {
+        // Clear existing data
+        this.db.prepare('DELETE FROM artists').run();
+        this.db.prepare('DELETE FROM albums').run();
 
-      // Clear existing data
-      this.db.prepare('DELETE FROM artists').run();
-      this.db.prepare('DELETE FROM albums').run();
+        // Populate artists from tracks
+        this.db
+          .prepare(
+            `
+          INSERT INTO artists (name, track_count)
+          SELECT
+            artist,
+            COUNT(*) as track_count
+          FROM tracks
+          WHERE artist IS NOT NULL
+            AND artist != ''
+            AND artist != 'Unknown Artist'
+          GROUP BY artist
+        `
+          )
+          .run();
 
-      // Populate artists from tracks
-      this.db
-        .prepare(
-          `
-        INSERT INTO artists (name, track_count)
-        SELECT
-          artist,
-          COUNT(*) as track_count
-        FROM tracks
-        WHERE artist IS NOT NULL
-          AND artist != ''
-          AND artist != 'Unknown Artist'
-        GROUP BY artist
-      `
-        )
-        .run();
-
-      // Populate albums from tracks
-      this.db
-        .prepare(
-          `
-        INSERT INTO albums (title, artist, track_count, year)
-        SELECT
-          album,
-          artist,
-          COUNT(*) as track_count,
-          MIN(year) as year
-        FROM tracks
-        WHERE album IS NOT NULL
-          AND album != ''
-          AND album != 'Unknown Album'
-        GROUP BY album, artist
-      `
-        )
-        .run();
-
-      this.db.prepare('COMMIT').run();
+        // Populate albums from tracks
+        this.db
+          .prepare(
+            `
+          INSERT INTO albums (title, artist, track_count, year)
+          SELECT
+            album,
+            artist,
+            COUNT(*) as track_count,
+            MIN(year) as year
+          FROM tracks
+          WHERE album IS NOT NULL
+            AND album != ''
+            AND album != 'Unknown Album'
+          GROUP BY album, artist
+        `
+          )
+          .run();
+      });
+      repopulate();
 
       // Get counts of what was added
       const artistCount = this.db.prepare('SELECT COUNT(*) as artists FROM artists').get();
@@ -1543,11 +1757,6 @@ class MusicDatabase {
       console.log('✅ Artists and albums populated successfully:', result);
       return result;
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error populating artists and albums:', err);
       throw err;
     }
@@ -1694,65 +1903,60 @@ class MusicDatabase {
       let updated = 0;
       let duplicatesRemoved = 0;
 
-      this.db.prepare('BEGIN').run();
+      const applyCorrections = this.db.transaction(() => {
+        for (const targetPath of Object.keys(pathGroups)) {
+          const group = pathGroups[targetPath];
 
-      for (const targetPath of Object.keys(pathGroups)) {
-        const group = pathGroups[targetPath];
+          // Check if target path already exists in database
+          const existingTrack = this.db
+            .prepare('SELECT id FROM tracks WHERE path = ?')
+            .get(targetPath);
 
-        // Check if target path already exists in database
-        const existingTrack = this.db
-          .prepare('SELECT id FROM tracks WHERE path = ?')
-          .get(targetPath);
+          if (existingTrack) {
+            // Target path already exists, remove all duplicates
+            console.log(`🔄 Target path already exists: ${targetPath}`);
+            console.log(`🧹 Removing ${group.length} duplicate records`);
 
-        if (existingTrack) {
-          // Target path already exists, remove all duplicates
-          console.log(`🔄 Target path already exists: ${targetPath}`);
-          console.log(`🧹 Removing ${group.length} duplicate records`);
-
-          const duplicateIds = group.map((g) => g.originalTrack.id);
-          const placeholders = duplicateIds.map(() => '?').join(',');
-
-          const delResult = this.db
-            .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
-            .run(...duplicateIds);
-          duplicatesRemoved += delResult.changes;
-          console.log(`🧹 Removed ${delResult.changes} duplicate records for ${targetPath}`);
-        } else {
-          // Target path doesn't exist, update the first record and remove the rest
-          const firstCorrection = group[0];
-          const otherCorrections = group.slice(1);
-
-          this.db
-            .prepare('UPDATE tracks SET path = ? WHERE id = ?')
-            .run(targetPath, firstCorrection.originalTrack.id);
-          updated++;
-          console.log(`✅ Updated path: ${firstCorrection.originalTrack.path} -> ${targetPath}`);
-
-          // Remove any additional duplicates
-          if (otherCorrections.length > 0) {
-            const duplicateIds = otherCorrections.map((g) => g.originalTrack.id);
+            const duplicateIds = group.map((g) => g.originalTrack.id);
             const placeholders = duplicateIds.map(() => '?').join(',');
 
             const delResult = this.db
               .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
               .run(...duplicateIds);
             duplicatesRemoved += delResult.changes;
-            console.log(`🧹 Removed ${delResult.changes} additional duplicates for ${targetPath}`);
+            console.log(`🧹 Removed ${delResult.changes} duplicate records for ${targetPath}`);
+          } else {
+            // Target path doesn't exist, update the first record and remove the rest
+            const firstCorrection = group[0];
+            const otherCorrections = group.slice(1);
+
+            this.db
+              .prepare('UPDATE tracks SET path = ? WHERE id = ?')
+              .run(targetPath, firstCorrection.originalTrack.id);
+            updated++;
+            console.log(`✅ Updated path: ${firstCorrection.originalTrack.path} -> ${targetPath}`);
+
+            // Remove any additional duplicates
+            if (otherCorrections.length > 0) {
+              const duplicateIds = otherCorrections.map((g) => g.originalTrack.id);
+              const placeholders = duplicateIds.map(() => '?').join(',');
+
+              const delResult = this.db
+                .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
+                .run(...duplicateIds);
+              duplicatesRemoved += delResult.changes;
+              console.log(`🧹 Removed ${delResult.changes} additional duplicates for ${targetPath}`);
+            }
           }
         }
-      }
+      });
+      applyCorrections();
 
-      this.db.prepare('COMMIT').run();
       console.log(
         `✅ Path correction completed: ${updated} updated, ${duplicatesRemoved} duplicates removed`
       );
       return { updated, duplicatesRemoved, errors: 0 };
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error updating corrected paths:', err);
       throw err;
     }
@@ -1783,45 +1987,48 @@ class MusicDatabase {
         playlistTracks: 0,
       };
 
-      this.db.prepare('BEGIN').run();
+      const removeAll = this.db.transaction(() => {
+        // Remove from recently_played
+        const recentlyPlayedResult = this.db
+          .prepare(`DELETE FROM recently_played WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.recentlyPlayed = recentlyPlayedResult.changes;
+        console.log(`🧹 Removed ${recentlyPlayedResult.changes} recently played records`);
 
-      // Remove from recently_played
-      const recentlyPlayedResult = this.db
-        .prepare(`DELETE FROM recently_played WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.recentlyPlayed = recentlyPlayedResult.changes;
-      console.log(`🧹 Removed ${recentlyPlayedResult.changes} recently played records`);
+        // Remove from favorites
+        const favoritesResult = this.db
+          .prepare(`DELETE FROM favorites WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.favorites = favoritesResult.changes;
+        console.log(`🧹 Removed ${favoritesResult.changes} favorite records`);
 
-      // Remove from favorites
-      const favoritesResult = this.db
-        .prepare(`DELETE FROM favorites WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.favorites = favoritesResult.changes;
-      console.log(`🧹 Removed ${favoritesResult.changes} favorite records`);
+        // Remove from playlist_tracks. Two passes: by track_id (legacy FK) and
+        // by track_path (current FK, since the M3U-backed rewrite) — a row can
+        // be orphaned by either without being orphaned by both, and skipping
+        // the path pass (as this used to) left path-orphaned rows behind after
+        // a "Database Cleanup" run that looked like it succeeded. Mirrors the
+        // two-pass delete in main.js's api:cleanup:orphaned-playlist-tracks.
+        const playlistTracksByIdResult = this.db
+          .prepare(`DELETE FROM playlist_tracks WHERE track_id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        const playlistTracksByPathResult = this.db
+          .prepare(`DELETE FROM playlist_tracks WHERE track_path IS NOT NULL AND track_path NOT IN (SELECT path FROM tracks)`)
+          .run();
+        results.playlistTracks = playlistTracksByIdResult.changes + playlistTracksByPathResult.changes;
+        console.log(`🧹 Removed ${results.playlistTracks} playlist track records`);
 
-      // Remove from playlist_tracks
-      const playlistTracksResult = this.db
-        .prepare(`DELETE FROM playlist_tracks WHERE track_id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.playlistTracks = playlistTracksResult.changes;
-      console.log(`🧹 Removed ${playlistTracksResult.changes} playlist track records`);
+        // Finally, remove the tracks themselves
+        const tracksResult = this.db
+          .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
+          .run(...missingTrackIds);
+        results.tracks = tracksResult.changes;
+        console.log(`🧹 Removed ${tracksResult.changes} track records`);
+      });
+      removeAll();
 
-      // Finally, remove the tracks themselves
-      const tracksResult = this.db
-        .prepare(`DELETE FROM tracks WHERE id IN (${placeholders})`)
-        .run(...missingTrackIds);
-      results.tracks = tracksResult.changes;
-      console.log(`🧹 Removed ${tracksResult.changes} track records`);
-
-      this.db.prepare('COMMIT').run();
       console.log('✅ Orphaned record cleanup complete');
       return results;
     } catch (err) {
-      try {
-        this.db.prepare('ROLLBACK').run();
-      } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-      }
       console.error('❌ Error removing orphaned records:', err);
       throw err;
     }

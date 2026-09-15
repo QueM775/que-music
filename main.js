@@ -36,23 +36,25 @@ const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 // Keep a global reference of the window object
 let mainWindow;
 
-// Single instance lock - TEMPORARILY DISABLED DUE TO MODULE RESOLUTION ISSUE
-// TODO: Re-enable once electron module issue is resolved
-// const gotTheLock = app.requestSingleInstanceLock();
+// Single instance lock — prevents two copies of the app writing to the same
+// SQLite file concurrently (better-sqlite3 doesn't arbitrate that). Was
+// disabled for 25 commits behind a stale "module resolution issue" TODO;
+// logger is already initialized above this point, so re-enabled 2026-09-15.
+const gotTheLock = app.requestSingleInstanceLock();
 
-// if (!gotTheLock) {
-//   logger.warn('Another instance of Que-Music is already running. Exiting...');
-//   app.quit();
-// } else {
-//   app.on('second-instance', (event, commandLine, workingDirectory) => {
-//     logger.info('Second instance attempted to start - focusing existing window');
-//     // Someone tried to run a second instance, we should focus our window instead
-//     if (mainWindow) {
-//       if (mainWindow.isMinimized()) mainWindow.restore();
-//       mainWindow.focus();
-//     }
-//   });
-// }
+if (!gotTheLock) {
+  logger.warn('Another instance of Que-Music is already running. Exiting...');
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    logger.info('Second instance attempted to start - focusing existing window');
+    // Someone tried to run a second instance, we should focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 function createMenu() {
   const isDevelopment = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
@@ -417,8 +419,8 @@ ipcMain.handle('database:get-stats', async () => {
 
   // Add actual database file size
   try {
-    const dbPath = path.join(app.getPath('userData'), 'music-library.db');
-    const dbStats = fs.statSync(dbPath);
+    const dbFilePath = path.join(app.getPath('userData'), 'music-library.db');
+    const dbStats = fs.statSync(dbFilePath);
     stats.dbFileSize = dbStats.size;
   } catch (error) {
     logger.warn('Could not get database file size', { error: error.message });
@@ -775,6 +777,51 @@ ipcMain.handle('playlist:delete', async (event, playlistId) => {
     return result;
   } catch (error) {
     console.error('❌ Error deleting playlist:', error);
+    throw error;
+  }
+});
+
+// SAVE A SMART PLAYLIST'S CURRENT MATCHES AS A NEW STATIC PLAYLIST
+ipcMain.handle('playlist:save-smart-as-static', async (event, { playlistId, name }) => {
+  try {
+    const snapshot = await musicDB.saveSmartPlaylistAsStatic(playlistId, name);
+    return snapshot;
+  } catch (error) {
+    console.error('❌ Error saving smart playlist as static:', error);
+    throw error;
+  }
+});
+
+// REPLACE A SMART PLAYLIST'S RULES (used by the rule builder's edit flow)
+ipcMain.handle('playlist:set-smart-rules', async (event, { playlistId, rules }) => {
+  try {
+    const result = musicDB.addSmartPlaylistRules(playlistId, rules);
+    return result;
+  } catch (error) {
+    console.error('❌ Error setting smart playlist rules:', error);
+    throw error;
+  }
+});
+
+// GET A SMART PLAYLIST'S RULES (used by the rule builder's edit flow)
+ipcMain.handle('playlist:get-smart-rules', async (event, playlistId) => {
+  try {
+    const rules = musicDB.getSmartPlaylistRules(playlistId);
+    return rules;
+  } catch (error) {
+    console.error('❌ Error getting smart playlist rules:', error);
+    throw error;
+  }
+});
+
+// PREVIEW HOW MANY TRACKS A RULE SET MATCHES (used by the rule builder before
+// create/save, so a 0-match smart playlist never gets created silently)
+ipcMain.handle('playlist:preview-smart-rules', async (event, { rules, matchMode }) => {
+  try {
+    const tracks = await musicDB.previewSmartPlaylistTracks(rules, matchMode);
+    return tracks;
+  } catch (error) {
+    console.error('❌ Error previewing smart playlist rules:', error);
     throw error;
   }
 });
@@ -1795,7 +1842,10 @@ async function saveSetting(key, value) {
 
 async function getSetting(key, defaultValue = null) {
   const settings = await getSettings();
-  return settings[key] || defaultValue;
+  // Explicit undefined check, not `||` — a setting saved as false/0/'' is a
+  // real stored value, not "unset", and `||` would silently discard it in
+  // favor of defaultValue.
+  return settings[key] !== undefined ? settings[key] : defaultValue;
 }
 
 // ============================================================================

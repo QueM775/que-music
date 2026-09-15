@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-14T18:16:42.289Z
+ * Generated: 2026-09-15T14:41:05.824Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -1114,227 +1114,7 @@ a:focus-visible,
 
 
 /* ============================================================================
- * styles/legacy/main.css (4877 bytes)
- * ============================================================================ */
-
-/* ========================================
-   MAIN.CSS - CLEANED (UNIQUE VISUAL EFFECTS ONLY)
-   ======================================== */
-
-/* ========================================
-   UNIQUE VISUAL EFFECTS NOT FOUND ELSEWHERE
-   ======================================== */
-
-/* Album art loading effects - UNIQUE */
-.album-image.album-art-loaded {
-  animation: albumArtFadeIn 0.4s ease-out;
-}
-
-.album-placeholder.loading {
-  animation: albumArtPulse 1.5s ease-in-out infinite;
-}
-
-/* Progress bar shimmer effect - UNIQUE */
-.progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: progressShimmer 2s ease-in-out infinite;
-}
-
-/* Volume slider dynamic background - UNIQUE */
-.volume-slider {
-  background: linear-gradient(
-    to right,
-    var(--primary) 0%,
-    var(--primary) var(--volume-percent, 75%),
-    var(--surface-elevated) var(--volume-percent, 75%),
-    var(--surface-elevated) 100%
-  );
-}
-
-/* Player control glow effect - UNIQUE */
-.control-btn.primary:hover {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-}
-
-/* Visualizer integration effects - UNIQUE */
-.visualizer-container:not(.hidden) {
-  border-top: 1px solid var(--primary);
-  background: linear-gradient(
-    90deg,
-    var(--surface-elevated) 0%,
-    var(--primary-50) 50%,
-    var(--surface-elevated) 100%
-  );
-}
-
-/* Track info hover shimmer - UNIQUE */
-.track-info h4 {
-  position: relative;
-  overflow: hidden;
-}
-
-.track-info h4::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.5s ease;
-}
-
-.track-info h4:hover::after {
-  left: 100%;
-}
-
-/* macOS window controls gradients - UNIQUE */
-.window-controls.macos .control-btn {
-  background: linear-gradient(135deg, #ff5f57, #ff4444);
-}
-
-.window-controls.macos .control-btn.minimize {
-  background: linear-gradient(135deg, #ffbd2e, #ffaa00);
-}
-
-.window-controls.macos .control-btn.maximize {
-  background: linear-gradient(135deg, #28ca42, #22aa33);
-}
-
-/* Enhanced scrollbar gradients - UNIQUE */
-.content-area::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, var(--border), var(--border-strong), var(--border));
-}
-
-.content-area::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, var(--primary), var(--primary-hover), var(--primary));
-}
-
-/* ========================================
-   UNIQUE KEYFRAME ANIMATIONS
-   ======================================== */
-
-@keyframes albumArtPulse {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes albumArtFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes progressShimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* ========================================
-   THEME-SPECIFIC ENHANCEMENTS - UNIQUE
-   ======================================== */
-
-/* Light theme enhanced shadows */
-[data-theme='light'] .player-bar {
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-}
-
-[data-theme='light'] .album-art {
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-/* Dark theme enhanced shadows */
-[data-theme='dark'] .player-bar {
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme='dark'] .album-art {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* ========================================
-   ACCESSIBILITY & REDUCED MOTION
-   ======================================== */
-
-@media (prefers-reduced-motion: reduce) {
-  .album-image,
-  .album-placeholder,
-  .progress-fill::after,
-  .track-info h4::after {
-    animation: none !important;
-    transition: none !important;
-  }
-}
-
-@media (prefers-contrast: high) {
-  .album-art {
-    border: 2px solid var(--text-primary);
-  }
-
-  .progress-fill::after {
-    display: none;
-  }
-
-  .control-btn.primary {
-    background: var(--primary) !important;
-    border: 2px solid var(--text-primary);
-  }
-}
-
-/* ========================================
-   NOTES ON REMOVED CONTENT
-   ======================================== */
-
-/*
-REMOVED (Already covered in other files):
-- .primary-btn → buttons.css
-- .header-btn → buttons.css  
-- .fade-in → utilities.css (.animate-fade-in)
-- .pulse → utilities.css (.animate-pulse)
-- Basic theme transitions → colors.css
-- Standard component styles → respective component files
-
-KEPT (Unique visual effects):
-- Album art animations
-- Progress shimmer effects
-- Player glow effects
-- Visualizer integration
-- Track info hover effects
-- macOS window controls
-- Enhanced scrollbars
-- Theme-specific shadows
-
-File reduced from 400+ lines to 150 lines (62% reduction)
-*/
-
-
-/* ============================================================================
- * styles/legacy/components.css (17393 bytes)
+ * styles/sections/components.css (17393 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -2153,7 +1933,7 @@ All duplicated styles removed while preserving unique functionality
 
 
 /* ============================================================================
- * styles/legacy/favorites.css (5428 bytes)
+ * styles/sections/favorites.css (5428 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -2394,7 +2174,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/legacy/folder-browser.css (11472 bytes)
+ * styles/sections/folder-browser.css (11472 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -4246,7 +4026,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/layout/sidebar.css (8105 bytes)
+ * styles/layout/sidebar.css (8463 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -4534,16 +4314,13 @@ Only favorites/recent-specific functionality remains
 /* ========================================
    APP VERSION DISPLAY
    ======================================== */
-
-.app-version {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: var(--space-lg);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
+/* The .app-version rule that used to live here (position: absolute; left:0;
+   right:0; bottom:0;) was dead/orphaned CSS — no element in index.html uses
+   that class in a sidebar-footer context, only the header's #appVersion span
+   does (styled correctly in header.css). Because this file loads after
+   header.css in the bundle, this rule was winning the cascade and yanking
+   the version text out of the title bar into the top-left corner, on top of
+   the window controls. Removed 2026-09-15; header.css now solely owns it. */
 
 .version-info {
   text-align: center;
@@ -7040,7 +6817,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/components/forms.css (14667 bytes)
+ * styles/components/forms.css (15965 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -7752,6 +7529,74 @@ Only favorites/recent-specific functionality remains
   /* Copy styles from form-input, form-select, etc. */
 }
 
+/* Smart playlist rule builder — added 2026-09-14 */
+.segmented-control {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: 2px;
+}
+
+.segmented-option {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.segmented-option.active {
+  background: var(--primary);
+  color: white;
+}
+
+.smart-rule-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.smart-rule-row .smart-rule-field,
+.smart-rule-row .smart-rule-operator {
+  flex: 1;
+}
+
+.smart-rule-row .smart-rule-value {
+  flex: 2;
+}
+
+.smart-rule-value-wrapper {
+  flex: 2;
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.smart-rule-value-wrapper .smart-rule-value {
+  flex: 1;
+}
+
+.smart-rule-value-wrapper .smart-rule-value-low,
+.smart-rule-value-wrapper .smart-rule-value-high {
+  flex: 1;
+  min-width: 0;
+}
+
+.smart-rule-value-sep {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.playlist-type-badge.smart {
+  color: #a855f7; /* matches the sidebar Discover accent from the 2026-09-14 icon pass */
+  margin-right: var(--space-xs);
+}
+
 
 /* ============================================================================
  * styles/components/states.css (13119 bytes)
@@ -8414,7 +8259,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/features/player.css (18191 bytes)
+ * styles/features/player.css (16147 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -8862,86 +8707,6 @@ Only favorites/recent-specific functionality remains
 }
 
 /* ========================================
-   LYRICS DISPLAY
-   ======================================== */
-
-.lyrics-container {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 400px;
-}
-
-.lyrics-header {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-elevated);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.lyrics-title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.lyrics-sync-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.lyrics-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-lg);
-  line-height: var(--line-height-relaxed);
-}
-
-.lyrics-line {
-  margin-bottom: var(--space-sm);
-  padding: var(--space-xs) 0;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  transition: all var(--transition-fast);
-  cursor: pointer;
-}
-
-.lyrics-line:hover {
-  color: var(--text-primary);
-  background: var(--surface-elevated);
-  border-radius: var(--radius-sm);
-  padding-left: var(--space-sm);
-  padding-right: var(--space-sm);
-}
-
-.lyrics-line.current {
-  color: var(--primary);
-  font-weight: var(--font-weight-semibold);
-  background: var(--primary-50);
-  border-radius: var(--radius-sm);
-  padding-left: var(--space-sm);
-  padding-right: var(--space-sm);
-  transform: scale(1.02);
-}
-
-.lyrics-line.past {
-  opacity: 0.6;
-}
-
-.lyrics-line.future {
-  opacity: 0.4;
-}
-
-/* ========================================
    PLAYBACK SPEED CONTROL
    ======================================== */
 
@@ -9220,7 +8985,6 @@ Only favorites/recent-specific functionality remains
    ======================================== */
 
 .queue-item:focus-visible,
-.lyrics-line:focus-visible,
 .effect-toggle:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -9242,42 +9006,23 @@ Only favorites/recent-specific functionality remains
   overflow: hidden;
 }
 
-.lyrics-line[aria-current='true']::before {
-  content: 'Current lyric: ';
-  position: absolute;
-  left: -10000px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
 /* High contrast mode */
 @media (prefers-contrast: high) {
   .queue-container,
-  .equalizer-container,
-  .lyrics-container {
+  .equalizer-container {
     border-width: 2px;
   }
 
   .queue-item.current {
     border-left-width: 4px;
   }
-
-  .lyrics-line.current {
-    border: 2px solid var(--primary);
-  }
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .queue-item,
-  .lyrics-line,
   .effect-toggle {
     transition: none;
-  }
-
-  .lyrics-line.current {
-    transform: none;
   }
 
   .visualizer-canvas {
