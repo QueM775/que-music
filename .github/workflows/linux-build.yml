@@ -1,0 +1,42 @@
+name: Linux build (AppImage + deb + rpm)
+
+# Manual trigger only. Run from the Actions tab -> "Linux build (AppImage + deb + rpm)" -> Run workflow.
+# Produces installable Linux packages as downloadable build artifacts. better-sqlite3 is a
+# native module and has to be compiled on Linux itself — that's the whole reason this runs
+# on a Linux runner instead of cross-compiling from Windows.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Linux packaging tools
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CSS bundle
+        run: npm run build-css
+
+      - name: Build Linux packages
+        run: npx electron-builder --linux AppImage deb rpm
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: que-music-linux-${{ github.sha }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: error

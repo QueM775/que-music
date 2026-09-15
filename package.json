@@ -1,6 +1,6 @@
 {
   "name": "que-music",
-  "version": "3.2.4",
+  "version": "3.3.0",
   "description": "Music player and library manager",
   "main": "main.js",
   "author": "Que",
