@@ -210,12 +210,10 @@ This prevents overwhelming the user with thousands of tracks and improves initia
 
 The application supports multiple ways to start playback from the library view:
 
-#### Play All Button
-- **Location**: Right pane actions when browsing folders
-- **Function**: `handlePlayAllClick()` in `library-manager.js:555`
-- **Behavior**: Creates playlist from all songs in current folder and starts playback
-- **Implementation**: Uses event delegation to bypass click interference issues
-- **Highlighting**: Automatically highlights currently playing track and scrolls into view
+#### Folder/Playlist Details Card
+- **No "Play All" or "Shuffle & Play" buttons here** — removed 2026-09-16 (folder view: `LibraryManager.showSongsInRightPane()`; playlist view: `PlaylistRenderer.generatePlaylistActionsHTML()`). They didn't feed the real "Up Next" queue and confused users into thinking they did — see `docs/issues/issues_track.md`.
+- **To play a whole folder/playlist**: double-click any track, or use a track's own ▶ button — both start `playPlaylist()`/`playSong()` from that track's position through the rest of the loaded list, same as Play All used to.
+- `handlePlayAllClick()` in `library-manager.js` still exists and is still used by the separate Discover → Advanced Filters "Play All" button (a different, unrelated feature) — don't remove it.
 
 #### Main Play Button
 - **Location**: Main player controls
@@ -224,29 +222,20 @@ The application supports multiple ways to start playback from the library view:
   - If no playlist exists, creates one from currently visible songs (`.song-card` elements)
   - If playlist exists, toggles play/pause state
   - Always starts from first visible song when creating new playlist
-- **Integration**: Works seamlessly with Play All functionality
+
+#### Shuffle
+- **Location**: Queue pane header, inline with the "Up Next" title (moved 2026-09-16 from the bottom transport bar — see `docs/issues/issues_track.md`).
+- **Function**: `#shuffleBtn` → `CoreAudio.toggleShuffle()` → `enableShuffle()`/`disableShuffle()`, shuffles `CoreAudio.playlist` (the loaded folder/playlist context), not the separate Up Next queue.
+- Because it now lives inside the DOM region `UIController.ensureCorrectDOMStructure()`'s fallback template can rebuild, that template rebinds `#shuffleBtn`'s click handler and restores its `.active` state after a repair — it used to be safely outside that region when it lived in the transport bar.
 
 #### Track Highlighting System
 - **Library View**: `updateLibraryTrackHighlight()` in `library-manager.js:598`
 - **CSS Classes**: Uses `playing` and `selected` classes for visual feedback
 - **Auto-scroll**: Highlighted tracks scroll into view automatically
-- **Cross-function**: Works with both Play All and main play button
 - **Track Advancement**: Updates highlighting when songs auto-advance via `nextTrack()`/`previousTrack()`
 
-#### Event Delegation Pattern
-Due to aggressive global click handlers in `ui-controller.js`, the Play All button uses event delegation:
-
-```javascript
-// Library Manager constructor
-this.setupPlayAllEventDelegation();
-
-// Event delegation handler
-document.addEventListener('click', (event) => {
-  if (event.target?.dataset?.action === 'play-all') {
-    this.handlePlayAllClick(this.currentFolderSongs);
-  }
-}, true); // Capture phase
-```
+#### Stale-Async View Guard
+Several left/right-pane renderers do an `await` (DB/IPC fetch) before writing `leftPaneContent`/`rightPaneContent` — `LibraryManager.createEmptyFolderBrowser()`, `LibraryManager.showLibraryView()`, `UIController.switchToNowPlaying()`. Each checks `this.app.currentView` immediately after its await and bails if the user has since navigated elsewhere, so a slow background load (e.g. the initial library scan on app boot) can't land late and stomp whatever view is actually on screen. Apply the same guard to any new pane-writing async function — see the 2026-09-16 entry in `docs/issues/issues_track.md` for the race this fixed (caught live: switching to Playlists moments after launch got silently overwritten by the startup library scan).
 
 ## Common Issues and Solutions
 

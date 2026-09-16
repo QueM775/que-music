@@ -3590,6 +3590,17 @@ Path: ${track.path}`;
       }
     }
 
+    // The line above awaits a DB call. If the user has already navigated to a
+    // different view while it was in flight, writing Now Playing's content into
+    // leftPane/rightPane now would stomp whatever that other view just rendered
+    // (the same stale-async-overwrite race caught in library-manager.js's
+    // createEmptyFolderBrowser). Bail out silently — the view the user is
+    // actually looking at already owns those panes.
+    if (this.app.currentView !== 'now-playing') {
+      this.app.logger.debug(' Aborting stale Now Playing render — view changed during load');
+      return;
+    }
+
     // If we have a current track but small playlist, try to get more context
     if (currentTrackPath && playlist.length < 10) {
       const context = this.app.playbackContext;
@@ -4219,7 +4230,25 @@ Path: ${track.path}`;
                docs/application/roadmap.md priority #1 and layout-redesign.md. -->
           <div class="queue-pane" id="queuePane">
             <div class="pane-header">
-              <h3 id="queuePaneTitle">Up Next</h3>
+              <div class="queue-pane-title-row" style="display: flex; align-items: center;">
+                <h3 id="queuePaneTitle">Up Next</h3>
+                <button class="control-btn" id="shuffleBtn" title="Shuffle" style="margin-left: 10px;">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="16,3 21,3 21,8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21,16 21,21 16,21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                  </svg>
+                </button>
+              </div>
               <div class="pane-actions" id="queuePaneActions">
                 <button class="btn-secondary btn-sm" id="clearQueuePaneBtn" title="Clear queue">Clear</button>
               </div>
@@ -4255,6 +4284,15 @@ Path: ${track.path}`;
       // drag/drop handlers (normally wired once at app startup) need rebinding too.
       this.setupQueuePaneDropTarget();
       this.renderQueuePane();
+
+      // shuffleBtn now lives inside the queue pane (moved here from the player
+      // bar), so it's destroyed and recreated by this same rebuild — rewire its
+      // click handler and restore its active state.
+      const shuffleBtn = document.getElementById('shuffleBtn');
+      if (shuffleBtn) {
+        shuffleBtn.addEventListener('click', () => this.app.coreAudio.toggleShuffle());
+        if (this.app.coreAudio?.shuffle) shuffleBtn.classList.add('active');
+      }
 
       return true;
     }

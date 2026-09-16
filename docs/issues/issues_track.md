@@ -2,6 +2,37 @@
 
 ## Version History & Bug Fixes
 
+### Play All / Shuffle & Play removed, shuffle relocated to Up Next header, stale-async pane-overwrite race fixed - 2026-09-16
+
+Erich's reports: (1) "Play All" on a folder or playlist never moved anything into the "Up Next" queue — confusing since they look related but are two separate lists by design (see the 2026-09-13/14 real-queue work). (2) Wanted "Play All" and "Shuffle & Play" gone from the folder/playlist details card entirely, and the shuffle control moved to sit ~10px right of the "Up Next" text instead. (3) After playing a playlist, switching to Database view, then going back, the Now Playing card and its track list sometimes went blank even though audio kept playing.
+
+#### Buttons removed / shuffle relocated ✅
+
+- Deleted the `playAllBtn`/`data-action="play-all"` button (and its event-delegation branch) from `LibraryManager.showSongsInRightPane()` — folder details card now only shows "Add All to Playlist". `handlePlayAllClick()` itself is untouched since the unrelated Discover/Filters "Play All" button still uses it.
+- Deleted the `play-all-btn`/`shuffle-play-btn` buttons and their listeners from `PlaylistRenderer.generatePlaylistActionsHTML()`/`setupPlaylistActionListeners()` — playlist details card now only shows the options (⋮) button. Playing a whole playlist still works via double-click or the per-track ▶ button (`playPlaylist(index)`), unchanged. `shuffleAndPlay()` itself is untouched since the playlist right-click context menu's "Shuffle & Play" item still uses it.
+- Moved the existing `#shuffleBtn` (previously in the bottom transport bar, wired to `CoreAudio.toggleShuffle()`) into the queue pane header, inline with the "Up Next" `<h3>`, `margin-left: 10px` — same element/id/listener, just relocated in `client/pages/index.html`. No longer present in `.player-controls`. `ui-controller.js`'s `ensureCorrectDOMStructure()` DOM-repair fallback template updated to match (it rebuilds the queue pane, so it now also rebinds `#shuffleBtn`'s click handler and restores its `.active` state — this element is now inside the region that template can recreate, which the old bottom-bar location never was).
+
+#### Now Playing going blank: root cause ✅
+
+Not the Database Manager code itself (already fixed 2026-09-16, verified live-clean via three separate Playwright repros in this session — folder play, playlist play, playlist+queue, all round-tripped through Database and back with the Now Playing panes intact). What Playwright *did* catch live: a genuine stale-async-overwrite race. `LibraryManager.checkSavedMusicFolder()` kicks off `loadMusicLibraryStructure()` on app boot, which awaits `getFolderTree()`/`getAllTracks()` (multiple seconds for a ~4500-track library) before `createEmptyFolderBrowser()` runs. That function unconditionally called `switchView('library')` and overwrote `leftPaneContent`/`rightPaneContent` — with no check for what view the user is actually on by the time the await resolves. Caught in the act: navigating to Playlists ~3s after launch got silently stomped back to a "Loading music folders..." library-tree render. `LibraryManager.showLibraryView()` has the identical shape (its own `getFolderTree`/`getSongsInFolder` awaits, then an unconditional DOM write) and `UIController.switchToNowPlaying()` has one too (`getTrackByPath` await, then writes `leftPaneContent`/`rightPaneContent`) — same failure class, just triggered by different async calls. This is very plausibly what Erich hit: any of these late-resolving background loads can land after a view switch and clobber whatever's on screen, Now Playing included.
+
+#### Fix shipped ✅
+
+Added a "did the view change while I was awaiting?" guard to all three: `createEmptyFolderBrowser()` (`library-manager.js`) skips its `switchView('library')` + pane writes unless `app.currentView` is still `'library'` or unset; `showLibraryView()`'s post-fetch DOM write does the same; `switchToNowPlaying()`'s post-fetch continuation returns early unless `app.currentView` is still `'now-playing'`. Each is a single `if` checking `this.app.currentView` (already kept in sync by `switchView()` before any of these fire) — no new state, no polling, just don't paint over a view the user has since left.
+
+#### Verification ✅
+
+Live Electron launches via Playwright's `_electron`, throwaway scripts written and deleted after use (per established pattern), against Erich's real ~4526-track library:
+- Confirmed the race directly: pre-fix, clicking Playlists moments after launch showed stale "Loading music folders..." content; post-fix, the real playlist browser renders correctly instead.
+- Confirmed both removed-button checks (`playAllBtn` absent from folder card, `play-all-btn`/`shuffle-play-btn` absent from playlist card, other buttons still present).
+- Confirmed the relocated shuffle button lives inside `.queue-pane-title-row` (not `.player-controls` anymore), and clicking it toggles both its own `.active` class and `CoreAudio.shuffle`.
+- Confirmed a playlist play → Now Playing → Database Manager → "← Back to Library" → Now Playing round trip (real IPC-created test playlist, deleted after) leaves the Now Playing card, track list, and playback state identical before and after — screenshotted.
+- All throwaway test playlists, scripts, and screenshots deleted after use; `playwright` (installed `--no-save` for this session only) uninstalled afterward; `package.json`/`package-lock.json` confirmed untouched.
+
+#### Open for next session
+
+- Not committed to git yet.
+
 ### Database Manager Wiped the Library Layout on Return - 2026-09-16
 
 Erich's repro: pick a playlist, let it start playing, open Database Manager, scroll through it, click back to Music Library — only the folder-tree pane ("library card") came back. The two `.pane-resizer` separators and the whole "Up Next" queue pane were gone, and the song-list pane was empty instead of showing what had been loaded.

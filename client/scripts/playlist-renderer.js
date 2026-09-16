@@ -481,18 +481,6 @@ class PlaylistRenderer {
 
   generatePlaylistActionsHTML(playlist) {
     return `
-      <button class="btn-primary play-all-btn" data-playlist-id="${playlist.id}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-        Play All
-      </button>
-      <button class="btn-secondary shuffle-play-btn" data-playlist-id="${playlist.id}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-        </svg>
-        Shuffle & Play
-      </button>
       <button class="btn-secondary playlist-options-btn" data-playlist-id="${playlist.id}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
@@ -1675,22 +1663,6 @@ class PlaylistRenderer {
   }
 
   setupPlaylistActionListeners(playlist) {
-    // Play All button
-    const playAllBtn = document.querySelector('.play-all-btn');
-    console.log('🔧 DEBUG: Play All button found:', !!playAllBtn);
-    if (playAllBtn) {
-      playAllBtn.addEventListener('click', () => {
-        console.log('🔧 DEBUG: Play All button clicked!');
-        this.playPlaylist(0);
-      });
-    }
-
-    // Shuffle & Play button
-    const shufflePlayBtn = document.querySelector('.shuffle-play-btn');
-    if (shufflePlayBtn) {
-      shufflePlayBtn.addEventListener('click', () => this.shuffleAndPlay());
-    }
-
     // Playlist options button
     const optionsBtn = document.querySelector('.playlist-options-btn');
     if (optionsBtn) {

@@ -190,6 +190,23 @@ class LibraryManager {
   }
 
   createEmptyFolderBrowser(folderTree, folderPath) {
+    // This runs after an async folder-tree/DB fetch (see loadMusicLibraryStructure,
+    // called on app startup and on rescans). If the user has already navigated to
+    // a different view (Now Playing, Database, a playlist, etc.) by the time that
+    // fetch resolves, forcing switchView('library') here yanks them back and
+    // stomps whatever was on screen with stale folder-browser content — a real,
+    // reproduced race (caught live via Playwright: clicking "Playlists" moments
+    // after launch got silently overwritten with "Loading music folders...").
+    // Only force the view/DOM write if we're still on library (or no view has
+    // been chosen yet, i.e. first paint) — otherwise just skip, showLibraryView()
+    // re-fetches from scratch whenever the user actually does visit Library.
+    if (this.app.currentView && this.app.currentView !== 'library') {
+      this.app.logger.debug(
+        ` Skipping stale folder-browser render — user has since navigated to '${this.app.currentView}'`
+      );
+      return;
+    }
+
     // Switch to library view to ensure dual-pane layout is active
     this.app.uiController.switchView('library');
 
@@ -430,17 +447,7 @@ class LibraryManager {
     document.addEventListener(
       'click',
       (event) => {
-        if (event.target && event.target.dataset && event.target.dataset.action === 'play-all') {
-          this.app.logger.debug(' Play All button clicked via delegation!');
-          event.preventDefault();
-          event.stopPropagation();
-
-          if (this.currentFolderSongs && this.currentFolderSongs.length > 0) {
-            this.handlePlayAllClick(this.currentFolderSongs);
-          } else {
-            this.app.logger.warn('⚠️ No songs available for Play All');
-          }
-        } else if (
+        if (
           event.target &&
           event.target.dataset &&
           event.target.dataset.action === 'add-all-to-playlist'
@@ -535,6 +542,13 @@ class LibraryManager {
           const songs = await window.queMusicAPI.files.getSongsInFolder(savedFolder);
 
           console.log(`📁 Found ${folderTree.length} folders, ${songs.length} songs`);
+
+          // Bail if the user navigated away while these awaited — see the same
+          // guard/comment in createEmptyFolderBrowser().
+          if (this.app.currentView !== 'library') {
+            this.app.logger.debug(' Skipping stale library render — view changed during load');
+            return;
+          }
 
           // Create folder browser HTML for left pane
           const folderHTML = this.createFolderBrowserForLeftPane(folderTree, savedFolder);
@@ -1483,7 +1497,6 @@ class LibraryManager {
     if (rightPaneActions) {
       if (validSongs.length > 0) {
         rightPaneActions.innerHTML = `
-          <button class="btn-primary btn-sm" id="playAllBtn" data-action="play-all">Play All</button>
           <button class="btn-secondary btn-sm" id="addAllToPlaylistBtn" data-action="add-all-to-playlist">Add All to Playlist</button>
         `;
 
