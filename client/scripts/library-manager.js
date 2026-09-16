@@ -1974,8 +1974,10 @@ class LibraryManager {
       subtitle.textContent = `No tracks found for "${query}"`;
     }
 
-    // Find main content element
-    let contentElement = this.findMainContentElement();
+    // Render into the single-pane slot, not #mainContent directly — see the
+    // Database Manager fix (docs/issues/issues_track.md, 2026-09-16) for why.
+    this.app.uiController.showSinglePaneView();
+    const contentElement = document.getElementById('singlePaneContent');
 
     if (contentElement) {
       contentElement.innerHTML = `
@@ -2020,19 +2022,16 @@ class LibraryManager {
       `;
     }
 
-    // Find main content element
-    let contentElement = this.findMainContentElement();
+    // Render into the single-pane slot, not #mainContent directly — see the
+    // Database Manager fix (docs/issues/issues_track.md, 2026-09-16) for why.
+    this.app.uiController.showSinglePaneView();
+    const contentElement = document.getElementById('singlePaneContent');
 
     if (contentElement) {
-      // console.log(`🔍 Using content element: ${contentElement.id || contentElement.className}`);
-
       const htmlContent = this.renderSearchResults(results, query);
       contentElement.innerHTML = htmlContent;
 
       this.setupSearchResultEvents();
-
-      // Hide welcome screen
-      this.hideWelcomeScreen();
 
       // IMPORTANT: Ensure context menu system is ready after loading search results
       setTimeout(() => {
@@ -2046,48 +2045,6 @@ class LibraryManager {
       console.error(`❌ No suitable content element found for search results!`);
       this.app.showNotification('Could not display search results', 'error');
     }
-  }
-
-  findMainContentElement() {
-    // Try multiple possible content containers in order of preference
-    const possibleSelectors = [
-      '#mainContent',
-      '#musicContent',
-      '.main-content',
-      '.content-main',
-      '.content-area',
-      '[class*="content"]',
-      '#content',
-      '.app-content',
-      'main',
-    ];
-
-    for (const selector of possibleSelectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        // console.log(`🔍 Found content element with selector: ${selector}`);
-        return element;
-      }
-    }
-
-    // Last resort: find any element with 'content' in its ID or class
-    const allElements = document.querySelectorAll('*');
-    for (const el of allElements) {
-      const id = el.id?.toLowerCase() || '';
-      const className = el.className?.toLowerCase() || '';
-
-      if (
-        (id.includes('content') || className.includes('content')) &&
-        el.offsetWidth > 100 &&
-        el.offsetHeight > 100
-      ) {
-        // console.log(`🔍 Found content element by search: ${el.tagName}#${el.id}.${el.className}`);
-        return el;
-      }
-    }
-
-    this.app.logger.error('❌ No content element found at all!');
-    return null;
   }
 
   renderSearchResults(tracks, query) {

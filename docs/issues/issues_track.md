@@ -25,7 +25,23 @@ Live Electron launch via Playwright's `_electron` (same throwaway-script pattern
 
 #### Open for next session
 
-- `LibraryManager.findMainContentElement()` (used by search results) prefers `#mainContent` over `#singlePaneContent`/`#singlePaneLayout` — search results likely have the same underlying disease (nuking the dual-pane/queue DOM instead of rendering into the single-pane slot). Not reported as broken and not touched in this fix; flagging so it doesn't get lost.
+- Not committed to git yet.
+
+### Search Results Had the Same mainContent-Wiping Bug - 2026-09-16
+
+Flagged as a follow-up in the fix above and confirmed same-day: `displaySearchResults()`/`displayNoResults()` (`client/scripts/library-manager.js`) rendered search results via `findMainContentElement()`, which prefers `#mainContent` over the single-pane slot — exact same disease as the Database Manager bug, just not yet reported by Erich.
+
+#### Fix shipped ✅
+
+- Both functions now call `this.app.uiController.showSinglePaneView()` and render into `#singlePaneContent`, same pattern as Database Manager/Discover/Advanced Filters.
+- Removed `findMainContentElement()` entirely — after this fix it had zero remaining callers, and its `#mainContent`-first default was the actual root cause of two separate bugs now. Also dropped the dead `this.hideWelcomeScreen()` call in `displaySearchResults()` (that method checks for a `#musicContent` element that doesn't exist in the current layout — a no-op left over from an earlier DOM structure).
+
+#### Verification ✅
+
+Same throwaway Playwright `_electron` pattern. Opened search via the header search button, searched "the" against Erich's real ~4500-track library (100 results), confirmed `#dualPaneLayout` stayed present (just hidden) rather than destroyed, and confirmed clicking back to Library via the sidebar restored `leftPane`/`rightPane`/both `.pane-resizer`s/`queuePane` correctly. Screenshots: search results rendered correctly with real track data, and the Library view came back fully intact afterward.
+
+#### Open for next session
+
 - Not committed to git yet.
 
 ### 5-Band Equalizer + Loudness Normalization Built - 2026-09-15
