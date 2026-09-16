@@ -2,6 +2,29 @@
 
 ## Version History & Bug Fixes
 
+### Database Manager modal: Health Check overflowed the container - 2026-09-16
+
+Erich: the new Database Manager modal (see entry below) needed more space and the Database Health grid ran outside the modal.
+
+#### Root cause ✅
+
+Two separate `.health-grid` rule sets exist — `client/styles/sections/components.css` (explicitly commented "UNIQUE (NOT IN OTHER FILES)", already responsive: `repeat(auto-fit, minmax(200px, 1fr))`) and `client/styles/components/cards.css` (a stale hardcoded `repeat(4, 1fr)` with `white-space: nowrap` labels — fine at full single-pane-view width, never fine in a narrower container). `build-css.js` loads `sections/components.css` early and `components/cards.css` later, so the stale fixed-4-column version wins the cascade and was what actually rendered — inside the new, narrower modal, 4 fixed columns of nowrap text pushed past the edge.
+
+#### Fix shipped ✅
+
+- `cards.css`'s `.health-grid` changed to `repeat(auto-fit, minmax(180px, 1fr))`, matching the container instead of a fixed count; removed `white-space: nowrap` from `.health-label`/`.health-status` so text wraps instead of forcing overflow if it's ever tight.
+- Modal widened: `#databaseManagerModal` now also carries the `database-modal` class, which an existing (previously unused) CSS rule bumps to `max-width: 900px` (vs the generic `.modal-lg`'s 800px) with tighter body padding — this rule was already written in `modals.css`, just never wired to an actual element until now.
+- Rebuilt `client/styles/bundled.css` via `node build-css.js` (source CSS edits don't show up in a dev session otherwise — see `CLAUDE.md`'s CSS gotcha).
+
+#### Verification ✅
+
+Live Electron launch via Playwright: opened Database Manager, measured `.modal-content` vs `.health-grid` bounding rects directly (`getBoundingClientRect()`) — confirmed `scrollWidth === clientWidth` (zero horizontal overflow) and the health grid's right edge no longer exceeds the modal's. Screenshotted: Database Health now renders as a contained 3-then-1 wrapped grid inside the wider modal instead of running off the edge.
+
+#### Open for next session
+
+- Not committed to git yet.
+- The `sections/components.css` vs `components/cards.css` duplicate-rule-set pattern (two full competing definitions of the same class, silently resolved by file load order) exists for other classes too (`.database-manager`, `.manager-section`, `.stats-grid`, etc. — grep both files for `DATABASE MANAGER` / `UNIQUE`). Only `.health-grid` was fixed here since it's the one that actually broke; worth a real consolidation pass at some point so this class of bug can't recur elsewhere.
+
 ### Round 2: found the real active Play All/Shuffle buttons, Up Next now falls back to the loaded playlist, Database Manager converted to a modal - 2026-09-16
 
 Erich tested the previous same-day fix and reported it hadn't taken: Play All and Shuffle were both still visible, Play All still didn't move anything into Up Next, and after opening Database Manager while a playlist played, going back left both the playlist details pane and Up Next empty — "we need to be able to move around the app without the up next card being empty if we have music playing."

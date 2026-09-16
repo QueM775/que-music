@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-16T15:24:28.403Z
+ * Generated: 2026-09-16T16:57:20.690Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -5704,7 +5704,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/components/cards.css (21785 bytes)
+ * styles/components/cards.css (22255 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -6608,7 +6608,14 @@ Only favorites/recent-specific functionality remains
 /* Health Grid */
 .health-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Was a hardcoded repeat(4, 1fr) with nowrap labels — fine at full-page
+     width, but this rule (loaded after sections/components.css's identical-
+     looking but already-responsive version — see build-css.js's file order)
+     wins the cascade and was forcing 4 fixed columns even inside the
+     narrower Database Manager modal, pushing content past the modal edge.
+     auto-fit sizes to whatever container it's actually in. Fixed 2026-09-16
+     — see docs/issues/issues_track.md. */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -6656,14 +6663,12 @@ Only favorites/recent-specific functionality remains
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
   flex: 1;
-  white-space: nowrap;
 }
 
 .health-status {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  white-space: nowrap;
 }
 
 /* Maintenance Grid */
