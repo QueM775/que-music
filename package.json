@@ -217,6 +217,7 @@
       ]
     },
     "linux": {
+      "maintainer": "Erich Quade <equade@gmail.com>",
       "category": "AudioVideo",
       "icon": "assets/icons/icon.png",
       "target": [
