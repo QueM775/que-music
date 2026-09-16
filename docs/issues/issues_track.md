@@ -2,6 +2,27 @@
 
 ## Version History & Bug Fixes
 
+### Title bar: EGQ logo replaces the macOS-style window control dots - 2026-09-16
+
+Erich's request: the three red/yellow/green minimize/maximize/close dots at the top-left of the title bar should be replaced with the EGQ logo (`assets/images/egq-logo.png`, already dropped into the repo by Erich ahead of this ask).
+
+Those dots were real, functional window controls (`client/scripts/window-controls.js`, IPC to `window.queMusicAPI.window.minimize/maximize/close`), not just decoration — but `main.js` creates the window with `frame: true`, so Windows shows its own native titlebar controls regardless; this custom row was a redundant macOS-style skeuomorphic layer on top, safe to remove on a Windows build.
+
+- `client/pages/index.html`: `.window-controls` (3 buttons) replaced with `<img class="egq-logo" id="egqLogo">` inside the same `.title-bar-controls` wrapper.
+- `client/scripts/main-app.js`: new `loadEgqLogo()` (same `window.queMusicAPI.assets.getImage()` pattern as the existing center wordmark logo — works in both dev and packaged builds since `assets/images/**` is already copied via `extraResources`), called alongside `loadHeaderLogo()` at startup.
+- `client/styles/layout/header.css`: old `.window-controls`/`.control-btn` dot styling replaced with `.egq-logo` (36px, `object-fit: contain` — source PNG is 512×512).
+- `client/scripts/window-controls.js`: the "buttons not found" path is now an expected no-op (logged at info level) instead of a `console.error`, since the buttons are intentionally gone. Left the rest of the file (IPC handlers, minimize/maximize/close logic) alone in case custom controls come back for a frameless-window redesign later.
+- Rebuilt `client/styles/bundled.css` via `node build-css.js`.
+
+#### Verification ✅
+
+Live Electron launch via Playwright: confirmed `#egqLogo` renders (512×512 source, laid out at 36×36), confirmed `.window-controls` no longer exists in the DOM, screenshotted the title bar.
+
+#### Open for next session
+
+- Not committed to git yet.
+- `package.json` bumped to 3.3.1 in this same working session (a `npm run dist-win` build was started, then cancelled mid-build by Erich — "stop the build, stop everything" — before it produced an installer). The version bump itself was left in place since only the build run was cancelled, not the version request. No `.exe`/installer has actually been produced for 3.3.1 yet.
+
 ### Database Manager modal: Health Check overflowed the container - 2026-09-16
 
 Erich: the new Database Manager modal (see entry below) needed more space and the Database Health grid ran outside the modal.

@@ -92,11 +92,13 @@
       <!-- Title Bar -->
       <header class="title-bar">
         <div class="title-bar-controls">
-          <div class="window-controls">
-            <button class="control-btn minimize" title="Minimize"></button>
-            <button class="control-btn maximize" title="Maximize"></button>
-            <button class="control-btn close" title="Close"></button>
-          </div>
+          <!-- Was three macOS-style traffic-light minimize/maximize/close dots
+               (client/scripts/window-controls.js) — replaced with the EGQ logo
+               2026-09-16 per Erich. Windows always shows its own native
+               minimize/maximize/close in the real OS titlebar (main.js creates
+               the window with frame: true), so this row was purely decorative/
+               redundant on Windows to begin with. -->
+          <img class="egq-logo" id="egqLogo" alt="EGQ" />
         </div>
         <div class="app-title">
           <img src="" alt="🎵 Que-Music" class="app-logo" />

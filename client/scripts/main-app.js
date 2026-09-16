@@ -105,6 +105,10 @@ class QueMusicApp {
     // Load header logo based on theme
     await this.loadHeaderLogo();
 
+    // Load the EGQ logo (top-left of the title bar, replaced the old
+    // minimize/maximize/close dots — see index.html/header.css, 2026-09-16)
+    await this.loadEgqLogo();
+
     // Load and display app version dynamically
     await this.loadAppVersion();
 
@@ -133,6 +137,21 @@ class QueMusicApp {
       }
     } catch (error) {
       this.logger.error('Failed to load header logo', { error: error.message });
+    }
+  }
+
+  async loadEgqLogo() {
+    try {
+      const egqLogoImg = document.getElementById('egqLogo');
+      if (egqLogoImg && window.queMusicAPI?.assets?.getImage) {
+        const logoDataUrl = await window.queMusicAPI.assets.getImage('egq-logo.png');
+        if (logoDataUrl) {
+          egqLogoImg.src = logoDataUrl;
+          this.logger.debug('EGQ logo loaded');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to load EGQ logo', { error: error.message });
     }
   }
 

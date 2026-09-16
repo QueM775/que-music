@@ -43,7 +43,11 @@ class WindowControls {
     const closeBtn = document.querySelector('.control-btn.close');
 
     if (!minimizeBtn || !maximizeBtn || !closeBtn) {
-      console.error('❌ Window control buttons not found in DOM');
+      // Expected as of 2026-09-16 — the custom minimize/maximize/close dots
+      // were removed from the title bar (replaced with the EGQ logo). The
+      // real OS titlebar still provides these on Windows (main.js uses
+      // frame: true), so this is a no-op, not an error.
+      console.log('🪟 Custom window control buttons not in DOM (removed by design) — skipping');
       return;
     }
 
