@@ -2,6 +2,32 @@
 
 ## Version History & Bug Fixes
 
+### Database Manager Wiped the Library Layout on Return - 2026-09-16
+
+Erich's repro: pick a playlist, let it start playing, open Database Manager, scroll through it, click back to Music Library — only the folder-tree pane ("library card") came back. The two `.pane-resizer` separators and the whole "Up Next" queue pane were gone, and the song-list pane was empty instead of showing what had been loaded.
+
+#### Root cause ✅
+
+Two bugs stacking:
+
+1. `LibraryManager.openDatabaseManager()`/`displayDatabaseManager()` (`client/scripts/library-manager.js`) overwrote `#mainContent`'s `innerHTML` directly with the Database Manager markup — destroying `#welcomeScreen`, `#dualPaneLayout` (left pane, right pane, both `.pane-resizer` separators) and `#queuePane` in one shot, instead of rendering into the existing `#singlePaneLayout`/`#singlePaneContent` slot the way Discover and search results already do.
+2. Clicking back to Library calls `UIController.switchView('library')`, which calls `ensureCorrectDOMStructure()` (`client/scripts/ui-controller.js`). Finding `#welcomeScreen`/`#dualPaneLayout` missing (step 1 deleted them), it "repairs" the DOM from a hardcoded template — but that template predated the 4-pane layout redesign: it only rebuilds `leftPane`/`rightPane`, with no `.pane-resizer` separators and no `queuePane` at all. So even the "repair" path returned a broken, incomplete layout, and the right pane came back as an empty placeholder since its actual content was never preserved anywhere.
+
+#### Fix shipped ✅
+
+- `openDatabaseManager()`/`displayDatabaseManager()` now render into `#singlePaneContent` via `UIController.showSinglePaneView()` (same pattern as Discover/search results), so `#mainContent`'s dual-pane/queue DOM is never touched. Also sets `app.currentView = 'database'` and clears nav highlighting, matching the search-view convention.
+- Added a real "← Back to Library" button to the Database Manager header (`onclick="window.app.uiController.switchView('library')"`) — no more relying on the sidebar nav item as the only way out.
+- `ensureCorrectDOMStructure()`'s fallback rebuild template updated to match the actual current 4-pane markup (both `.pane-resizer` separators + `#queuePane`), and it now re-runs `setupQueuePaneDropTarget()`/`renderQueuePane()` after a rebuild so a repaired queue pane isn't inert (no Clear button, no drag/drop) — defense-in-depth in case this path ever fires again for an unrelated reason.
+
+#### Verification ✅
+
+Live Electron launch via Playwright's `_electron` (same throwaway-script pattern as the 2026-09-15 context-menu-listener fix — written to a temp file, run once, deleted after). Selected a folder to populate the right pane, opened Database Manager, scrolled, clicked "Back to Library" then also the sidebar Library nav item (the exact repro step). Confirmed via DOM snapshot and screenshot: `leftPane`, `rightPane`, both `.pane-resizer`s, and `queuePane` all present and visible; right-pane content (previously-selected folder's state) identical before and after the round trip instead of being reset. Screenshot showed all three cards ("Music Folders", song list, "Up Next") with visible separators between them.
+
+#### Open for next session
+
+- `LibraryManager.findMainContentElement()` (used by search results) prefers `#mainContent` over `#singlePaneContent`/`#singlePaneLayout` — search results likely have the same underlying disease (nuking the dual-pane/queue DOM instead of rendering into the single-pane slot). Not reported as broken and not touched in this fix; flagging so it doesn't get lost.
+- Not committed to git yet.
+
 ### 5-Band Equalizer + Loudness Normalization Built - 2026-09-15
 
 Roadmap item #4 (`docs/application/roadmap.md`). Full brainstorm → spec → implementation cycle. Spec: `docs/superpowers/specs/2026-09-15-equalizer-design.md` (an earlier same-day draft split normalization into a follow-up cycle — Erich reviewed and explicitly folded it into this build instead; that draft was replaced, not kept alongside).

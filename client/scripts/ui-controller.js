@@ -4192,6 +4192,8 @@ Path: ${track.path}`;
             </div>
           </div>
 
+          <div class="pane-resizer" id="dualPaneResizer" role="separator" aria-orientation="vertical"></div>
+
           <!-- Right Pane - Song List/Playing Queue -->
           <div class="right-pane" id="rightPane">
             <div class="pane-header">
@@ -4200,11 +4202,32 @@ Path: ${track.path}`;
                 <!-- Play controls, sort options, etc. -->
               </div>
             </div>
-            <div class="pane-content" id="rightPaneContent">
+            <div class="pane-content list-view" id="rightPaneContent">
               <!-- Song list from selected folder/playlist -->
               <div class="empty-pane">
                 <div class="empty-pane-icon">🎵</div>
                 <p>Select a folder or playlist to view songs</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane-resizer" id="queueResizer" role="separator" aria-orientation="vertical"></div>
+
+          <!-- 4th Pane - Up Next / playback queue (always visible, live drop target).
+               This is NOT a saved playlist — that's "Create Playlist" on the left nav.
+               This is what plays next, independent of any playlist. See
+               docs/application/roadmap.md priority #1 and layout-redesign.md. -->
+          <div class="queue-pane" id="queuePane">
+            <div class="pane-header">
+              <h3 id="queuePaneTitle">Up Next</h3>
+              <div class="pane-actions" id="queuePaneActions">
+                <button class="btn-secondary btn-sm" id="clearQueuePaneBtn" title="Clear queue">Clear</button>
+              </div>
+            </div>
+            <div class="pane-content" id="queuePaneContent">
+              <div class="empty-pane">
+                <div class="empty-pane-icon">🎧</div>
+                <p>Nothing queued. Drag a track here to add it to what's playing next.</p>
               </div>
             </div>
           </div>
@@ -4227,6 +4250,11 @@ Path: ${track.path}`;
           }
         });
       }
+
+      // The queue pane was just rebuilt from scratch, so its Clear button and
+      // drag/drop handlers (normally wired once at app startup) need rebinding too.
+      this.setupQueuePaneDropTarget();
+      this.renderQueuePane();
 
       return true;
     }

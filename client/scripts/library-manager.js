@@ -2865,18 +2865,25 @@ class LibraryManager {
     // console.log('🗄️ Opening database manager...');
 
     try {
+      // Render into the single-pane slot (like Discover/search results) instead of
+      // overwriting #mainContent directly — that used to destroy the dual-pane layout's
+      // left/right panes, the queue pane, and the pane-resizer separators, which then
+      // came back wrong (or not at all) via ensureCorrectDOMStructure()'s stale rebuild
+      // template when navigating back to Library. See docs/issues/issues_track.md.
+      this.app.currentView = 'database';
+      this.app.uiController.updateActiveNavItem(null);
+      this.app.uiController.showSinglePaneView();
+
       // Show loading state
-      const mainContent = document.getElementById('mainContent');
-      if (mainContent) {
-        mainContent.innerHTML = `
+      const singlePaneContent = document.getElementById('singlePaneContent');
+      if (singlePaneContent) {
+        singlePaneContent.innerHTML = `
           <div class="loading-state">
             <div class="loading-spinner"></div>
             <p>Loading database information...</p>
           </div>
         `;
       }
-
-      this.hideWelcomeScreen();
 
       // Get database statistics
       const stats = await window.queMusicAPI.database.getStats();
@@ -2897,8 +2904,8 @@ class LibraryManager {
   }
 
   displayDatabaseManager(stats, genres, years, playlists, musicFolder, playlistFolder) {
-    const mainContent = document.getElementById('mainContent');
-    if (!mainContent) return;
+    const singlePaneContent = document.getElementById('singlePaneContent');
+    if (!singlePaneContent) return;
 
     // Calculate additional stats
     const totalSizeGB = (stats.totalSize / (1024 * 1024 * 1024)).toFixed(2);
@@ -2911,6 +2918,9 @@ class LibraryManager {
     const managerHTML = `
       <div class="database-manager">
         <div class="database-header">
+          <button class="btn-secondary btn-sm" onclick="window.app.uiController.switchView('library')" style="margin-bottom: 15px;">
+            ← Back to Library
+          </button>
           <h2>🗄️ Database Manager</h2>
           <p>Manage and maintain your music database</p>
         </div>
@@ -3125,7 +3135,7 @@ class LibraryManager {
       </div>
     `;
 
-    mainContent.innerHTML = managerHTML;
+    singlePaneContent.innerHTML = managerHTML;
 
     // Setup event listeners
     this.setupDatabaseManagerEvents();
