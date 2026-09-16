@@ -29,7 +29,7 @@ jobs:
         run: npm run build-css
 
       - name: Build Linux packages
-        run: npx electron-builder --linux AppImage deb rpm
+        run: npx electron-builder --linux AppImage deb rpm --publish never
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
