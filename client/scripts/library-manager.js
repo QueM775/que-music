@@ -5,14 +5,20 @@ class LibraryManager {
     this.app = app;
     this.currentSort = 'title'; // Default sort
     this.currentSearchResults = null; // Store current results for sorting
-    this.currentFolderSongs = []; // Store songs for Play All button
+    this.currentFolderSongs = []; // Store songs for "Add All to Playlist" button
     this.defaultAlbumArt = null; // Cache for default album art data URL
 
     // Initialize search functionality
     this.initializeSearch();
 
-    // Setup event delegation for Play All button
+    // Setup event delegation for the "Add All to Playlist" button
     this.setupPlayAllEventDelegation();
+
+    // One-time wiring for the Database Manager modal's close affordances
+    // (× button, click outside, Escape) — the modal itself is (re)populated
+    // fresh every openDatabaseManager() call, but these listeners only need
+    // binding once against the static modal chrome in index.html.
+    this.setupDatabaseManagerModalEvents();
 
     // Load default album art
     this.loadDefaultAlbumArt();
@@ -2835,25 +2841,27 @@ class LibraryManager {
     // console.log('🗄️ Opening database manager...');
 
     try {
-      // Render into the single-pane slot (like Discover/search results) instead of
-      // overwriting #mainContent directly — that used to destroy the dual-pane layout's
-      // left/right panes, the queue pane, and the pane-resizer separators, which then
-      // came back wrong (or not at all) via ensureCorrectDOMStructure()'s stale rebuild
-      // template when navigating back to Library. See docs/issues/issues_track.md.
-      this.app.currentView = 'database';
-      this.app.uiController.updateActiveNavItem(null);
-      this.app.uiController.showSinglePaneView();
-
-      // Show loading state
-      const singlePaneContent = document.getElementById('singlePaneContent');
-      if (singlePaneContent) {
-        singlePaneContent.innerHTML = `
-          <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <p>Loading database information...</p>
-          </div>
-        `;
+      // Opens as a modal on top of the current view (2026-09-16) instead of
+      // swapping #mainContent's content out — the earlier single-pane-swap
+      // approach needed a "Back to Library" button and view-state bookkeeping,
+      // and was the root of the "playback state goes missing after visiting
+      // Database Manager" class of bugs. A modal never touches currentView,
+      // #dualPaneLayout, or the queue pane, so there's nothing to restore.
+      // See docs/issues/issues_track.md.
+      const modal = document.getElementById('databaseManagerModal');
+      const modalBody = document.getElementById('databaseManagerModalBody');
+      if (!modal || !modalBody) {
+        this.app.logger.error('❌ Database Manager modal not found in DOM');
+        return;
       }
+
+      modalBody.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading database information...</p>
+        </div>
+      `;
+      this.app.uiController.showModal(modal);
 
       // Get database statistics
       const stats = await window.queMusicAPI.database.getStats();
@@ -2873,8 +2881,34 @@ class LibraryManager {
     }
   }
 
+  hideDatabaseManagerModal() {
+    const modal = document.getElementById('databaseManagerModal');
+    if (modal) this.app.uiController.hideModal(modal);
+  }
+
+  setupDatabaseManagerModalEvents() {
+    const modal = document.getElementById('databaseManagerModal');
+    if (!modal) return;
+
+    const closeBtn = document.getElementById('closeDatabaseManagerModal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.hideDatabaseManagerModal());
+    }
+
+    // Click on the dark overlay (not the content panel itself) closes it
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.hideDatabaseManagerModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('show')) {
+        this.hideDatabaseManagerModal();
+      }
+    });
+  }
+
   displayDatabaseManager(stats, genres, years, playlists, musicFolder, playlistFolder) {
-    const singlePaneContent = document.getElementById('singlePaneContent');
+    const singlePaneContent = document.getElementById('databaseManagerModalBody');
     if (!singlePaneContent) return;
 
     // Calculate additional stats
@@ -2888,10 +2922,6 @@ class LibraryManager {
     const managerHTML = `
       <div class="database-manager">
         <div class="database-header">
-          <button class="btn-secondary btn-sm" onclick="window.app.uiController.switchView('library')" style="margin-bottom: 15px;">
-            ← Back to Library
-          </button>
-          <h2>🗄️ Database Manager</h2>
           <p>Manage and maintain your music database</p>
         </div>
         

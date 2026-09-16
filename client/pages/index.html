@@ -1003,6 +1003,20 @@
       </div>
     </div>
 
+    <!-- Database Manager Modal — renders on top of whatever view is active
+         instead of swapping it out, so playback state / Now Playing / the
+         currently-loaded playlist never get touched by opening this. See
+         docs/issues/issues_track.md, 2026-09-16. -->
+    <div class="modal-overlay" id="databaseManagerModal" style="display: none">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h2>🗄️ Database Manager</h2>
+          <button class="modal-close" id="closeDatabaseManagerModal">&times;</button>
+        </div>
+        <div class="modal-body" id="databaseManagerModalBody"></div>
+      </div>
+    </div>
+
     <!-- Cover Fetcher Modal -->
     <div class="modal-overlay" id="coverFetcherModal" style="display: none">
       <div class="modal-content modal-lg">

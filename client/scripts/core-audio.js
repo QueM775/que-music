@@ -242,6 +242,11 @@ class CoreAudio {
       // Update now playing info (includes album art)
       await this.updateNowPlaying(songPath);
 
+      // The Up Next pane falls back to "rest of this.playlist" when the manual
+      // queue is empty (see UIController.renderQueuePane) — refresh it now that
+      // playlist/currentTrackIndex may have just changed, same as a queue edit.
+      this.notifyQueueChanged();
+
       // VISUALIZER INTEGRATION: Prepare visualizer for new track
       if (this.visualizerEnabled) {
         await this.prepareVisualizerForNewTrack();

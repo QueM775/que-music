@@ -460,6 +460,23 @@ class UIController {
     }
   }
 
+  // Generic modal-overlay open/close (same fade pattern as HelpManager's
+  // showModal/hideHelp) — for modals like Database Manager that sit on top
+  // of whatever view is active instead of swapping it out.
+  showModal(modal) {
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('show'));
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) modalContent.focus();
+  }
+
+  hideModal(modal) {
+    modal.classList.remove('show');
+    setTimeout(() => {
+      modal.style.display = 'none';
+    }, 300);
+  }
+
   showSinglePaneView() {
     const welcomeScreen = document.getElementById('welcomeScreen');
     const dualPaneLayout = document.getElementById('dualPaneLayout');
@@ -752,50 +769,13 @@ class UIController {
         rightPaneTitle.textContent = `Playlist: ${playlist.name}`;
       }
 
+      // No Play All / Shuffle buttons here — removed 2026-09-16 (see
+      // docs/issues/issues_track.md). They didn't feed the real Up Next
+      // queue. Whole-playlist playback is a double-click or a track's own
+      // play button; renderQueuePane() now shows the rest of whatever's
+      // loaded (this playlist included) under "Up Next" automatically.
       if (rightPaneActions) {
-        rightPaneActions.innerHTML = `
-        <button class="btn-primary btn-sm" id="playAllPlaylistBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="5,3 19,12 5,21"></polygon>
-          </svg>
-          Play All
-        </button>
-        <button class="btn-secondary btn-sm" id="shufflePlaylistBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16,3 21,3 21,8"></polyline>
-            <line x1="4" y1="20" x2="21" y2="3"></line>
-          </svg>
-          Shuffle
-        </button>
-      `;
-
-        // Add event listeners
-        const playAllBtn = document.getElementById('playAllPlaylistBtn');
-        const shuffleBtn = document.getElementById('shufflePlaylistBtn');
-
-        if (playAllBtn) {
-          playAllBtn.addEventListener('click', () => {
-            if (playlist.tracks && playlist.tracks.length > 0) {
-              // Set the current playlist data in the renderer before playing
-              this.app.playlistRenderer.currentPlaylistData = playlist;
-              this.app.playlistRenderer.playPlaylist(0);
-            } else {
-              this.app.showNotification('No tracks in playlist to play', 'warning');
-            }
-          });
-        }
-
-        if (shuffleBtn) {
-          shuffleBtn.addEventListener('click', () => {
-            if (playlist.tracks && playlist.tracks.length > 0) {
-              // Set the current playlist data in the renderer before playing
-              this.app.playlistRenderer.currentPlaylistData = playlist;
-              this.app.playlistRenderer.shuffleAndPlay();
-            } else {
-              this.app.showNotification('No tracks in playlist to shuffle', 'warning');
-            }
-          });
-        }
+        rightPaneActions.innerHTML = '';
       }
 
       if (rightPaneContent) {
@@ -817,10 +797,32 @@ class UIController {
           );
           rightPaneContent.innerHTML = tracksHTML;
           this.app.libraryManager.setupLibrarySelectionEvents();
-          
+
           // Set current playlist data for context menus
           this.app.playlistRenderer.currentPlaylistData = playlist;
-          
+
+          // setupLibrarySelectionEvents() wires a generic single-click-to-play
+          // handler that rebuilds CoreAudio.playlist from the clicked track's
+          // *disk folder* (buildPlaylistFromCurrentFolder) — wrong here, since
+          // a playlist can span many folders. Override with a capture-phase
+          // listener per track so playback (and therefore Next/Prev and the
+          // Up Next pane) reflects the actual playlist instead. No Play All
+          // button anymore (removed 2026-09-16) — clicking any track is now
+          // the way to start the whole playlist from that point.
+          rightPaneContent.querySelectorAll('.song-card').forEach((card) => {
+            card.addEventListener(
+              'click',
+              (e) => {
+                if (e.target.closest('.song-checkbox')) return;
+                e.stopImmediatePropagation();
+                const index = parseInt(card.dataset.trackIndex, 10);
+                this.app.playlistRenderer.currentPlaylistData = playlist;
+                this.app.playlistRenderer.playPlaylist(index);
+              },
+              true
+            );
+          });
+
           // Add right-click context menu to tracks
           console.log('🔧 About to setup playlist context menus');
           this.setupPlaylistTrackContextMenus();
@@ -3412,7 +3414,17 @@ Path: ${track.path}`;
 
     const queue = this.app.coreAudio?.getQueue ? this.app.coreAudio.getQueue() : [];
 
-    if (queue.length === 0) {
+    // The manually-queued tracks always play first (see CoreAudio.nextTrack()),
+    // then playback falls through to the rest of whatever's loaded — the
+    // folder or playlist the user actually pressed play on. Show that same
+    // fallback here so "Up Next" reflects what will really play next instead
+    // of going blank the moment the manual queue is empty (2026-09-16 —
+    // Erich: shouldn't be empty while music is playing).
+    const playlist = this.app.coreAudio?.playlist || [];
+    const currentIndex = this.app.coreAudio?.currentTrackIndex ?? -1;
+    const upNextFromPlaylist = playlist.slice(currentIndex + 1);
+
+    if (queue.length === 0 && upNextFromPlaylist.length === 0) {
       titleEl.textContent = 'Up Next';
       contentEl.innerHTML = `
         <div class="empty-pane">
@@ -3423,7 +3435,8 @@ Path: ${track.path}`;
       return;
     }
 
-    titleEl.textContent = `Up Next (${queue.length})`;
+    const totalCount = queue.length + upNextFromPlaylist.length;
+    titleEl.textContent = `Up Next (${totalCount})`;
     contentEl.innerHTML = `
       <div class="queue-track-list">
         ${queue
@@ -3435,6 +3448,18 @@ Path: ${track.path}`;
               ${track.artist ? ` — <span class="queue-track-artist">${this.escapeHtml(track.artist)}</span>` : ''}
             </span>
             <button class="icon-btn remove-from-queue-btn" data-queue-index="${index}" title="Remove from queue">&times;</button>
+          </div>
+        `
+          )
+          .join('')}
+        ${upNextFromPlaylist
+          .map(
+            (track, i) => `
+          <div class="queue-track-item queue-track-from-playlist" data-path="${this.escapeHtml(track.path || '')}" title="Coming up in the current playlist/folder" style="opacity: 0.7;">
+            <span class="queue-track-text">
+              ${queue.length + i + 1}. ${this.escapeHtml(track.title || track.name || '')}
+              ${track.artist ? ` — <span class="queue-track-artist">${this.escapeHtml(track.artist)}</span>` : ''}
+            </span>
           </div>
         `
           )

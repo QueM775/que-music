@@ -2,6 +2,35 @@
 
 ## Version History & Bug Fixes
 
+### Round 2: found the real active Play All/Shuffle buttons, Up Next now falls back to the loaded playlist, Database Manager converted to a modal - 2026-09-16
+
+Erich tested the previous same-day fix and reported it hadn't taken: Play All and Shuffle were both still visible, Play All still didn't move anything into Up Next, and after opening Database Manager while a playlist played, going back left both the playlist details pane and Up Next empty — "we need to be able to move around the app without the up next card being empty if we have music playing."
+
+#### Root cause of "the fix didn't take" ✅
+
+The first pass edited the wrong/dead code. `PlaylistRenderer.generatePlaylistActionsHTML()`/`setupPlaylistActionListeners()` (playlist-renderer.js) and the folder-view Play All in `LibraryManager.showSongsInRightPane()` were real, but **not what actually renders when you click a playlist card in the app** — that's `UIController.loadPlaylistInRightPane()` (called from `selectPlaylistInBrowser()`, wired to the real `.playlist-item-card` elements), which has its own separate `playAllPlaylistBtn`/`shufflePlaylistBtn` markup that the first pass never touched. Confirmed by grep after the fact: five more `Play All` buttons exist across the codebase (Favorites, Artists/Albums, Discover search results) that were never in scope — only the folder and playlist ones the actual repro touches were fixed.
+
+#### Fix shipped ✅
+
+- Removed `playAllPlaylistBtn`/`shufflePlaylistBtn` from `UIController.loadPlaylistInRightPane()` — this is the real one. `rightPaneActions` is now empty for a selected playlist (matches the folder view).
+- Found and fixed a second real bug uncovered in the process: the generic single-click-to-play handler (`LibraryManager.setupLibrarySelectionEvents()`) rebuilds `CoreAudio.playlist` from the clicked track's **disk folder** (`buildPlaylistFromCurrentFolder`) — correct for folder browsing, wrong for a playlist, which can span many folders. Clicking a playlist track was silently replacing the loaded context with whatever folder that one file happened to live in. `loadPlaylistInRightPane()` now attaches a capture-phase click override per track that calls `PlaylistRenderer.playPlaylist(index)` instead, so playback (and Next/Prev, and Up Next) reflect the actual playlist.
+- **"Up Next" no longer requires anything to be manually queued.** `UIController.renderQueuePane()` now shows the manually-queued tracks first (unchanged), then falls back to the remaining tracks of `CoreAudio.playlist` after `currentTrackIndex` — i.e. what will actually play next, matching what `CoreAudio.nextTrack()` already does (queue first, then falls through to the playlist). This directly satisfies "shouldn't be empty while music is playing" and means playing a playlist/folder populates Up Next automatically — no dedicated wiring needed, so the dead "Play All should feed the queue" idea from round 1 is moot. `CoreAudio.playSong()` now calls `notifyQueueChanged()` after a track loads so the pane refreshes on every track change, not just on explicit queue edits. Playlist-derived rows are visually dimmed (`opacity: 0.7`) and not draggable/removable, to stay visually distinct from real queue entries.
+- **Database Manager converted from a single-pane view swap to a modal** (`#databaseManagerModal` in `client/pages/index.html`, opened via new `UIController.showModal()`/`hideModal()` helpers — same fade pattern as the existing Help modal). This was Erich's own suggestion mid-session and is a better fix than the round-1 approach: a modal never touches `currentView`, `#dualPaneLayout`, or the queue pane, so there is nothing to "go back" to and nothing that can be left stale — the entire class of "state goes missing after Database Manager" bug is structurally impossible now, not just guarded against. Removed the "← Back to Library" button and the `switchView('library')` call on open entirely; close is the × button, clicking the overlay, or Escape (`LibraryManager.setupDatabaseManagerModalEvents()`, wired once in the constructor). All existing tool buttons inside it (rescan, cleanup, find missing/duplicates, normalize, update durations) still work unchanged — they only ever used `document.getElementById()`, indifferent to which container they render into.
+
+#### Verification ✅
+
+Live Electron launch via Playwright, this time using real UI interactions throughout (not API shortcuts) — clicked the actual folder tree, the actual `.playlist-item-card`, an actual track row, the actual Database Manager nav item and its × close button — against Erich's real ~4526-track library, a throwaway IPC-created test playlist (deleted after):
+- Folder view: confirmed `#playAllBtn` absent from real rendered right-pane HTML.
+- Playlist view: confirmed `#playAllPlaylistBtn`/`#shufflePlaylistBtn` absent; clicking the 3rd track of a 6-track playlist set `currentTrackIndex` to 2 and `CoreAudio.playlist.length` to 6 (the real playlist, not a folder rebuild); Up Next showed exactly the 3 remaining tracks, title read "Up Next (3)".
+- Shuffle button confirmed living in `.queue-pane-title-row` beside "Up Next", confirmed gone from `.player-controls`.
+- Opened Database Manager (real stats rendered: 4,526 tracks etc.) while the playlist played — screenshotted: modal overlays on top, `#dualPaneLayout` never hidden, the playlist's 6 song cards and Up Next's 3 rows still present underneath and unchanged, audio kept playing, toast confirmed "Playing 6 tracks from playlist" survived. Closed via × — playlist pane and Up Next identical after close, nothing lost.
+- All throwaway scripts, screenshots, and the test playlist deleted after use; `playwright` (installed `--no-save`) uninstalled; `package.json`/`package-lock.json` confirmed untouched.
+
+#### Open for next session
+
+- Not committed to git yet.
+- Out of scope, left alone: Favorites/Artists-Albums/Discover-search-results each have their own separate "Play All" button, not touched — only the folder/playlist ones Erich actually hit were in scope this round.
+
 ### Play All / Shuffle & Play removed, shuffle relocated to Up Next header, stale-async pane-overwrite race fixed - 2026-09-16
 
 Erich's reports: (1) "Play All" on a folder or playlist never moved anything into the "Up Next" queue — confusing since they look related but are two separate lists by design (see the 2026-09-13/14 real-queue work). (2) Wanted "Play All" and "Shuffle & Play" gone from the folder/playlist details card entirely, and the shuffle control moved to sit ~10px right of the "Up Next" text instead. (3) After playing a playlist, switching to Database view, then going back, the Now Playing card and its track list sometimes went blank even though audio kept playing.
