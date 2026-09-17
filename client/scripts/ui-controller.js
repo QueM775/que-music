@@ -579,6 +579,74 @@ class UIController {
 
     // Clear right pane
     this.clearRightPane('Select a playlist to view its tracks');
+
+    // Reconcile the database against the Playlists folder right when the
+    // user actually looks at the list — not on every app launch, and not
+    // silently in the background (Erich, 2026-09-17). Runs after the view
+    // is already rendered so it never blocks getting to the playlist list.
+    this.checkPlaylistFileSync();
+  }
+
+  // Neither the database nor the Playlists folder is trusted blindly — this
+  // just surfaces where they disagree and lets Erich pick which one is right,
+  // per playlist. "Not now" is remembered for the rest of the session so
+  // re-opening the Playlists view doesn't re-nag about the same playlist;
+  // regenerating or deleting actually resolves it so it won't come up again.
+  async checkPlaylistFileSync() {
+    if (!this._dismissedPlaylistSyncIds) this._dismissedPlaylistSyncIds = new Set();
+
+    try {
+      const { missingFiles } = await window.queMusicAPI.playlists.checkFileSync();
+      if (!missingFiles || missingFiles.length === 0) return;
+
+      const toAsk = missingFiles.filter((p) => !this._dismissedPlaylistSyncIds.has(p.id));
+      if (toAsk.length === 0) return;
+
+      let deletedAny = false;
+      for (const p of toAsk) {
+        const regenerate = confirm(
+          `"${p.name}" has ${p.trackCount} track${p.trackCount === 1 ? '' : 's'} in the database, ` +
+            `but its playlist file is missing from your Playlists folder.\n\n` +
+            `Click OK to regenerate the file (keeps the playlist), or Cancel to decide whether to remove it from the app instead.`
+        );
+
+        if (regenerate) {
+          try {
+            await window.queMusicAPI.playlists.exportM3U(p.id);
+            this.app.showNotification(`Regenerated "${p.name}".m3u`, 'success');
+          } catch (err) {
+            this.app.logger.error('Failed to regenerate playlist file', { error: err.message });
+            this.app.showNotification(`Couldn't regenerate "${p.name}"`, 'error');
+          }
+          continue;
+        }
+
+        const remove = confirm(
+          `Remove "${p.name}" from the app? This deletes it from the database only — ` +
+            `the actual music files are never touched. This cannot be undone.`
+        );
+
+        if (remove) {
+          try {
+            await window.queMusicAPI.playlists.delete(p.id);
+            deletedAny = true;
+          } catch (err) {
+            this.app.logger.error('Failed to delete playlist', { error: err.message });
+            this.app.showNotification(`Couldn't remove "${p.name}"`, 'error');
+          }
+        } else {
+          // Skipped both options — don't ask about this one again this session.
+          this._dismissedPlaylistSyncIds.add(p.id);
+        }
+      }
+
+      if (deletedAny) {
+        const leftPaneContent = document.getElementById('leftPaneContent');
+        if (leftPaneContent) await this.loadPlaylistBrowser(leftPaneContent);
+      }
+    } catch (err) {
+      this.app.logger.error('Playlist file sync check failed', { error: err.message });
+    }
   }
 
   async loadPlaylistBrowser(container) {
@@ -3423,6 +3491,18 @@ Path: ${track.path}`;
     const playlist = this.app.coreAudio?.playlist || [];
     const currentIndex = this.app.coreAudio?.currentTrackIndex ?? -1;
     const upNextFromPlaylist = playlist.slice(currentIndex + 1);
+
+    // Clear only empties the manually-queued tracks (see CoreAudio.clearQueue),
+    // it can't touch the playlist-preview fallback above — so disable it
+    // whenever there's nothing manual to clear, instead of leaving it
+    // clickable and silently doing nothing (Erich caught this 2026-09-17).
+    const clearBtn = document.getElementById('clearQueuePaneBtn');
+    if (clearBtn) {
+      clearBtn.disabled = queue.length === 0;
+      clearBtn.title = clearBtn.disabled
+        ? "Nothing manually queued to clear (what's below is just a preview of what's coming up)"
+        : 'Clear queue';
+    }
 
     if (queue.length === 0 && upNextFromPlaylist.length === 0) {
       titleEl.textContent = 'Up Next';

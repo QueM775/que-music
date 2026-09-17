@@ -63,8 +63,6 @@ npm start → node start-electron.js → electron main.js
 <!-- 5th -->
 <script src="../scripts/main-app.js"></script>
 <!-- 6th -->
-<script src="../scripts/main-window.js"></script>
-<!-- 7th -->
 ```
 
 ### 4. Module Initialization Chain
@@ -79,13 +77,15 @@ npm start → node start-electron.js → electron main.js
 - `ui-controller.js` - Defines `UIController` class
 - `playlist-renderer.js` - Defines `PlaylistRenderer` class
 
-**Phase 2: Application Assembly (Line 819)**
+**Phase 2: Application Assembly and Start (Line 819)**
 
-- `main-app.js` - Defines `QueMusicApp` class and creates instances
-
-**Phase 3: Application Start (Line 820)**
-
-- `main-window.js` - Waits for all modules, then starts the app
+- `main-app.js` - Defines `QueMusicApp`, and on `DOMContentLoaded` creates the
+  single instance directly (`window.app = new QueMusicApp()`) — no separate
+  "wait for modules, then start" file exists anymore. A duplicate file,
+  `main-window.js`, used to do exactly this same job a second time — it was
+  dead weight (every nav click, theme toggle, and settings/folder button was
+  silently firing twice) and was deleted 2026-09-17. See
+  `docs/issues/issues_track.md`.
 
 ---
 
@@ -101,8 +101,7 @@ graph TD
     D --> E[ui-controller.js]
     E --> F[playlist-renderer.js]
     F --> G[main-app.js]
-    G --> H[main-window.js]
-    H --> I[App Initialization]
+    G --> I[App Initialization]
 ```
 
 ### Critical Dependency Chain
@@ -130,50 +129,26 @@ graph TD
 6. **main-app.js** (Depends on 2-5)
    - Creates instances of all above classes
    - Coordinates between all modules
-
-7. **main-window.js** (Depends on 6)
-   - Waits for `QueMusicApp` class to be available
-   - Initializes the application instance
+   - On `DOMContentLoaded`, creates the one `QueMusicApp` instance itself and
+     calls its own `init()` — nothing else waits for or starts it
 
 ---
 
 ## 🔄 Application Initialization Flow
 
-### Step-by-Step Execution (main-window.js)
+### Step-by-Step Execution (main-app.js)
 
-**Phase 1: Module Availability Check**
-
-```javascript
-// main-window.js:31-35
-const requiredModules = [
-  'CoreAudio',
-  'LibraryManager',
-  'UIController',
-  'PlaylistRenderer',
-  'QueMusicApp',
-];
-const missing = requiredModules.filter((module) => !window[module]);
-```
-
-**Phase 2: Wait for All Modules**
+There's no separate "wait for all modules, then start" step — the script load
+order above already guarantees every class (`CoreAudio`, `LibraryManager`,
+`UIController`, `PlaylistRenderer`, `HelpManager`) exists by the time
+`main-app.js` runs, since it loads last. `main-app.js` creates the app
+instance itself, directly on `DOMContentLoaded`:
 
 ```javascript
-// main-window.js:36-55
-// Polling mechanism with 5-second timeout
-// Checks every 100ms for all required classes
-```
-
-**Phase 3: App Instance Creation**
-
-```javascript
-// main-window.js:73-85
-try {
-  console.log('🚀 Creating main app instance...');
+// main-app.js (bottom of file)
+document.addEventListener('DOMContentLoaded', () => {
   window.app = new QueMusicApp();
-  console.log('✅ App instance created successfully');
-} catch (error) {
-  console.error('❌ Failed to create app instance:', error);
-}
+});
 ```
 
 ### QueMusicApp Initialization (main-app.js)
@@ -290,32 +265,15 @@ getAllTracks() {
 
 ## 🔧 Error Handling & Recovery
 
-### Module Loading Errors
-
-**Location**: `main-window.js:52-57`
-
-```javascript
-// Timeout handling after 5 seconds
-console.error('❌ Timeout waiting for modules to load');
-console.error('📊 Final module status:');
-requiredModules.forEach((module) => {
-  console.error(`  ${module}: ${window[module] ? '✅' : '❌'}`);
-});
-```
-
 ### Application Initialization Errors
 
-**Location**: `main-window.js:81-84`
-
-```javascript
-catch (error) {
-  console.error('❌ App initialization failed:', error);
-}
-```
+**Location**: `main-app.js` constructor — wraps module construction, not a
+separate "wait for modules" step (there isn't one; see above).
 
 ### Global Error Handling
 
-**Location**: `main-window.js:214-221`
+**Location**: `main-app.js` `setupGlobalErrorHandlers()`, called at the top of
+`init()`
 
 ```javascript
 window.addEventListener('error', (event) => {

@@ -837,6 +837,51 @@ class MusicDatabase {
   }
 
   // ============================================================================
+  // PLAYLIST / FILESYSTEM RECONCILIATION
+  // ============================================================================
+  // Compares what the database thinks exists against what's actually sitting
+  // in the Playlists folder. Neither side is treated as automatically correct:
+  // this only reports mismatches so the UI can ask the user which one to
+  // trust (regenerate the missing file, or delete the stale database row) —
+  // see docs/issues/issues_track.md, 2026-09-17. Empty playlists are not
+  // flagged; they never get an M3U file in the first place (see
+  // _autoExportM3U's "has no tracks" skip) so a missing file there is expected,
+  // not a mismatch.
+  async checkPlaylistFileSync() {
+    if (!this.playlistFolder) {
+      return { missingFiles: [], playlistFolder: null };
+    }
+
+    try {
+      const playlists = this.db
+        .prepare("SELECT id, name FROM playlists WHERE type IS NULL OR type != 'smart'")
+        .all();
+
+      const missingFiles = [];
+      for (const playlist of playlists) {
+        const { n: trackCount } = this.db
+          .prepare('SELECT COUNT(*) as n FROM playlist_tracks WHERE playlist_id = ?')
+          .get(playlist.id);
+        if (trackCount === 0) continue;
+
+        const safeName = playlist.name.replace(/[<>:"/\\|?*]/g, '_');
+        const expectedPath = path.join(this.playlistFolder, safeName + '.m3u');
+
+        try {
+          await fs.access(expectedPath);
+        } catch {
+          missingFiles.push({ id: playlist.id, name: playlist.name, trackCount, expectedPath });
+        }
+      }
+
+      return { missingFiles, playlistFolder: this.playlistFolder };
+    } catch (err) {
+      console.error('❌ Error checking playlist file sync:', err);
+      return { missingFiles: [], playlistFolder: this.playlistFolder, error: err.message };
+    }
+  }
+
+  // ============================================================================
   // EXPORT PLAYLIST TO M3U
   // ============================================================================
   async exportPlaylistToM3U(playlistId) {

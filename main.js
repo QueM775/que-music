@@ -679,6 +679,18 @@ ipcMain.handle('playlist:import-m3u', async (event, m3uFilePath) => {
   }
 });
 
+// Compare DB playlists against the Playlists folder on disk — see
+// MusicDatabase.checkPlaylistFileSync(), 2026-09-17.
+ipcMain.handle('playlist:check-sync', async () => {
+  try {
+    if (!musicDB) throw new Error('Database not initialized');
+    return await musicDB.checkPlaylistFileSync();
+  } catch (error) {
+    console.error('❌ Error checking playlist file sync:', error);
+    throw error;
+  }
+});
+
 //  Export playlist to M3U manually
 ipcMain.handle('playlist:export-m3u', async (event, playlistId) => {
   try {

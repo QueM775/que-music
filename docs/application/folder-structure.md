@@ -106,8 +106,7 @@ client/
 │   └── index.html           # The only HTML page — links exactly one stylesheet, bundled.css
 ├── scripts/
 │   ├── main-preload.js      # contextBridge — the ONLY file with Node access in the renderer tier
-│   ├── main-window.js       # Renderer-side window init
-│   ├── main-app.js          # App coordinator — delegates to the modules below
+│   ├── main-app.js          # App coordinator — creates the app on DOMContentLoaded, delegates to the modules below
 │   ├── core-audio.js        # Playback engine, visualizer, Web Audio graph
 │   ├── library-manager.js   # Library scan UI, folder tree, search/filter views
 │   ├── playlist-renderer.js # Playlist CRUD, M3U export, drag-and-drop reorder

@@ -2,6 +2,67 @@
 
 ## Version History & Bug Fixes
 
+### Main Play button ignored the manual queue and rebuilt a playlist from whatever was on screen - 2026-09-17
+
+Erich dragged one of two loose mp3s sitting in a "60 & 70s" folder (not real album subfolders — literally two files in one folder) into Up Next, then pressed the main transport Play button. The other file showed up in Up Next too, which he didn't want — he compared it to dragging tracks from an Artist/Album view, where only what he dragged shows up.
+
+#### Root cause ✅
+
+`CoreAudio.togglePlayPause()`, when nothing is currently loaded (`!this.currentTrack`), only ever checked `this.playlist` before falling through to `playFromVisibleSongs()` — which rebuilds an entirely new playlist from every `.song-card` currently rendered in the right pane (in this case, both loose files in the folder) and starts playing from the first one. It never checked `this.queue` (the manual Up Next queue) at all, even though `nextTrack()` already gives the queue top priority. So dragging one track in, then pressing Play, silently discarded the queue and played whatever the visible-songs scan produced instead.
+
+#### Fix shipped ✅
+
+- `client/scripts/core-audio.js`: `togglePlayPause()` now checks `if (!this.currentTrack && this.queue.length > 0)` first and calls `this.nextTrack()` (which already shifts and plays the front of the queue) — matching the exact precedence `nextTrack()` already uses elsewhere. Only falls through to the playlist/visible-songs logic when the queue is actually empty.
+
+#### Verification ✅
+
+Live-tested via a throwaway Playwright `_electron` script: added one track to the queue via `addToQueue()`, clicked the real `#playPauseBtn`, confirmed `currentTrack` became exactly that track, the queue emptied (consumed), `playlist` stayed empty (no folder-mate pulled in), and Up Next correctly showed "Nothing queued" afterward — no leftover sibling file.
+
+#### Open for next session
+
+- Not committed to git yet.
+
+### Whole app was initializing twice on every launch - 2026-09-17
+
+Found while live-testing the playlist sync feature below: a brand-new `confirm()` dialog was popping up twice per playlist, back to back, with identical text.
+
+#### Root cause ✅
+
+`client/pages/index.html` loaded two separate scripts that both wire up the app on `DOMContentLoaded`: `main-app.js` (the real one — defines `QueMusicApp`, creates `window.app`, calls `setupEventListeners()`) and `main-window.js` (a dead duplicate — checks `if (window.app)`, sees it's already set by `main-app.js`, and then independently re-runs its own `setupNavigationEvents()`/`setupHeaderButtons()`, binding a **second** click listener to every `.nav-item[data-view]`, `themeToggle`, `settingsBtn`, and `selectFolderBtn`). Net effect: every nav click, theme toggle, settings click, and folder-select button fired its handler twice, silently, for the entire life of the app. Most of the doubled work was harmless (idempotent re-renders), which is why nothing looked broken until a blocking `confirm()` dialog made the duplication audible.
+
+#### Fix shipped ✅
+
+- Deleted `client/scripts/main-window.js` entirely — everything it did, `main-app.js` already does (verified: nav items, action items, theme toggle, settings button, select-folder button, and its own equivalent global error handlers all already exist in `main-app.js`).
+- Removed its `<script>` tag from `client/pages/index.html`.
+- Corrected `docs/application/architecture.md` and `docs/application/folder-structure.md`, which had documented `main-window.js`'s polling/wait-for-modules logic as the real initialization flow — it never was; `main-app.js` creates the app directly on `DOMContentLoaded`.
+
+#### Open for next session
+
+- Not committed to git yet.
+
+### Playlist ↔ Playlists-folder reconciliation check - 2026-09-17
+
+Erich noticed the app listed 5 playlists but the `Playlists` folder on disk only had 3 `.m3u` files. Investigated: two playlists ("Female Singers", "Grunge Mixes") had real tracks in the database but had never gotten an M3U file written (or it was deleted outside the app) — playback was completely unaffected since the app only ever reads playlists from the database, never the M3U file, but the mismatch was real and gave no indication anything was wrong.
+
+Erich's direction after discussion: don't make either side (database or folder) automatically authoritative over the other — surface the mismatch and let him decide, per playlist, right when he actually opens the Playlists view (not on every app launch, not silently in the background).
+
+#### Fix shipped ✅
+
+- `server/database.js`: new `checkPlaylistFileSync()` — for every non-smart playlist with at least one track, checks whether its expected `.m3u` path exists in the configured Playlists folder (same filename-sanitizing rule as `exportPlaylistToM3U`). Empty playlists are never flagged — they never get an M3U file in the first place by design.
+- `main.js` / `main-preload.js`: new `playlist:check-sync` IPC channel, exposed as `queMusicAPI.playlists.checkFileSync()`.
+- `client/scripts/ui-controller.js`: `showPlaylistsView()` now calls the check (non-blocking, after the view is already rendered) every time the user opens the Playlists view. For each mismatch: `confirm()` asks whether to regenerate the file (keeps the playlist) or move on to a second `confirm()` asking whether to delete the playlist from the database (never touches the actual music files). Declining both is remembered for the rest of the session so it doesn't re-nag about the same playlist on every visit.
+- Also fixed, same investigation: the "Clear" button on the Up Next / queue pane did nothing when clicked if nothing had been manually dragged in (it only ever clears the manual queue, never the automatic playlist-preview fallback) — it's now disabled with an explanatory tooltip whenever there's nothing manual to clear.
+
+#### Verification ✅
+
+Live-tested by Erich against his real library and confirmed working (regenerate path). Also live-verified via a throwaway Playwright `_electron` script against the real dev database/folder — this run is what surfaced the double-init bug above (each dialog appeared twice), root-caused, fixed, and not yet re-verified end-to-end with the fix in place since Erich was using the real app at the time.
+
+#### Open for next session
+
+- Not committed to git yet.
+- Re-verify the reconciliation flow once more (single dialog per mismatch, not double) now that `main-window.js` is gone.
+- Not built yet, flagged but out of scope for this pass: (1) a `.m3u` file on disk with no matching DB playlist isn't offered for import by this check; (2) individual missing/moved track files inside a playlist aren't flagged — they either silently drop out of the playlist (if the library's been rescanned since) or hard-stop playback with an error toast and no auto-skip to the next track (if not rescanned yet).
+
 ### Title bar: EGQ logo replaces the macOS-style window control dots - 2026-09-16
 
 Erich's request: the three red/yellow/green minimize/maximize/close dots at the top-left of the title bar should be replaced with the EGQ logo (`assets/images/egq-logo.png`, already dropped into the repo by Erich ahead of this ask).

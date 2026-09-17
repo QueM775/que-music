@@ -126,6 +126,7 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     importM3U: (m3uFilePath) => ipcRenderer.invoke('playlist:import-m3u', m3uFilePath),
     exportM3U: (playlistId) => ipcRenderer.invoke('playlist:export-m3u', playlistId),
     forceReimportM3U: () => ipcRenderer.invoke('playlist:force-reimport-m3u'),
+    checkFileSync: () => ipcRenderer.invoke('playlist:check-sync'),
   },
 
   // ============================================================================

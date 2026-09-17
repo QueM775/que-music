@@ -514,6 +514,17 @@ class CoreAudio {
   }
 
   togglePlayPause() {
+    // Manually-queued tracks take priority when nothing's currently loaded —
+    // same precedence nextTrack() already gives the queue. Without this,
+    // pressing Play after dragging a track into Up Next ignored the queue
+    // entirely and rebuilt a whole new playlist from whatever's visible on
+    // screen instead (e.g. every other loose file in the same folder) —
+    // Erich, 2026-09-17.
+    if (!this.currentTrack && this.queue.length > 0) {
+      this.nextTrack();
+      return;
+    }
+
     // this.app.logger.debug(' togglePlayPause called');
     // this.app.logger.debug(' Current track:', this.currentTrack);
     // this.app.logger.debug(' Playlist length:', this.playlist?.length || 0);
