@@ -377,6 +377,56 @@
   padding: var(--space-lg);
 }
 
+/* About Modal */
+.about-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.about-modal .about-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.about-modal .about-app-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.about-modal .about-version {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-runtime {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.about-modal .about-credit {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-sm) 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+  width: 100%;
+}
+
 /* ========================================
    MODAL ANIMATIONS
    ======================================== */
@@ -1125,6 +1175,56 @@
 
 .database-modal .modal-body {
   padding: var(--space-lg);
+}
+
+/* About Modal */
+.about-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.about-modal .about-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.about-modal .about-app-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.about-modal .about-version {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-runtime {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.about-modal .about-credit {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-sm) 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+  width: 100%;
 }
 
 /* ========================================

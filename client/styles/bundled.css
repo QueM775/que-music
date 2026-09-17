@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-16T17:08:16.566Z
+ * Generated: 2026-09-17T13:57:19.801Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -9058,7 +9058,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/features/modals.css (38389 bytes)
+ * styles/features/modals.css (40441 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -9438,6 +9438,56 @@ Only favorites/recent-specific functionality remains
 
 .database-modal .modal-body {
   padding: var(--space-lg);
+}
+
+/* About Modal */
+.about-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.about-modal .about-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.about-modal .about-app-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.about-modal .about-version {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-runtime {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.about-modal .about-credit {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-sm) 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+  width: 100%;
 }
 
 /* ========================================
@@ -10188,6 +10238,56 @@ Only favorites/recent-specific functionality remains
 
 .database-modal .modal-body {
   padding: var(--space-lg);
+}
+
+/* About Modal */
+.about-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.about-modal .about-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.about-modal .about-app-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.about-modal .about-version {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.about-modal .about-runtime {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.about-modal .about-credit {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-sm) 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+  width: 100%;
 }
 
 /* ========================================

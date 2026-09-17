@@ -93,6 +93,31 @@ function createMenu() {
 
   const template = [
     {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Select Music Folder...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu:select-music-folder');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Settings',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu:show-settings');
+            }
+          }
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
       label: 'View',
       submenu: viewSubmenu,
     },
@@ -121,20 +146,7 @@ function createMenu() {
           label: 'About Que-Music',
           click: () => {
             if (mainWindow) {
-              const { dialog } = require('electron');
-              dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                title: 'About Que-Music',
-                message: `Que-Music v${app.getVersion()}`,
-                detail: `A Modern Desktop Music Player & Library Manager\n\n` +
-                        `Built with Electron ${process.versions.electron}\n` +
-                        `Node.js ${process.versions.node}\n` +
-                        `Chromium ${process.versions.chrome}\n\n` +
-                        `© 2025 Erich Quade\n` +
-                        `Licensed under MIT License`,
-                buttons: ['OK'],
-                icon: path.join(__dirname, 'assets/icons/icon.png')
-              });
+              mainWindow.webContents.send('show-about');
             }
           }
         },
@@ -308,26 +320,6 @@ ipcMain.handle('app:get-name', () => {
 
 ipcMain.handle('app:get-version', () => {
   return app.getVersion();
-});
-
-// Handle renderer fully loaded signal
-ipcMain.handle('app:show-about', () => {
-  if (mainWindow) {
-    const { dialog } = require('electron');
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'About Que-Music',
-      message: `Que-Music v${app.getVersion()}`,
-      detail: `A Modern Desktop Music Player & Library Manager\n\n` +
-              `Built with Electron ${process.versions.electron}\n` +
-              `Node.js ${process.versions.node}\n` +
-              `Chromium ${process.versions.chrome}\n\n` +
-              `© 2025 Erich Quade\n` +
-              `Licensed under MIT License`,
-      buttons: ['OK'],
-      icon: path.join(__dirname, 'assets/icons/icon.png')
-    });
-  }
 });
 
 ipcMain.handle('app:renderer-ready', () => {

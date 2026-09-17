@@ -1019,6 +1019,27 @@
       </div>
     </div>
 
+    <!-- About Modal — replaces the old native OS dialog (dialog.showMessageBox
+         in main.js) so it can actually show the EGQ logo instead of plain
+         text. Opened from the Help menu ("About Que-Music") and from
+         clicking the version number in the header. See CLAUDE.md, 2026-09-17. -->
+    <div class="modal-overlay about-modal" id="aboutModal" style="display: none">
+      <div class="modal-content modal-sm">
+        <div class="modal-header">
+          <h2>About Que-Music</h2>
+          <button class="modal-close" id="closeAboutModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <img class="about-logo" id="aboutLogo" alt="EGQ" />
+          <h3 class="about-app-name">Que-Music</h3>
+          <p class="about-version" id="aboutVersion">Version —</p>
+          <p class="about-tagline">A Modern Desktop Music Player &amp; Library Manager</p>
+          <p class="about-runtime" id="aboutRuntime"></p>
+          <p class="about-credit">© 2025 Erich Quade &middot; Licensed under MIT License</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Cover Fetcher Modal -->
     <div class="modal-overlay" id="coverFetcherModal" style="display: none">
       <div class="modal-content modal-lg">

@@ -60,7 +60,7 @@ class HelpManager {
 The Que-Music interface consists of four main areas:
 
 ### 1. **Title Bar** (Top)
-- **Window Controls**: Minimize, maximize, close buttons
+- **EGQ Logo**: top-left, replaced the old cosmetic minimize/maximize/close dots (Windows shows its own native title bar controls for those already)
 - **App Logo**: Que-Music branding
 - **Header Actions**: Search, theme toggle, help, and settings buttons
 
@@ -205,18 +205,17 @@ The app automatically:
 - **Shuffle & Play** - Play playlist in random order
 - **Edit** - Modify playlist details
 - **Duplicate** - Create a copy of the playlist
-- **Export to M3U** - Save as M3U file for other players
+- **Save as Static Playlist** - Smart playlists only, snapshots the current matches into a regular playlist
 - **Clear Tracks** - Remove all tracks (keeps playlist)
 - **Delete Playlist** - Remove playlist completely
 
 ## M3U Export/Import
 ### Automatic Features
-- Playlists are automatically saved as M3U files in your music folder
+- Playlists are automatically saved as M3U files in your music folder — there's no separate manual "export" action, it just happens
 - M3U files in your music folder are automatically detected and imported
 - Changes sync between database and M3U files
 
 ### Manual Operations
-- **Export**: Right-click playlist → "Export to M3U"
 - **Import**: Place M3U files in \`{Music Folder}/Playlists/\`
 - **Compatibility**: Works with other music players that support M3U format`,
           order: 5,
@@ -435,7 +434,7 @@ Que-Music includes an integrated logging system:
 
 ## Version Information
 - **Sidebar Display**: Version number shown at bottom of left sidebar
-- **About Dialog**: Click version number or use Help → About Que-Music menu
+- **About Window**: Click the version number or use Help → About Que-Music menu
 - **Build Information**: Shows Electron, Node.js, and Chromium versions
 - **Copyright & License**: View licensing information`,
           order: 7,
@@ -447,49 +446,33 @@ Que-Music includes an integrated logging system:
           description: 'Complete list of keyboard shortcuts',
           content: `# ⌨️ Keyboard Shortcuts
 
-## Global Shortcuts
-- **Space** - Play/Pause
-- **F1** - Open help (this dialog)
-- **Ctrl+F** - Open search
-- **Ctrl+T** - Toggle theme
-- **Ctrl+,** - Open settings
-- **Ctrl+Shift+D** - Open database manager
+This is the real, current list — only shortcuts actually wired up in the app. Most other actions (search, opening playlists, selecting tracks) are mouse/menu-driven for now: click, right-click for a context menu, or use the menu bar.
 
-## Playback Shortcuts
-- **← →** - Seek backward/forward in track
-- **↑ ↓** - Volume up/down
+## Playback
+- **Space** - Play/Pause
+- **← →** - Seek backward/forward in the current track
 - **Ctrl+←** - Previous track
 - **Ctrl+→** - Next track
+- **↑ ↓** - Volume up/down
+- **Ctrl+S** - Toggle shuffle
 - **Ctrl+R** - Toggle repeat mode
-- **Ctrl+S** - Toggle shuffle mode
 
-## Navigation Shortcuts
-- **Ctrl+1-9** - Switch between sidebar sections
-- **Enter** - Play selected track
-- **Delete** - Remove from playlist (when in playlist view)
+## Visualizer
+- **V** - Toggle the visualizer on/off
+- **Ctrl+V** - Restart the visualizer
+- **Shift+V** - Cycle visualizer type (only while it's on)
 
-## Search Shortcuts
-- **Ctrl+F** - Focus search input
-- **Esc** - Clear search / Close search
-- **Enter** - Play first search result
-- **↑ ↓** - Navigate search results
-
-## Selection Shortcuts
-- **Ctrl+A** - Select all tracks in current view
-- **Ctrl+Click** - Add/remove track from selection
-- **Shift+Click** - Select range of tracks
-- **Esc** - Clear selection
-
-## Playlist Shortcuts
-- **Ctrl+N** - Create new playlist
-- **Ctrl+Shift+A** - Add selected tracks to playlist
-- **Delete** - Remove selected tracks from playlist
-- **F2** - Rename playlist
-
-## Window Controls
+## App
+- **F1** - Open this Help window
+- **Ctrl+T** - Toggle light/dark theme
+- **Esc** - Close whatever modal is open
 - **F11** - Toggle fullscreen
 - **Ctrl+M** - Minimize window
-- **Alt+F4** - Close application`,
+- **Ctrl+W** / **Alt+F4** - Close the app
+- **Ctrl+0 / Ctrl+= / Ctrl+-** - Reset/zoom in/zoom out page zoom
+- **Ctrl+Shift+C** - Open Album Cover Fetcher (Tools menu)
+
+Note: playback shortcuts (Space, arrows, etc.) are ignored while you're typing in a text field, so they won't fight with search or renaming.`,
           order: 8,
         },
         {

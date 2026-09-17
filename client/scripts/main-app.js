@@ -116,8 +116,60 @@ class QueMusicApp {
     const appVersion = document.getElementById('appVersion');
     if (appVersion) {
       appVersion.addEventListener('click', () => {
-        window.queMusicAPI?.app?.showAbout?.();
+        this.showAboutModal();
       });
+    }
+
+    // Listen for "About Que-Music" triggered from the Help menu
+    if (window.queMusicAPI?.system?.onShowAbout) {
+      window.queMusicAPI.system.onShowAbout(() => this.showAboutModal());
+    }
+
+    // Listen for the new File menu items (added 2026-09-17)
+    if (window.queMusicAPI?.system?.onSelectMusicFolder) {
+      window.queMusicAPI.system.onSelectMusicFolder(() => this.libraryManager.selectMusicFolder());
+    }
+    if (window.queMusicAPI?.system?.onShowSettings) {
+      window.queMusicAPI.system.onShowSettings(() => this.uiController.showSettingsModal());
+    }
+  }
+
+  // About modal — replaced the native dialog.showMessageBox popup
+  // (main.js) 2026-09-17 so it can show the EGQ logo, not just plain text.
+  async showAboutModal() {
+    try {
+      const modal = document.getElementById('aboutModal');
+      if (!modal) return;
+
+      const logoImg = document.getElementById('aboutLogo');
+      if (logoImg && !logoImg.src && window.queMusicAPI?.assets?.getImage) {
+        const logoDataUrl = await window.queMusicAPI.assets.getImage('egq-logo.png');
+        if (logoDataUrl) logoImg.src = logoDataUrl;
+      }
+
+      const versionEl = document.getElementById('aboutVersion');
+      if (versionEl && window.queMusicAPI?.app?.getVersion) {
+        const version = await window.queMusicAPI.app.getVersion();
+        versionEl.textContent = `Version ${version}`;
+      }
+
+      const runtimeEl = document.getElementById('aboutRuntime');
+      if (runtimeEl && window.queMusicAPI?.system?.versions) {
+        const { electron, node, chrome } = window.queMusicAPI.system.versions;
+        runtimeEl.textContent = `Electron ${electron} · Node.js ${node} · Chromium ${chrome}`;
+      }
+
+      this.uiController.showModal(modal);
+
+      const closeBtn = document.getElementById('closeAboutModal');
+      if (closeBtn) {
+        closeBtn.onclick = () => this.uiController.hideModal(modal);
+      }
+      modal.onclick = (e) => {
+        if (e.target === modal) this.uiController.hideModal(modal);
+      };
+    } catch (error) {
+      this.logger.error('Failed to show About modal', { error: error.message });
     }
   }
 

@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
   app: {
     getName: () => ipcRenderer.invoke('app:get-name'),
     getVersion: () => ipcRenderer.invoke('app:get-version'),
-    showAbout: () => ipcRenderer.invoke('app:show-about'),
     rendererReady: () => ipcRenderer.invoke('app:renderer-ready'),
   },
 
@@ -29,6 +28,15 @@ contextBridge.exposeInMainWorld('queMusicAPI', {
     },
     onShowHelp: (callback) => {
       ipcRenderer.on('show-help', () => callback());
+    },
+    onShowAbout: (callback) => {
+      ipcRenderer.on('show-about', () => callback());
+    },
+    onSelectMusicFolder: (callback) => {
+      ipcRenderer.on('menu:select-music-folder', () => callback());
+    },
+    onShowSettings: (callback) => {
+      ipcRenderer.on('menu:show-settings', () => callback());
     },
     onShowCoverFetcher: (callback) => {
       ipcRenderer.on('show-cover-fetcher-modal', () => callback());
