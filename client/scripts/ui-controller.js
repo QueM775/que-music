@@ -3491,7 +3491,31 @@ Path: ${track.path}`;
     // preview-only pane 2026-09-18 — Erich: songs should never disappear
     // from the list, and the whole thing should be drag-reorderable.)
     const playlist = this.app.coreAudio?.playlist || [];
-    const currentIndex = this.app.coreAudio?.currentTrackIndex ?? -1;
+    let currentIndex = this.app.coreAudio?.currentTrackIndex ?? -1;
+
+    // Defensive cleanup: ensure currentTrackIndex is always valid for the
+    // current playlist. If it's out of bounds (e.g. after app restart or state
+    // corruption), reset it. This prevents lockups or display issues where the
+    // currently-playing indicator is pointing at the wrong song or beyond the list.
+    if (
+      currentIndex >= playlist.length ||
+      (currentIndex < -1) ||
+      (currentIndex === -1 && this.app.coreAudio?.currentTrack && playlist.length > 0)
+    ) {
+      // If nothing's playing, reset to -1 (no highlight)
+      if (!this.app.coreAudio?.currentTrack) {
+        currentIndex = -1;
+      } else if (currentIndex >= playlist.length) {
+        // If index is out of bounds, find the track by path or reset
+        const trackPath = this.app.coreAudio.currentTrack;
+        const foundIndex = playlist.findIndex((t) => t.path === trackPath);
+        currentIndex = foundIndex !== -1 ? foundIndex : -1;
+        if (foundIndex === -1) {
+          this.app.logger.warn('⚠️ Current track not found in playlist, resetting index');
+          this.app.coreAudio.currentTrackIndex = -1;
+        }
+      }
+    }
 
     // Clear only empties the manually-queued tracks (see CoreAudio.clearQueue),
     // it can't touch the Current Playlist below — so disable it whenever
@@ -3585,7 +3609,11 @@ Path: ${track.path}`;
     // reorderPlaylistTrack. Track which list the drag started in so a drag
     // over the other section's rows is a no-op instead of reordering the
     // wrong array.
-    let dragSource = null; // { kind: 'queue' | 'playlist', index: number }
+    // Use instance variable to preserve state across renderQueuePane() calls,
+    // so a drag in progress isn't lost if the pane is rebuilt (via notifyQueueChanged).
+    if (!this.queueDragSource) {
+      this.queueDragSource = null; // { kind: 'queue' | 'playlist', index: number }
+    }
     container.querySelectorAll('.queue-track-item').forEach((item) => {
       const isPlaylistRow = item.dataset.playlistIndex !== undefined;
       const kind = isPlaylistRow ? 'playlist' : 'queue';
@@ -3593,7 +3621,7 @@ Path: ${track.path}`;
         parseInt(isPlaylistRow ? item.dataset.playlistIndex : item.dataset.queueIndex, 10);
 
       item.addEventListener('dragstart', (e) => {
-        dragSource = { kind, index: getIndex() };
+        this.queueDragSource = { kind, index: getIndex() };
         e.dataTransfer.effectAllowed = 'move';
       });
       item.addEventListener('dragover', (e) => {
@@ -3602,19 +3630,19 @@ Path: ${track.path}`;
       });
       item.addEventListener('drop', (e) => {
         e.preventDefault();
-        if (!dragSource || dragSource.kind !== kind) {
-          dragSource = null;
+        if (!this.queueDragSource || this.queueDragSource.kind !== kind) {
+          this.queueDragSource = null;
           return;
         }
         const targetIndex = getIndex();
-        if (dragSource.index !== targetIndex) {
+        if (this.queueDragSource.index !== targetIndex) {
           if (kind === 'queue') {
-            this.app.coreAudio.reorderQueue(dragSource.index, targetIndex);
+            this.app.coreAudio.reorderQueue(this.queueDragSource.index, targetIndex);
           } else {
-            this.app.coreAudio.reorderPlaylistTrack(dragSource.index, targetIndex);
+            this.app.coreAudio.reorderPlaylistTrack(this.queueDragSource.index, targetIndex);
           }
         }
-        dragSource = null;
+        this.queueDragSource = null;
       });
       item.addEventListener('dblclick', () => {
         const path = item.dataset.path;

@@ -2698,13 +2698,17 @@ class CoreAudio {
    * @param {number} toIndex
    */
   reorderPlaylistTrack(fromIndex, toIndex) {
+    // Validate indices are safe
     if (
+      !Number.isInteger(fromIndex) ||
+      !Number.isInteger(toIndex) ||
       fromIndex < 0 ||
       fromIndex >= this.playlist.length ||
       toIndex < 0 ||
       toIndex >= this.playlist.length ||
       fromIndex === toIndex
     ) {
+      this.app.logger.warn('⚠️ Invalid reorder indices:', { fromIndex, toIndex, playlistLength: this.playlist.length });
       return;
     }
 
