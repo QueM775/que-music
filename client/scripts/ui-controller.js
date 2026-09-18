@@ -3691,13 +3691,16 @@ Path: ${track.path}`;
       }
       if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
 
-      // Figure out if the drop was in the queue section or the playlist section.
-      // Check the Y coordinate: if it's below the "Current Playlist" label, or if there
-      // are any playlist items visible, add to playlist. Otherwise add to queue.
+      // Determine if drop is in queue or playlist section.
+      // If queue is empty: no section labels at all—all drops go to playlist.
+      // If queue has items: find "Current Playlist" label and check if drop is below it.
       const contentEl = document.getElementById('queuePaneContent');
-      const playlistLabel = contentEl?.querySelector('.queue-track-section-label:last-of-type');
-      const isPlaylistDrop =
-        playlistLabel && e.clientY >= playlistLabel.getBoundingClientRect().bottom;
+      const labels = contentEl?.querySelectorAll('.queue-track-section-label') || [];
+
+      // No labels = empty queue = all drops go to playlist
+      // 2 labels = queue exists. Drop is in playlist if below the 2nd label ("Current Playlist")
+      const isPlaylistDrop = labels.length === 0 ||
+        (labels.length === 2 && e.clientY >= labels[1].getBoundingClientRect().bottom);
 
       if (isPlaylistDrop) {
         // Drop was in the Current Playlist section — add to playlist, not queue
