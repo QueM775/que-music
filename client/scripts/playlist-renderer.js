@@ -522,7 +522,13 @@ class PlaylistRenderer {
   }
 
   async playPlaylist(startIndex = 0) {
+    // If no saved playlist is loaded, fall back to playing the ephemeral current playlist
+    // (the persistent list the user built by dragging songs)
     if (!this.currentPlaylistData || !this.currentPlaylistData.tracks) {
+      if (this.app.coreAudio?.playlist && this.app.coreAudio.playlist.length > 0) {
+        // Play from the ephemeral current playlist directly
+        return this.app.coreAudio.playPlaylist(startIndex);
+      }
       console.warn('⚠️ No playlist data available');
       return;
     }
