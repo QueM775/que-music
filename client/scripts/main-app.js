@@ -593,6 +593,9 @@ class QueMusicApp {
       case 'database':
         this.libraryManager.openDatabaseManager();
         break;
+      case 'create-playlist':
+        this.playlistRenderer.showPlaylistModal();
+        break;
       default:
         this.showNotification(`${action} - Coming soon!`);
     }
