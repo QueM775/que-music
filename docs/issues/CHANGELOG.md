@@ -5,11 +5,23 @@ All notable changes to Que-Music will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-09-10
+## [Unreleased] - 2026-09-18
 
 ### Fixed
 
-- **Folder tree hid nothing**: the left-pane folder browser listed every subfolder, including non-music scaffolding (`_Docs`, `_Inbox`) and the app's own empty `Playlists/` folder.
+- **Current Playlist regressions (4 interconnected bugs)**: songs disappearing during playback, Play button inert, currently-playing song not highlighted, drag-reorder locked after restart
+  - **Root Causes**: (1) drop handler's queue-vs-playlist detection failed when queue was empty, routing ALL drops to queue instead of persistent playlist; (2) `playlistRenderer.playPlaylist()` required saved playlist data, silently returning for ephemeral current playlist; (3) `playPlaylist()` didn't call `notifyQueueChanged()`, so highlighting wasn't applied; (4) `dragSource` was local to `attachQueuePaneHandlers()`, lost when pane rebuilt mid-drag; (5) `currentTrackIndex` could be out-of-bounds after restart
+  - **Solutions**:
+    - Drop detection now checks label count: no labels (empty queue) → all drops to playlist; 2 labels → check Y-coordinate against "Current Playlist" label
+    - `playlistRenderer.playPlaylist()` falls back to `coreAudio.playPlaylist()` when `currentPlaylistData` is null
+    - `playPlaylist()` calls `notifyQueueChanged()` after starting playback
+    - `dragSource` moved to instance property `this.queueDragSource` with defensive index validation
+    - `renderQueuePane()` validates and resets invalid `currentTrackIndex` before rendering
+    - Left-sidebar "Create Playlist" nav item now wired in `handleAction()` instead of showing "Coming soon!"
+  - **Files Modified**: `client/scripts/ui-controller.js`, `client/scripts/core-audio.js`, `client/scripts/playlist-renderer.js`, `client/scripts/main-app.js`
+  - **Result**: Current Playlist is persistent (songs never disappear), Play button works, highlighting updates immediately, drag-reorder stable after restart
+
+- **Folder tree hid nothing** - 2026-09-10: the left-pane folder browser listed every subfolder, including non-music scaffolding (`_Docs`, `_Inbox`) and the app's own empty `Playlists/` folder.
   - **Root Cause**: `LibraryManager.filterSystemFolders()` only dimmed a hardcoded name list; it never hid folders with no audio in them.
   - **Solution**: `filterSystemFolders()` now removes any folder that is a known system folder or has a total `songCount` of 0 (children included). Artist folders that only contain album subfolders still appear.
   - **Files Modified**: `client/scripts/library-manager.js`
