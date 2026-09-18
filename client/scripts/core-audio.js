@@ -1194,6 +1194,9 @@ class CoreAudio {
       // Update track highlighting to show playing state
       this.updatePlaylistTrackHighlight();
 
+      // Update the queue pane to show the current track highlighted
+      this.notifyQueueChanged();
+
       console.log(`▶️ Now playing: ${track.title || track.name}`);
     } catch (error) {
       this.app.logger.error('❌ Failed to play playlist track:', error);
