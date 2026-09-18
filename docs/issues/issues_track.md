@@ -2,7 +2,47 @@
 
 ## Version History & Bug Fixes
 
-### "Up Next" pane looked like it was deleting songs as they played, and picking a new album wiped the running playlist - 2026-09-18
+### Current Playlist broken: songs disappearing, Play button inert, drag/drop corrupted state - 2026-09-18 (afternoon)
+
+After the persistent Current Playlist feature shipped (same date, morning), Erich found four interconnected regressions:
+
+**Symptom 1 — Songs dragged to the list disappear during playback.** Erich dragged 10 songs to the Current Playlist pane. Clicked play. All 10 appeared initially, but as each song finished playing, it vanished from the list — only the first song (now already-played) remained at the bottom dimmed. Expected: all 10 stay visible forever, just the current one highlighted.
+
+**Symptom 2 — Play button does nothing.** With 3 songs in the Current Playlist, clicking the main transport Play button: no response, no sound, no error. Manually calling `coreAudio.playSong()` on the first track worked fine.
+
+**Symptom 3 — Currently-playing song not highlighted.** After fixes to Symptoms 1–2, the song that was actually playing showed no highlight at all. Only after dragging a new song into the list (triggering a pane rebuild) did the now-playing highlight suddenly appear.
+
+**Symptom 4 — Drag-reorder locked up after restart.** After closing and reopening the app, dragging the 3rd song in the list to a new position: no response; the song seemed locked. Moving other songs worked fine.
+
+#### Root causes ✅
+
+**Symptom 1:** Drop handler's queue-vs-playlist detection was broken. When the queue was empty (no "Playing Next" section), the detection logic returned `false` (not a playlist drop), so ALL songs dragged into the pane went to the queue instead. Queue songs get `shift()`'d out when played, so they disappeared. The fix: when there are NO section labels (queue is empty), the entire pane IS the persistent playlist — all drops go there.
+
+**Symptom 2 — Part A (Play button not wired):** `setupEventListeners()` runs at app startup, but the code looked right. Found: the handler WAS attached initially. But the REAL playback path (`playlistRenderer.playPlaylist()`) only works for SAVED playlists — it requires `currentPlaylistData` to be set. When playing the ephemeral Current Playlist (dragged songs, no database record), `currentPlaylistData` is `null`, so the method silently returned without doing anything. The fallback to `coreAudio.playPlaylist()` never ran.
+
+**Symptom 3:** `playPlaylist()` sets `currentTrackIndex` and starts playback, but didn't call `notifyQueueChanged()`. So `renderQueuePane()` was never re-invoked to apply the `.now-playing` highlight class to the current track. The highlight logic was correct; just not being triggered.
+
+**Symptom 4:** Stale state management after restart. `dragSource` (the tracking variable for drag-reorder) was local to `attachQueuePaneHandlers()`, so if `renderQueuePane()` was called mid-drag (via `notifyQueueChanged()`), the drag state was lost. Also, `currentTrackIndex` could be out of bounds after restart if the app had saved state that no longer matched the current playlist array.
+
+#### Fixes shipped ✅
+
+1. **Drop detection** (`client/scripts/ui-controller.js`): Changed queue-vs-playlist detection to check label count. If no labels (queue is empty), all drops → playlist. If 2 labels, check Y-coordinate against the "Current Playlist" label boundary.
+
+2. **Fallback for ephemeral playlists** (`client/scripts/playlist-renderer.js`): `playPlaylist()` now checks if `currentPlaylistData` exists. If not but `coreAudio.playlist` has tracks, calls `coreAudio.playPlaylist()` directly to play the ephemeral list.
+
+3. **Queue pane notification** (`client/scripts/core-audio.js`): `playPlaylist()` now calls `notifyQueueChanged()` after starting playback, so the pane re-renders and applies highlighting.
+
+4. **Persistent drag state** (`client/scripts/ui-controller.js`): Moved `dragSource` from a local variable to `this.queueDragSource` (instance property) so it survives pane rebuilds. Added defensive index validation in `reorderPlaylistTrack()` to catch stale/NaN indices and log a warning.
+
+5. **currentTrackIndex cleanup** (`client/scripts/ui-controller.js`): `renderQueuePane()` now validates `currentTrackIndex` before rendering. If out of bounds or mismatched with `currentTrack`, resets to -1 or finds the track by path. Prevents highlighting bugs when the app restarts.
+
+6. **Create Playlist nav button** (`client/scripts/main-app.js`): The left-sidebar "Create Playlist" nav item wasn't handled in `handleAction()`, falling through to the default "Coming soon!" notification. Added explicit case to call `playlistRenderer.showPlaylistModal()`.
+
+#### Verification ✅
+
+Live-tested by Erich: dragged 10 songs, clicked play — all 10 stayed visible. Currently-playing song highlighted immediately. Played through the queue — song count stayed at 10, each song highlighted as it played. Dragged songs around mid-playback — worked smoothly. Closed and reopened the app — drag-reorder worked normally. Added more songs mid-playback — appended cleanly, no duplicates.
+
+### "Up Next" pane looked like it was deleting songs as they played, and picking a new album wiped the running playlist - 2026-09-18 (morning)
 
 Erich selected the "Gritty" playlist (26 songs) and hit play. The first track started fine but immediately disappeared from the "Up Next" card — every played track kept vanishing the same way. He wanted to know what `repeat` would do with the "removed" songs, and separately wanted the list to keep every song, highlight the current one, stay drag-reorderable, and grow when he picked another album/artist instead of getting replaced.
 
