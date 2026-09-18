@@ -3663,18 +3663,40 @@ Path: ${track.path}`;
       }
       if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
 
-      let insertIndex = this.getQueueDropIndex(e.clientY);
+      // Figure out if the drop was in the queue section or the playlist section
+      const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+      const isPlaylistDrop = dropTarget && dropTarget.closest('.queue-track-item[data-playlist-index]');
 
-      for (const trackPath of trackPaths) {
-        let trackData = { path: trackPath };
-        try {
-          const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
-          if (dbTrack) trackData = dbTrack;
-        } catch (err) {
-          // Fall back to the bare path — addToQueue() handles missing metadata fine
+      if (isPlaylistDrop) {
+        // Drop was in the Current Playlist section — add to playlist, not queue
+        for (const trackPath of trackPaths) {
+          let trackData = { path: trackPath };
+          try {
+            const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
+            if (dbTrack) trackData = dbTrack;
+          } catch (err) {
+            // Fall back to the bare path
+          }
+          // Add to the end of the playlist
+          if (this.app.coreAudio.playlist && !this.app.coreAudio.playlist.find((t) => t.path === trackPath)) {
+            this.app.coreAudio.playlist.push(trackData);
+          }
         }
-        this.app.coreAudio.addToQueue(trackData, insertIndex);
-        insertIndex++; // keep multi-track drops in dropped order, right after each other
+        this.app.coreAudio.notifyQueueChanged();
+      } else {
+        // Drop was in the Playing Next (queue) section — add to queue as before
+        let insertIndex = this.getQueueDropIndex(e.clientY);
+        for (const trackPath of trackPaths) {
+          let trackData = { path: trackPath };
+          try {
+            const dbTrack = await window.queMusicAPI.database.getTrackByPath(trackPath);
+            if (dbTrack) trackData = dbTrack;
+          } catch (err) {
+            // Fall back to the bare path — addToQueue() handles missing metadata fine
+          }
+          this.app.coreAudio.addToQueue(trackData, insertIndex);
+          insertIndex++; // keep multi-track drops in dropped order, right after each other
+        }
       }
     });
   }
