@@ -1,6 +1,6 @@
 /*
  * Que-Music Bundled CSS
- * Generated: 2026-09-17T14:44:26.807Z
+ * Generated: 2026-09-18T15:48:12.607Z
  * 
  * This file combines all CSS files to prevent flashing during startup.
  * To regenerate, run: node build-css.js
@@ -8239,7 +8239,7 @@ Only favorites/recent-specific functionality remains
 
 
 /* ============================================================================
- * styles/features/player.css (16960 bytes)
+ * styles/features/player.css (17527 bytes)
  * ============================================================================ */
 
 /* ========================================
@@ -9054,6 +9054,30 @@ Only favorites/recent-specific functionality remains
 
 .remove-from-queue-btn {
   flex-shrink: 0;
+}
+
+.queue-track-section-label {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.queue-track-item.already-played {
+  opacity: 0.55;
+}
+
+.queue-track-item.now-playing {
+  background: var(--surface-elevated);
+  border-left: 3px solid var(--accent, #4caf50);
+}
+
+.queue-track-item.now-playing .queue-track-text {
+  color: var(--accent, #4caf50);
+  font-weight: 600;
 }
 
 

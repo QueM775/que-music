@@ -2,6 +2,31 @@
 
 ## Version History & Bug Fixes
 
+### "Up Next" pane looked like it was deleting songs as they played, and picking a new album wiped the running playlist - 2026-09-18
+
+Erich selected the "Gritty" playlist (26 songs) and hit play. The first track started fine but immediately disappeared from the "Up Next" card — every played track kept vanishing the same way. He wanted to know what `repeat` would do with the "removed" songs, and separately wanted the list to keep every song, highlight the current one, stay drag-reorderable, and grow when he picked another album/artist instead of getting replaced.
+
+#### Root cause ✅
+
+Nothing was actually being lost — `CoreAudio.playlist` (26 tracks) stayed intact the whole time; `currentTrackIndex` just advanced. The appearance of songs disappearing was `UIController.renderQueuePane()` deliberately rendering `playlist.slice(currentTrackIndex + 1)` — by design, a preview of only what's left to play, not a real "current playlist" view. Separately, `CoreAudio.buildPlaylistFromCurrentFolder()` and `PlaylistRenderer.playPlaylist()` always replaced `CoreAudio.playlist` outright, so picking a different folder/playlist mid-playback wiped whatever was already loaded instead of growing it.
+
+#### Fix shipped ✅
+
+- `client/scripts/ui-controller.js`: `renderQueuePane()` now renders the full `CoreAudio.playlist` array under a "Current Playlist" header (was "Up Next") — no more `.slice()`. Current track gets a `.now-playing` highlight; already-played tracks get `.already-played` (dimmed). `attachQueuePaneHandlers()` now distinguishes manual queue rows (`data-queue-index`) from playlist rows (`data-playlist-index`) so each drags independently into `CoreAudio.reorderQueue()` or the new `CoreAudio.reorderPlaylistTrack()`.
+- `client/scripts/core-audio.js`: new `reorderPlaylistTrack(fromIndex, toIndex)` — splices the move and shifts `currentTrackIndex` to keep pointing at whatever's actually playing, same pattern as `reorderQueue()`. `buildPlaylistFromCurrentFolder()` now appends new tracks (deduped by path) to the existing `playlist` when something's already playing, instead of replacing it; a fresh session with nothing loaded still builds from scratch.
+- `client/scripts/playlist-renderer.js`: `playPlaylist()` applies the same append-when-something's-playing rule before calling `playSong()`.
+- `client/styles/features/player.css` (+ rebuilt `bundled.css` via `node build-css.js`): added `.now-playing`, `.already-played`, `.queue-track-section-label` rules.
+- `CLAUDE.md`: replaced the stale "Up Next Pane Falls Back to the Loaded Playlist" section with the new behavior.
+
+#### Not in scope this pass
+
+Only the folder-click and saved-playlist play paths got the append rule. Favorites/Artists/Albums/search-results "Play All" buttons (see Library Playback Functionality section) still replace the playlist outright — flagged, not touched.
+
+#### Open for next session
+
+- Not yet verified live in the running app (no `npm start` click-through this session) — needs a real playthrough: confirm the list stays at 26 as tracks advance, drag-reorder both sections, and confirm picking a second album while "Gritty" is playing appends rather than replaces.
+- Not committed to git yet.
+
 ### Main Play button ignored the manual queue and rebuilt a playlist from whatever was on screen - 2026-09-17
 
 Erich dragged one of two loose mp3s sitting in a "60 & 70s" folder (not real album subfolders — literally two files in one folder) into Up Next, then pressed the main transport Play button. The other file showed up in Up Next too, which he didn't want — he compared it to dragging tracks from an Artist/Album view, where only what he dragged shows up.

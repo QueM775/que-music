@@ -3482,43 +3482,47 @@ Path: ${track.path}`;
 
     const queue = this.app.coreAudio?.getQueue ? this.app.coreAudio.getQueue() : [];
 
-    // The manually-queued tracks always play first (see CoreAudio.nextTrack()),
-    // then playback falls through to the rest of whatever's loaded — the
-    // folder or playlist the user actually pressed play on. Show that same
-    // fallback here so "Up Next" reflects what will really play next instead
-    // of going blank the moment the manual queue is empty (2026-09-16 —
-    // Erich: shouldn't be empty while music is playing).
+    // This pane is now the persistent Current Playlist: the manually-queued
+    // "play next" tracks jump the line at top (unchanged), then the FULL
+    // loaded playlist renders underneath — every track that was ever loaded,
+    // not just what's left to play. Nothing drops out of the list as it
+    // plays; the current track is highlighted and everything before it is
+    // just dimmed to show where you are. (Converted from the old "Up Next"
+    // preview-only pane 2026-09-18 — Erich: songs should never disappear
+    // from the list, and the whole thing should be drag-reorderable.)
     const playlist = this.app.coreAudio?.playlist || [];
     const currentIndex = this.app.coreAudio?.currentTrackIndex ?? -1;
-    const upNextFromPlaylist = playlist.slice(currentIndex + 1);
 
     // Clear only empties the manually-queued tracks (see CoreAudio.clearQueue),
-    // it can't touch the playlist-preview fallback above — so disable it
-    // whenever there's nothing manual to clear, instead of leaving it
-    // clickable and silently doing nothing (Erich caught this 2026-09-17).
+    // it can't touch the Current Playlist below — so disable it whenever
+    // there's nothing manual to clear, instead of leaving it clickable and
+    // silently doing nothing (Erich caught this 2026-09-17).
     const clearBtn = document.getElementById('clearQueuePaneBtn');
     if (clearBtn) {
       clearBtn.disabled = queue.length === 0;
       clearBtn.title = clearBtn.disabled
-        ? "Nothing manually queued to clear (what's below is just a preview of what's coming up)"
+        ? 'Nothing manually queued to clear (the list below is the current playlist, not the queue)'
         : 'Clear queue';
     }
 
-    if (queue.length === 0 && upNextFromPlaylist.length === 0) {
-      titleEl.textContent = 'Up Next';
+    if (queue.length === 0 && playlist.length === 0) {
+      titleEl.textContent = 'Current Playlist';
       contentEl.innerHTML = `
         <div class="empty-pane">
           <div class="empty-pane-icon">🎧</div>
-          <p>Nothing queued. Drag a track here to add it to what's playing next.</p>
+          <p>Nothing playing. Drag a track here to add it to what's playing next.</p>
         </div>
       `;
       return;
     }
 
-    const totalCount = queue.length + upNextFromPlaylist.length;
-    titleEl.textContent = `Up Next (${totalCount})`;
+    titleEl.textContent = `Current Playlist (${playlist.length})`;
     contentEl.innerHTML = `
       <div class="queue-track-list">
+        ${
+          queue.length > 0
+            ? `
+        <div class="queue-track-section-label">Playing Next</div>
         ${queue
           .map(
             (track, index) => `
@@ -3532,17 +3536,28 @@ Path: ${track.path}`;
         `
           )
           .join('')}
-        ${upNextFromPlaylist
-          .map(
-            (track, i) => `
-          <div class="queue-track-item queue-track-from-playlist" data-path="${this.escapeHtml(track.path || '')}" title="Coming up in the current playlist/folder" style="opacity: 0.7;">
+        <div class="queue-track-section-label">Current Playlist</div>
+        `
+            : ''
+        }
+        ${playlist
+          .map((track, index) => {
+            const isCurrent = index === currentIndex;
+            const isPlayed = currentIndex >= 0 && index < currentIndex;
+            return `
+          <div
+            class="queue-track-item playlist-track-item${isCurrent ? ' now-playing' : ''}${isPlayed ? ' already-played' : ''}"
+            draggable="true"
+            data-playlist-index="${index}"
+            data-path="${this.escapeHtml(track.path || '')}"
+          >
             <span class="queue-track-text">
-              ${queue.length + i + 1}. ${this.escapeHtml(track.title || track.name || '')}
+              ${index + 1}. ${isCurrent ? '♪ ' : ''}${this.escapeHtml(track.title || track.name || '')}
               ${track.artist ? ` — <span class="queue-track-artist">${this.escapeHtml(track.artist)}</span>` : ''}
             </span>
           </div>
-        `
-          )
+        `;
+          })
           .join('')}
       </div>
     `;
@@ -3564,10 +3579,21 @@ Path: ${track.path}`;
       });
     });
 
-    let dragSourceIndex = null;
+    // Manually-queued rows (data-queue-index) and Current Playlist rows
+    // (data-playlist-index) drag-reorder independently — dragging a queue
+    // row only ever calls reorderQueue, a playlist row only ever calls
+    // reorderPlaylistTrack. Track which list the drag started in so a drag
+    // over the other section's rows is a no-op instead of reordering the
+    // wrong array.
+    let dragSource = null; // { kind: 'queue' | 'playlist', index: number }
     container.querySelectorAll('.queue-track-item').forEach((item) => {
+      const isPlaylistRow = item.dataset.playlistIndex !== undefined;
+      const kind = isPlaylistRow ? 'playlist' : 'queue';
+      const getIndex = () =>
+        parseInt(isPlaylistRow ? item.dataset.playlistIndex : item.dataset.queueIndex, 10);
+
       item.addEventListener('dragstart', (e) => {
-        dragSourceIndex = parseInt(item.dataset.queueIndex, 10);
+        dragSource = { kind, index: getIndex() };
         e.dataTransfer.effectAllowed = 'move';
       });
       item.addEventListener('dragover', (e) => {
@@ -3576,11 +3602,19 @@ Path: ${track.path}`;
       });
       item.addEventListener('drop', (e) => {
         e.preventDefault();
-        const targetIndex = parseInt(item.dataset.queueIndex, 10);
-        if (dragSourceIndex !== null && dragSourceIndex !== targetIndex) {
-          this.app.coreAudio.reorderQueue(dragSourceIndex, targetIndex);
+        if (!dragSource || dragSource.kind !== kind) {
+          dragSource = null;
+          return;
         }
-        dragSourceIndex = null;
+        const targetIndex = getIndex();
+        if (dragSource.index !== targetIndex) {
+          if (kind === 'queue') {
+            this.app.coreAudio.reorderQueue(dragSource.index, targetIndex);
+          } else {
+            this.app.coreAudio.reorderPlaylistTrack(dragSource.index, targetIndex);
+          }
+        }
+        dragSource = null;
       });
       item.addEventListener('dblclick', () => {
         const path = item.dataset.path;
@@ -4329,14 +4363,16 @@ Path: ${track.path}`;
 
           <div class="pane-resizer" id="queueResizer" role="separator" aria-orientation="vertical"></div>
 
-          <!-- 4th Pane - Up Next / playback queue (always visible, live drop target).
+          <!-- 4th Pane - Current Playlist (always visible, live drop target).
                This is NOT a saved playlist — that's "Create Playlist" on the left nav.
-               This is what plays next, independent of any playlist. See
+               Shows the manually-queued "play next" tracks on top, then the FULL
+               loaded playlist below (nothing drops off as it plays — see
+               CoreAudio.playlist / UIController.renderQueuePane). See
                docs/application/roadmap.md priority #1 and layout-redesign.md. -->
           <div class="queue-pane" id="queuePane">
             <div class="pane-header">
               <div class="queue-pane-title-row" style="display: flex; align-items: center;">
-                <h3 id="queuePaneTitle">Up Next</h3>
+                <h3 id="queuePaneTitle">Current Playlist</h3>
                 <button class="control-btn" id="shuffleBtn" title="Shuffle" style="margin-left: 10px;">
                   <svg
                     width="20"

@@ -811,3 +811,27 @@
 .remove-from-queue-btn {
   flex-shrink: 0;
 }
+
+.queue-track-section-label {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.queue-track-item.already-played {
+  opacity: 0.55;
+}
+
+.queue-track-item.now-playing {
+  background: var(--surface-elevated);
+  border-left: 3px solid var(--accent, #4caf50);
+}
+
+.queue-track-item.now-playing .queue-track-text {
+  color: var(--accent, #4caf50);
+  font-weight: 600;
+}

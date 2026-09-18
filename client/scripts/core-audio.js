@@ -282,13 +282,25 @@ class CoreAudio {
 
       this.app.logger.debug(' Found songs in folder:', songs.length);
 
-      // Build playlist
-      this.playlist = songs.map((song) => ({
+      const newTracks = songs.map((song) => ({
         path: song.path,
         name: this.app.getBasename(song.path),
       }));
 
-      console.log(`🎵 Built playlist: ${this.playlist.length} tracks`);
+      // Something's already playing — grow the Current Playlist instead of
+      // wiping it out from under whoever's listening. Only append tracks not
+      // already in the list (dedupe by path), same rule addToQueue() uses.
+      // A fresh session (nothing playing yet) still builds from scratch.
+      if (this.currentTrack && this.playlist.length > 0) {
+        const existingPaths = new Set(this.playlist.map((t) => t.path));
+        const toAppend = newTracks.filter((t) => !existingPaths.has(t.path));
+        this.playlist.push(...toAppend);
+        console.log(`🎵 Appended ${toAppend.length} tracks to Current Playlist (${this.playlist.length} total)`);
+      } else {
+        this.playlist = newTracks;
+        console.log(`🎵 Built playlist: ${this.playlist.length} tracks`);
+      }
+
       this.app.logger.debug(' First track:', this.playlist[0]?.name);
     } catch (error) {
       this.app.logger.error('Error building playlist:', error);
@@ -2673,6 +2685,41 @@ class CoreAudio {
     }
     const [moved] = this.queue.splice(fromIndex, 1);
     this.queue.splice(toIndex, 0, moved);
+    this.notifyQueueChanged();
+  }
+
+  /**
+   * Move a track within the loaded Current Playlist (drag-to-reorder in the
+   * persistent playlist pane — distinct from reorderQueue, which reorders the
+   * separate manually-queued "play next" list). Keeps currentTrackIndex
+   * pointing at whatever track is actually playing after the move, same as
+   * the array-splice-and-shift trick used everywhere else in this file.
+   * @param {number} fromIndex
+   * @param {number} toIndex
+   */
+  reorderPlaylistTrack(fromIndex, toIndex) {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= this.playlist.length ||
+      toIndex < 0 ||
+      toIndex >= this.playlist.length ||
+      fromIndex === toIndex
+    ) {
+      return;
+    }
+
+    const [moved] = this.playlist.splice(fromIndex, 1);
+    this.playlist.splice(toIndex, 0, moved);
+
+    if (this.currentTrackIndex === fromIndex) {
+      this.currentTrackIndex = toIndex;
+    } else if (fromIndex < this.currentTrackIndex && toIndex >= this.currentTrackIndex) {
+      this.currentTrackIndex -= 1;
+    } else if (fromIndex > this.currentTrackIndex && toIndex <= this.currentTrackIndex) {
+      this.currentTrackIndex += 1;
+    }
+
+    this.app.logger.debug(' Reordered playlist track:', fromIndex, '->', toIndex);
     this.notifyQueueChanged();
   }
 

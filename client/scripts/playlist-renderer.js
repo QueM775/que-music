@@ -534,21 +534,31 @@ class PlaylistRenderer {
       return;
     }
 
-    // Clear existing playlist and set up new one from playlist
-    this.app.coreAudio.clearPlaylist();
-    this.app.coreAudio.playlist = tracks.map((track) => ({
+    const startTrack = tracks[startIndex];
+    const newTracks = tracks.map((track) => ({
       path: track.path,
       name: this.app.getBasename(track.path),
       title: track.title || track.name,
       artist: track.artist || 'Unknown Artist',
     }));
-    this.app.coreAudio.currentTrackIndex = startIndex;
 
-    // Play the first track (match folder view implementation)
-    const startTrack = tracks[startIndex];
+    // Something's already playing — grow the Current Playlist instead of
+    // replacing it out from under the listener (same rule CoreAudio applies
+    // when clicking a track into a different library folder). Only a fresh
+    // session, with nothing loaded yet, replaces from scratch.
+    if (this.app.coreAudio.currentTrack && this.app.coreAudio.playlist.length > 0) {
+      const existingPaths = new Set(this.app.coreAudio.playlist.map((t) => t.path));
+      const toAppend = newTracks.filter((t) => !existingPaths.has(t.path));
+      this.app.coreAudio.playlist.push(...toAppend);
+      this.app.showNotification(`Added ${toAppend.length} tracks to Current Playlist`, 'success');
+    } else {
+      this.app.coreAudio.clearPlaylist();
+      this.app.coreAudio.playlist = newTracks;
+      this.app.coreAudio.currentTrackIndex = startIndex;
+      this.app.showNotification(`Playing ${tracks.length} tracks from playlist`, 'success');
+    }
 
     this.app.coreAudio.playSong(startTrack.path, false);
-    this.app.showNotification(`Playing ${tracks.length} tracks from playlist`, 'success');
 
     this.updatePlaylistTrackHighlight();
   }
