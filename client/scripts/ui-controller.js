@@ -3663,9 +3663,13 @@ Path: ${track.path}`;
       }
       if (!Array.isArray(trackPaths) || trackPaths.length === 0) return;
 
-      // Figure out if the drop was in the queue section or the playlist section
-      const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
-      const isPlaylistDrop = dropTarget && dropTarget.closest('.queue-track-item[data-playlist-index]');
+      // Figure out if the drop was in the queue section or the playlist section.
+      // Check the Y coordinate: if it's below the "Current Playlist" label, or if there
+      // are any playlist items visible, add to playlist. Otherwise add to queue.
+      const contentEl = document.getElementById('queuePaneContent');
+      const playlistLabel = contentEl?.querySelector('.queue-track-section-label:last-of-type');
+      const isPlaylistDrop =
+        playlistLabel && e.clientY >= playlistLabel.getBoundingClientRect().bottom;
 
       if (isPlaylistDrop) {
         // Drop was in the Current Playlist section — add to playlist, not queue
